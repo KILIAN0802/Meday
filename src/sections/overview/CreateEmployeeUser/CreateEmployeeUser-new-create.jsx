@@ -1,4 +1,3 @@
-
 'use client';
 
 import axiosInstance, { endpoints } from 'src/lib/axios';
@@ -30,8 +29,16 @@ export function CreateEmployeeUserNewCreate() {
     defaultValues: {
       username: '',
       password: '',
+      EmployeeId: '',
       fullname: '',
+      PhoneNumber: '',
+      Email: '',
+      Room: '',
+      Status: '',
+      Unit: '',
+      Faculty: '',
       role: '',
+      WorkPosition: ''
     }
   });
 
@@ -73,8 +80,16 @@ export function CreateEmployeeUserNewCreate() {
     reset({
       username: '',
       password: '',
+      EmployeeId: '',
       fullname: '',
+      PhoneNumber: '',
+      Email: '',
+      Room: '',
+      Status: '',
+      Unit: '',
+      Faculty: '',
       role: '',
+      WorkPosition: '',
     });
   } catch (err) {
     const apiMsg =
@@ -109,7 +124,6 @@ export function CreateEmployeeUserNewCreate() {
           <Field.Text
             name="password"
             label="Mật khẩu"
-            placeholder="6+ kí tự"
             type={showPassword.value ? 'text' : 'password'}
             slotProps={{
               inputLabel: { shrink: true },
@@ -127,7 +141,28 @@ export function CreateEmployeeUserNewCreate() {
           />
         </Grid>
         <Grid item xs={12}>
+          <Field.Text name="EmployeeId" label="Mã nhân viên" placeholder="2020xxx" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
           <Field.Text name="fullname" label="Tên đầy đủ" placeholder="Nguyễn Văn A" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="PhoneNumber" label="Số điện thoại" placeholder="0399xxxxxx" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="Email" label="Email" placeholder="abc@gmail.com" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="Room" label="Phòng làm việc" placeholder="001" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="Status" label="Trạng thái" placeholder="Đang công tác" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="Unit" label="Đơn vị" placeholder="1" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="Faculty" label="Khoa/Viện" placeholder="Khoa ngoại" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
         </Grid>
         <Grid item xs={12}>
           <Controller
@@ -149,6 +184,9 @@ export function CreateEmployeeUserNewCreate() {
           </FormControl>
           )}
         />
+        </Grid>
+        <Grid item xs={12}>
+          <Field.Text name="WorkPosition" label="Vị trí công tác" placeholder="Bác sĩ phẫu thuật" slotProps={{ inputLabel: { shrink: true } }} fullWidth />
         </Grid>
         <Grid item xs={12}>
           <Button fullWidth size="large" type="submit" variant="contained" disabled={isSubmitting}>

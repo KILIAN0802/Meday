@@ -5,13 +5,9 @@ import { useMemo, useEffect, useCallback } from 'react';
 
 import axios, { endpoints } from 'src/lib/axios';
 
-import { JWT_STORAGE_KEY, ACCOUNT_TYPE_KEY } from './constant';
+import { JWT_STORAGE_KEY } from './constant';
 import { AuthContext } from '../auth-context';
-import { setSession } from './utils';
-
-// ----------------------------------------------------------------------
-
-const AUTH_USER_KEY = 'AUTH_USER';
+import { setSession, isValidToken } from './utils';
 
 // ----------------------------------------------------------------------
 
@@ -21,54 +17,38 @@ export function AuthProvider({ children }) {
   const checkUserSession = useCallback(async () => {
     try {
       const accessToken = sessionStorage.getItem(JWT_STORAGE_KEY);
-      const role = sessionStorage.getItem(ACCOUNT_TYPE_KEY) || 'admin';
 
-      if (!accessToken) {
-        setState({ user: null, loading: false });
-        return null;
-      }
+      if (accessToken && isValidToken(accessToken)) {
+        setSession(accessToken);
 
-      await setSession(accessToken);
+        const res = await axios.get(endpoints.auth.me);
 
-      const meUrl = role === 'staff' ? endpoints.staff.me : endpoints.auth.me;
+        const { user } = res.data;
 
-      const res = await axios.get(meUrl);
-      const me = res?.data?.data ?? res?.data?.user ?? res?.data ?? null;
-
-      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(me));
-
-      setState({
-        user: me ? { ...me, accessToken, userType: role } : null,
-        loading: false,
-      });
-
-      return me;
-    } catch (error) {
-      const accessToken = sessionStorage.getItem(JWT_STORAGE_KEY);
-     
-      const role = sessionStorage.getItem(ACCOUNT_TYPE_KEY) || 'admin';
-
-      const cached = sessionStorage.getItem(AUTH_USER_KEY);
-
-      if (cached) {
-        const me = JSON.parse(cached);
-        setState({ user: { ...me, accessToken, userType: role }, loading: false });
+        setState({ user: { ...user, accessToken }, loading: false });
       } else {
         setState({ user: null, loading: false });
       }
-      return null;
+    } catch (error) {
+      console.error(error);
+      setState({ user: null, loading: false });
     }
   }, [setState]);
 
   useEffect(() => {
     checkUserSession();
-  }, [checkUserSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const status = state.loading ? 'loading' : state.user ? 'authenticated' : 'unauthenticated';
+  // ----------------------------------------------------------------------
+
+  const checkAuthenticated = state.user ? 'authenticated' : 'unauthenticated';
+
+  const status = state.loading ? 'loading' : checkAuthenticated;
 
   const memoizedValue = useMemo(
     () => ({
-      user: state.user,
+      user: state.user ? { ...state.user, role: state.user?.role ?? 'admin' } : null,
       checkUserSession,
       loading: status === 'loading',
       authenticated: status === 'authenticated',
@@ -78,5 +58,4 @@ export function AuthProvider({ children }) {
   );
 
   return <AuthContext value={memoizedValue}>{children}</AuthContext>;
-  
 }

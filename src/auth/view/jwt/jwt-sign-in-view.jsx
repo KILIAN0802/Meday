@@ -12,9 +12,6 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
-import { LoadingButton } from '@mui/lab';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -26,28 +23,47 @@ import { Form, Field } from 'src/components/hook-form';
 import { useAuthContext } from '../../hooks';
 import { getErrorMessage } from '../../utils';
 import { FormHead } from '../../components/form-head';
-import { signInWithPassword, signInStaffWithPassword } from '../../context/jwt/action';
+import { signInWithPassword } from '../../context/jwt';
+// ----------------------------------------------------------------------
+
+/* export const SignInSchema = zod.object({
+  email: zod
+    .string()
+    .min(1, { message: 'Hãy nhập email!' })
+    .email({ message: 'Định dạng email không đúng!' }),
+  password: zod
+    .string()
+    .min(1, { message: 'Hãy nhập mật khẩu!' })
+    .min(6, { message: 'Mật khẩu chứa ít nhất 6 kí tự!' }),
+}); */
 
 // ----------------------------------------------------------------------
 
 export const SignInSchema = zod.object({
-  username: zod.string().min(1, { message: 'Hãy nhập tên!' }),
-  password: zod.string().min(1, { message: 'Hãy nhập mật khẩu!' }).min(6, { message: '+6 kí tự!' }),
+  username: zod
+    .string()
+    .min(1, { message: 'Hãy nhập teen!' }),
+  password: zod
+    .string()
+    .min(1, { message: 'Hãy nhập mật khẩu!' })
+    .min(6, { message: 'Mật khẩu chứa ít nhất 6 kí tự!' }),
 });
 
 // ----------------------------------------------------------------------
 
+
 export function JwtSignInView() {
   const router = useRouter();
+
   const showPassword = useBoolean();
+
   const { checkUserSession } = useAuthContext();
 
   const [errorMessage, setErrorMessage] = useState('');
-  const [loginAsStaff, setLoginAsStaff] = useState(true);
 
   const defaultValues = {
-    username: '',
-    password: '',
+    username: 'supper_admin',
+    password: 'password',
   };
 
   const methods = useForm({
@@ -55,19 +71,17 @@ export function JwtSignInView() {
     defaultValues,
   });
 
-  const { handleSubmit, formState: { isSubmitting } } = methods;
+  const {
+    handleSubmit,
+    formState: { isSubmitting },
+  } = methods;
 
-  const onSubmit = handleSubmit(async ({ username, password }) => {
+  const onSubmit = handleSubmit(async (data) => {
     try {
-      if (loginAsStaff) {
-        await signInStaffWithPassword({ username, password });
-        await checkUserSession?.();
-        router.replace(paths.dashboard.root);
-      } else {
-        await signInWithPassword({ username, password }); // admin
-        await checkUserSession?.();
-        router.replace(paths.dashboard.root);
-      }
+      await signInWithPassword({ username: data.username, password: data.password });
+      await checkUserSession?.();
+
+      router.refresh();
     } catch (error) {
       console.error(error);
       const feedbackMessage = getErrorMessage(error);
@@ -77,21 +91,16 @@ export function JwtSignInView() {
 
   const renderForm = () => (
     <Box sx={{ gap: 3, display: 'flex', flexDirection: 'column' }}>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={loginAsStaff}
-            onChange={(e) => setLoginAsStaff(e.target.checked)}
-          />
-        }
-        label={loginAsStaff ? 'Đăng nhập với tài khoản STAFF' : 'Đăng nhập với tài khoản ADMIN'}
-        sx={{ alignSelf: 'flex-start' }}
-      />
-
-      <Field.Text name="username" label="Tên tài khoản" slotProps={{ inputLabel: { shrink: true } }} />
+      <Field.Text name="username" label="Tên tài khoản"  slotProps={{ inputLabel: { shrink: true } }} />
 
       <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
-        <Link component={RouterLink} href="#" variant="body2" color="inherit" sx={{ alignSelf: 'flex-end' }}>
+        <Link
+          component={RouterLink}
+          href="#"
+          variant="body2"
+          color="inherit"
+          sx={{ alignSelf: 'flex-end' }}
+        >
           Quên mật khẩu?
         </Link>
 
@@ -106,7 +115,9 @@ export function JwtSignInView() {
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton onClick={showPassword.onToggle} edge="end">
-                    <Iconify icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                    <Iconify
+                      icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
+                    />
                   </IconButton>
                 </InputAdornment>
               ),
@@ -135,7 +146,7 @@ export function JwtSignInView() {
         title="Đăng nhập tài khoản của bạn"
         description={
           <>
-            Chưa có tài khoản?
+            Không có tài khoản ư? 
             <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
               Đăng ký ngay
             </Link>
@@ -145,8 +156,9 @@ export function JwtSignInView() {
       />
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        Sử dụng <strong>{defaultValues.username}</strong> với mật khẩu <strong>{defaultValues.password}</strong>
-        {' — chuyển công tắc để thử đăng nhập ADMIN/STAFF' }
+        Sử dụng <strong>{defaultValues.username}</strong>
+        {' với mật khẩu '}
+        <strong>{defaultValues.password}</strong>
       </Alert>
 
       {!!errorMessage && (
@@ -159,5 +171,4 @@ export function JwtSignInView() {
         {renderForm()}
       </Form>
     </>
-  );
-}
+  );}

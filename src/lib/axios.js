@@ -1,5 +1,3 @@
-
-
 import axios from 'axios';
 
 import { CONFIG } from 'src/global-config';
@@ -9,11 +7,22 @@ import { JWT_STORAGE_KEY } from '../auth/context/jwt/constant';
 
 const axiosInstance = axios.create({ baseURL: CONFIG.apiUrl });
 
+// axiosInstance.interceptors.request.use((config) => {
+//   const token = sessionStorage.getItem(JWT_STORAGE_KEY); // <— dùng sessionStorage
+//   if (token) {
+//     config.headers = config.headers || {};
+//     config.headers.Authorization = `Bearer ${token}`;
+//   }
+//   return config;
+// });
+
 axiosInstance.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem(JWT_STORAGE_KEY); // <— dùng sessionStorage
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') { // chỉ chạy trên browser
+    const token = sessionStorage.getItem(JWT_STORAGE_KEY);
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -50,15 +59,14 @@ export const endpoints = {
     signUp: '/api/auth/sign-up',
   },
 
-  staff: {
-    me: '/api/v1/staffs/owner/me',
-    signIn: '/api/v1/auth/staff/login',
+   staff: {
     create: '/api/v1/admin/staffs',
     fillter: '/api/v1/admin/staffs',
     getID: '/api/v1/admin/staffs/{id}',
-    updateID: '/api/v1/admin/staffs/{id}',
-    deleteID: '/api/v1/admin/staffs/{id}',
+    updateId: '/api/v1/admin/staffs/{id}',
+    deleteId: '/api/v1/admin/staffs/{id}',
   },
+  
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',

@@ -89,28 +89,28 @@ export function HomeHighlightFeatures({ sx, ...other }) {
 
 const ITEMS = [
   {
-    title: 'Về sự tận tâm và tin cậy',
-    subtitle: 'Chăm sóc tận tâm – Sức khỏe vẹn toàn.',
+    title: 'Dark mode',
+    subtitle: 'A dark theme that feels easier on the eyes.',
     icon: 'solar:cloudy-moon-bold-duotone',
-    imgUrl: [`${CONFIG.assetsDir}/assets/images/home/image6.webp`],
+    imgUrl: [`${CONFIG.assetsDir}/assets/images/home/highlight-darkmode.webp`],
   },
   {
-    title: 'Về chất lượng dịch vụ',
-    subtitle: 'Nơi y đức và chất lượng gặp nhau',
+    title: 'Color presets',
+    subtitle: 'Express your own style with just one click.',
     icon: 'solar:pallete-2-bold-duotone',
     imgUrl: [
-      `${CONFIG.assetsDir}/assets/images/home/image1.webp`,
-      `${CONFIG.assetsDir}/assets/images/home/image2.webp`,
-      `${CONFIG.assetsDir}/assets/images/home/image3.webp`,
-      `${CONFIG.assetsDir}/assets/images/home/image4.webp`,
-      `${CONFIG.assetsDir}/assets/images/home/image5.webp`,
+      `${CONFIG.assetsDir}/assets/images/home/highlight-presets-1.webp`,
+      `${CONFIG.assetsDir}/assets/images/home/highlight-presets-2.webp`,
+      `${CONFIG.assetsDir}/assets/images/home/highlight-presets-3.webp`,
+      `${CONFIG.assetsDir}/assets/images/home/highlight-presets-4.webp`,
+      `${CONFIG.assetsDir}/assets/images/home/highlight-presets-5.webp`,
     ],
   },
   {
-    title: 'Về sự an tâm và đồng hành',
-    subtitle: 'Luôn bên bạn trên hành trình khỏe mạnh.',
+    title: 'Right-to-left',
+    subtitle: 'Support languages such as Arabic, Persian, and Hebrew.',
     icon: 'solar:align-right-bold-duotone',
-    imgUrl: [`${CONFIG.assetsDir}/assets/images/home/image7.webp`],
+    imgUrl: [`${CONFIG.assetsDir}/assets/images/home/highlight-rtl.webp`],
   },
 ];
 

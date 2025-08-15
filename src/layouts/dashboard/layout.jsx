@@ -5,8 +5,6 @@ import { useBoolean } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import Avatar from '@mui/material/Avatar';
-import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
@@ -23,7 +21,7 @@ import { VerticalDivider } from './content';
 import { NavVertical } from './nav-vertical';
 import { layoutClasses } from '../core/classes';
 import { NavHorizontal } from './nav-horizontal';
-import { buildAccount } from '../nav-config-account';
+import { _account } from '../nav-config-account';
 import { MainSection } from '../core/main-section';
 import { Searchbar } from '../components/searchbar';
 import { _workspaces } from '../nav-config-workspace';
@@ -58,14 +56,7 @@ export function DashboardLayout({ sx, cssVars, children, slotProps, layoutQuery 
   const isNavHorizontal = settings.state.navLayout === 'horizontal';
   const isNavVertical = isNavMini || settings.state.navLayout === 'vertical';
 
-  // Return true when the item should NOT be displayed
-  const canDisplayItemByRole = (allowedRoles) => {
-    if (!allowedRoles?.length) return false; // no restriction -> show
-    const accountType = user?.accountType || (typeof user?.role === 'number' ? 'staff' : 'admin');
-    return !allowedRoles.includes(accountType);
-  };
-
-  
+  const canDisplayItemByRole = (allowedRoles) => !allowedRoles?.includes(user?.role);
 
   const renderHeader = () => {
     const headerSlotProps = {
@@ -151,7 +142,7 @@ export function DashboardLayout({ sx, cssVars, children, slotProps, layoutQuery 
           <SettingsButton />
 
           {/** @slot Account drawer */}
-          <AccountDrawer data={buildAccount} />
+          <AccountDrawer data={_account} />
         </Box>
       ),
     };

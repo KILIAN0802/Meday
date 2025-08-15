@@ -49,7 +49,7 @@ export function AuthSplitLayout({ sx, cssVars, children, slotProps, layoutQuery 
             color="inherit"
             sx={{ typography: 'subtitle2' }}
           >
-           Trợ giúp
+            Need help?
           </Link>
 
           {/** @slot Settings button */}
