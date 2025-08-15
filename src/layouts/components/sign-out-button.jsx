@@ -67,7 +67,7 @@ export function SignOutButton({ onClose, sx, ...other }) {
       sx={sx}
       {...other}
     >
-      Logout
+      Đăng xuất
     </Button>
   );
 }

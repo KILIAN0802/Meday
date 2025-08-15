@@ -1,3 +1,4 @@
+import { Create } from '@mui/icons-material';
 import { kebabCase } from 'es-toolkit';
 
 import { _id, _postTitles } from 'src/_mock/assets';
@@ -91,11 +92,7 @@ export const paths = {
   // DASHBOARD
   dashboard: {
     root: ROOTS.DASHBOARD,
-    mail: `${ROOTS.DASHBOARD}/mail`,
-    chat: `${ROOTS.DASHBOARD}/chat`,
     blank: `${ROOTS.DASHBOARD}/blank`,
-    kanban: `${ROOTS.DASHBOARD}/kanban`,
-    calendar: `${ROOTS.DASHBOARD}/calendar`,
     fileManager: `${ROOTS.DASHBOARD}/file-manager`,
     permission: `${ROOTS.DASHBOARD}/permission`,
     general: {
@@ -120,6 +117,16 @@ export const paths = {
       account: `${ROOTS.DASHBOARD}/user/account`,
       edit: (id) => `${ROOTS.DASHBOARD}/user/${id}/edit`,
       demo: { edit: `${ROOTS.DASHBOARD}/user/${MOCK_ID}/edit` },
+    },
+    MedicalRecords:{
+      root: `${ROOTS.DASHBOARD}/MedicalRecords`,
+      create: `${ROOTS.DASHBOARD}/MedicalRecords/create`,
+      pending: `${ROOTS.DASHBOARD}/MedicalRecords/pending`,
+      processing: `${ROOTS.DASHBOARD}/MedicalRecords/processing`,
+      CreateRecord:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord`,
+      acute:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/acute`,
+      chronic:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/chronic`,
+      rechronic:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/rechronic`,
     },
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
@@ -156,25 +163,7 @@ export const paths = {
       details: (id) => `${ROOTS.DASHBOARD}/order/${id}`,
       demo: { details: `${ROOTS.DASHBOARD}/order/${MOCK_ID}` },
     },
-    job: {
-      root: `${ROOTS.DASHBOARD}/job`,
-      new: `${ROOTS.DASHBOARD}/job/new`,
-      details: (id) => `${ROOTS.DASHBOARD}/job/${id}`,
-      edit: (id) => `${ROOTS.DASHBOARD}/job/${id}/edit`,
-      demo: {
-        details: `${ROOTS.DASHBOARD}/job/${MOCK_ID}`,
-        edit: `${ROOTS.DASHBOARD}/job/${MOCK_ID}/edit`,
-      },
-    },
-    tour: {
-      root: `${ROOTS.DASHBOARD}/tour`,
-      new: `${ROOTS.DASHBOARD}/tour/new`,
-      details: (id) => `${ROOTS.DASHBOARD}/tour/${id}`,
-      edit: (id) => `${ROOTS.DASHBOARD}/tour/${id}/edit`,
-      demo: {
-        details: `${ROOTS.DASHBOARD}/tour/${MOCK_ID}`,
-        edit: `${ROOTS.DASHBOARD}/tour/${MOCK_ID}/edit`,
-      },
-    },
+
+ 
   },
 };

@@ -12,6 +12,7 @@ import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 
 import { paths } from 'src/routes/paths';
 import { usePathname } from 'src/routes/hooks';
@@ -32,25 +33,32 @@ import { SignOutButton } from './sign-out-button';
 
 // ----------------------------------------------------------------------
 
-export function AccountDrawer({ data = [], sx, ...other }) {
+export function AccountDrawer({ data = [], onEditProfile, sx, ...other }) {
   const pathname = usePathname();
-
   const { user } = useMockedUser();
-
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
 
-  const renderAvatar = () => (
-    <AnimateBorder
-      sx={{ mb: 2, p: '6px', width: 96, height: 96, borderRadius: '50%' }}
-      slotProps={{
-        primaryBorder: { size: 120, sx: { color: 'primary.main' } },
-      }}
-    >
-      <Avatar src={user?.photoURL} alt={user?.displayName} sx={{ width: 1, height: 1 }}>
-        {user?.displayName?.charAt(0).toUpperCase()}
-      </Avatar>
-    </AnimateBorder>
-  );
+  // Hỗ trợ cả 2 dạng dữ liệu:
+  // - Cách cũ: data là mảng menu items
+  // - Cách mới: data là object { me, menu }
+  const items = Array.isArray(data) ? data : (data?.menu || []);
+  const me = Array.isArray(data) ? null : (data?.me || null);
+
+  const renderAvatar = () => {
+    const initial =
+      (user?.username || user?.displayName || 'U').charAt(0).toUpperCase();
+
+    return (
+      <AnimateBorder
+        sx={{ mb: 2, p: '6px', width: 96, height: 96, borderRadius: '50%' }}
+        slotProps={{ primaryBorder: { size: 120, sx: { color: 'primary.main' } } }}
+      >
+        <Avatar src={user?.photoURL || me?.photoURL} alt={user?.username || user?.displayName} sx={{ width: 1, height: 1 }}>
+          {initial}
+        </Avatar>
+      </AnimateBorder>
+    );
+  };
 
   const renderList = () => (
     <MenuList
@@ -65,7 +73,7 @@ export function AccountDrawer({ data = [], sx, ...other }) {
         }),
       ]}
     >
-      {data.map((option) => {
+      {(Array.isArray(items) ? items : []).map((option) => {
         const rootLabel = pathname.includes('/dashboard') ? 'Home' : 'Dashboard';
         const rootHref = pathname.includes('/dashboard') ? '/' : paths.dashboard.root;
 
@@ -106,12 +114,20 @@ export function AccountDrawer({ data = [], sx, ...other }) {
     </MenuList>
   );
 
+  // Dòng tiêu đề + dòng phụ
+  const title = user?.username || user?.displayName || me?.displayName || '—';
+  const subtitle =
+    [user?.roleLabel, user?.fullname].filter(Boolean).join(' • ') ||
+    me?.caption ||
+    '';
+
   return (
     <>
       <AccountButton
         onClick={onOpen}
-        photoURL={user?.photoURL}
-        displayName={user?.displayName}
+        photoURL={user?.photoURL || me?.photoURL}
+        // Ưu tiên username để đồng bộ với yêu cầu hiển thị
+        displayName={user?.username || user?.displayName || me?.displayName}
         sx={sx}
         {...other}
       />
@@ -127,34 +143,24 @@ export function AccountDrawer({ data = [], sx, ...other }) {
       >
         <IconButton
           onClick={onClose}
-          sx={{
-            top: 12,
-            left: 12,
-            zIndex: 9,
-            position: 'absolute',
-          }}
+          sx={{ top: 12, left: 12, zIndex: 9, position: 'absolute' }}
         >
           <Iconify icon="mingcute:close-line" />
         </IconButton>
 
         <Scrollbar>
-          <Box
-            sx={{
-              pt: 8,
-              display: 'flex',
-              alignItems: 'center',
-              flexDirection: 'column',
-            }}
-          >
+          <Box sx={{ pt: 8, display: 'flex', alignItems: 'center', flexDirection: 'column' }}>
             {renderAvatar()}
 
             <Typography variant="subtitle1" noWrap sx={{ mt: 2 }}>
-              {user?.displayName}
+              {title}
             </Typography>
 
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }} noWrap>
-              {user?.email}
-            </Typography>
+            {!!subtitle && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }} noWrap>
+                {subtitle}
+              </Typography>
+            )}
           </Box>
 
           <Box
@@ -199,7 +205,7 @@ export function AccountDrawer({ data = [], sx, ...other }) {
             <UpgradeBlock />
           </Box>
         </Scrollbar>
-
+                  
         <Box sx={{ p: 2.5 }}>
           <SignOutButton onClose={onClose} />
         </Box>

@@ -4,7 +4,7 @@ import { mergeClasses } from 'minimal-shared/utils';
 
 import { styled } from '@mui/material/styles';
 
-import { layoutClasses } from './classes';
+import { layoutClasses } from '../core/classes';
 
 // ----------------------------------------------------------------------
 

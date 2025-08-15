@@ -71,20 +71,7 @@ export function HomeZoneUI({ sx, ...other }) {
         }),
       ]}
     >
-      <Box
-        component="img"
-        alt="Zone landing page"
-        src={`${CONFIG.assetsDir}/assets/images/home/zone-landing.webp`}
-        sx={[
-          (theme) => ({
-            width: 720,
-            objectFit: 'cover',
-            aspectRatio: '16/10',
-            borderRadius: '16px 16px 0 16px',
-            border: `solid 2px ${theme.vars.palette.common.white}`,
-          }),
-        ]}
-      />
+   
 
       <Box sx={{ p: 0.5, bgcolor: 'common.white', borderRadius: '0 0 8px 8px' }}>
         <Button

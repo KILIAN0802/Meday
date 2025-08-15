@@ -1,37 +1,21 @@
+'use client';
+
 import { Iconify } from 'src/components/iconify';
+import { paths } from 'src/routes/paths';
 
-// ----------------------------------------------------------------------
+// Trả về object: { me, menu }
+export const buildAccount = (user) => {
+  const displayName = user?.username || user?.displayName || '—';
+  const caption = [user?.roleLabel, user?.fullname].filter(Boolean).join(' • ');
 
-export const _account = [
-  {
-    label: 'Home',
-    href: '/',
-    icon: <Iconify icon="solar:home-angle-bold-duotone" />,
-  },
-  {
-    label: 'Profile',
-    href: '#',
-    icon: <Iconify icon="custom:profile-duotone" />,
-  },
-  {
-    label: 'Projects',
-    href: '#',
-    icon: <Iconify icon="solar:notes-bold-duotone" />,
-    info: '3',
-  },
-  {
-    label: 'Subscription',
-    href: '#',
-    icon: <Iconify icon="custom:invoice-duotone" />,
-  },
-  {
-    label: 'Security',
-    href: '#',
-    icon: <Iconify icon="solar:shield-keyhole-bold-duotone" />,
-  },
-  {
-    label: 'Account settings',
-    href: '#',
-    icon: <Iconify icon="solar:settings-bold-duotone" />,
-  },
-];
+  return {
+    me: {
+      displayName,               // dòng chính (username)
+      caption,                   // dòng phụ: "Bác sĩ • Dr. John Smith"
+      photoURL: user?.photoURL,  // avatar nếu có
+    },
+  };
+};
+
+// Nếu nơi khác vẫn cần mảng đơn để map(), xuất helper này:
+export const accountMenu = (user) => buildAccount(user).menu;
