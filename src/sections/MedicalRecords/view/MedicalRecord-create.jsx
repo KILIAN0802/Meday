@@ -137,7 +137,7 @@ function VitalIndicatorsList({ onIndicatorClick }) {
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}><CircularProgress /></Box>;
 
   return (
-    <Card sx={{ width: '100%' }}>
+    <Card sx={{ width: '90vw' }}>
       <CardHeader title="Danh sách các chỉ số bệnh án" />
 
       <Box sx={{ p: "10px"}} >
@@ -171,7 +171,7 @@ function VitalIndicatorsList({ onIndicatorClick }) {
                 </TableRow>
             ) : (
                 indicators.map((row) => (
-                  <TableRow hover key={row.id}>
+                  <TableRow hover key={row.id} sx={{ height: 60 }}>
                     <TableCell>{row.id}</TableCell>
                     <TableCell>{row.code}</TableCell>
                     <TableCell>
@@ -215,24 +215,30 @@ function MedicalRecordForm({ onCreationSuccess }) {
   };
 
   return (
-    <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ width: '100%', maxWidth: 960 }}>
+    <Stack direction="row" spacing={3}  sx={{ width: '90vw', maxWidth: 960}}>
       <TextField
         variant="outlined"
         InputLabelProps={{ shrink: true }}
         label="Tên bệnh án"
         value={recordName}
         onChange={(e) => setRecordName(e.target.value)}
-        sx={{ flex: 1, '& .MuiInputLabel-root': { color: 'primary.main', fontWeight: 'bold' } }}
+        sx={{ flex: 1.5, '& .MuiInputLabel-root': { color: 'primary.main', fontWeight: 'bold' } }}
       />
-      <TextField
+          <TextField
         variant="outlined"
         InputLabelProps={{ shrink: true }}
         label="Mô tả bệnh án"
         multiline
-        rows={4}
+        minRows={1}
+        maxRows={5}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        sx={{ flex: 2 }}
+        sx={{
+          flex: 2,
+          '& .MuiInputBase-root': {
+            overflowY: 'auto' // Kích hoạt scroll khi vượt quá 5 dòng
+          }
+        }}
       />
       <Button
         size="large"
@@ -252,12 +258,12 @@ function MedicalRecordsList({ records, isLoading, onOpenMenu, searchId, setSearc
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}><CircularProgress /></Box>;
 
   return (
-    <Card sx={{ width: '100%' }}>
+    <Card sx={{ width: '90vw' , display: 'flex', flexDirection: 'column', justifyContent: 'center'}}>
       <CardHeader title="Danh sách bệnh án" />
       <Box sx={{ p: 2 }}>
         <TextField fullWidth variant="outlined" label="Lọc bệnh án theo ID" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
       </Box>
-      <TableContainer>
+      <TableContainer >
         <Table>
           <TableHead>
             <TableRow>
@@ -273,7 +279,7 @@ function MedicalRecordsList({ records, isLoading, onOpenMenu, searchId, setSearc
             {records.length === 0 ? (
               <TableRow><TableCell colSpan={6} align="center"><Typography color="text.secondary" sx={{ py: 3 }}>Không có dữ liệu.</Typography></TableCell></TableRow>
             ) : (
-              records.map((row) => (
+              records.slice().reverse().map((row) => (
                 <TableRow hover key={row.id}>
                   <TableCell>{row.id}</TableCell>
                   <TableCell>
@@ -422,7 +428,7 @@ export function MedicalRecordsCreate() {
       <Box sx={{ p: 3 }}>
         <Typography variant="h3" sx={{ mb: 3, textAlign: 'center' }}>Quản lý bệnh án 📜</Typography>
         
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 5, border: '1px solid lightgray', py: '50px', borderRadius:'30px' }}>
             <Typography variant="h5" sx={{ mb: 3 }}>Tạo bệnh án mới</Typography>
             <MedicalRecordForm onCreationSuccess={handleCreationSuccess} />
         </Box>
