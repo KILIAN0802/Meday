@@ -42,6 +42,7 @@ import Stack from '@mui/material/Stack';
 // ================================================================================================================ //
 
 export function MedicalRecords() {
+    
   const [record1, setRecord1] = useState([]);
   const [isLoading1, setIsLoading1] = useState(false);
   const [showMyRecords, setShowMyRecords] = useState(false);
@@ -49,13 +50,14 @@ export function MedicalRecords() {
   const [openForm, setOpenForm] = useState(false);
   const [editData, setEditData] = useState(null);
    const [openEditForm, setOpenEditForm] = useState(false);
+   const [filteredRecords, setFilteredRecords] = useState(record1);
   const [formData, setFormData] = useState({
     patientId: '',
     doctorId: '',
     symptoms: '',
     diagnosis: '',
     notes: '',
-    reExaminationDate: '',
+     reExaminationDate: new Date().toISOString().split("T")[0],
     type: '',
   });
 
@@ -157,15 +159,24 @@ const handleUpdate = async () => {
                       {showMyRecords ? "Hiển thị tất cả bệnh án" : "Chỉ hiển thị bệnh án của tôi"}
                     </Button>
 
-                    <TextField
+                   <TextField
                       label="Tìm theo ID"
                       variant="outlined"
                       value={searchId1}
-                      onChange={(e) => setSearchId1(e.target.value)}
+                     onChange={(e) => {
+                        const value = e.target.value;
+                        setSearchId1(value);
+
+                        if (value) {
+                          const filtered = record1.filter((item) =>
+                            item.id.toString().includes(value)
+                          );
+                          setFilteredRecords(filtered);
+                        } else {
+                          setFilteredRecords([]); // reset về rỗng khi xoá input
+                        }
+                      }}
                     />
-                    <Button variant="contained" onClick={fetchRecordById1}>
-                      Tìm
-                    </Button>
 
                   <Button variant="contained" onClick={() => setOpenForm(true)}>
                     Tạo bệnh án mới
@@ -362,38 +373,52 @@ const handleUpdate = async () => {
                     Đang tải dữ liệu...
                   </TableCell>
                 </TableRow>
-              ) : (
-                record1.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{record.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{record.patient.fullname}</p>
-                        <p className="text-xs text-gray-500">{record.patient.phone}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{record.doctor.fullname}</TableCell>
-                    <TableCell>{record.diagnosis}</TableCell>
-                    <TableCell>{record.symptoms}</TableCell>
-                    <TableCell>{record.notes}</TableCell>
-                    <TableCell>
-                      {new Date(record.createdAt).toLocaleDateString("vi-VN")}
-                    </TableCell>
+              ) : (searchId1 ? filteredRecords : record1).length > 0 ? (
+                      (searchId1 ? filteredRecords : record1).map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.id}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{record.patient.fullname}</p>
+                              <p className="text-xs text-gray-500">{record.patient.phone}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{record.doctor.fullname}</TableCell>
+                          <TableCell>{record.diagnosis}</TableCell>
+                          <TableCell>{record.symptoms}</TableCell>
+                          <TableCell>{record.notes}</TableCell>
+                          <TableCell>
+                            {new Date(record.createdAt).toLocaleDateString("vi-VN")}
+                          </TableCell>
 
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button variant="outlined" size="small" onClick={() => handleEdit(record.id)}>
-                          Sửa
-                        </Button>
-                        <Button variant="outlined" color="error" size="small" onClick={() => handleDelete(record.id)}>
-                          Xóa
-                        </Button>
-                      </Box>
-                    </TableCell>
-                    
-                  </TableRow>
-                ))
-              )}
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleEdit(record.id)}
+                              >
+                                Sửa
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                size="small"
+                                onClick={() => handleDelete(record.id)}
+                              >
+                                Xóa
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} align="center">
+                          Không tìm thấy ID thỏa mãn
+                        </TableCell>
+                      </TableRow>
+                    )}
             </TableBody>
           </Table>
         </Box>
