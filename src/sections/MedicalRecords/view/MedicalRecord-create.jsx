@@ -302,7 +302,6 @@ function MedicalRecordsList({ records, isLoading, onOpenMenu, searchId, setSearc
     </Card>
   );
 }
-
 function UpdateRecordDialog({ open, onClose, record, onUpdateSuccess }) {
   const { enqueueSnackbar } = useSnackbar();
   const [name, setName] = useState('');
@@ -359,7 +358,7 @@ export function MedicalRecordsCreate() {
   const fetchInitialRecords = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await axiosInstance.get(endpoints.vital_groups.get);
+      const response = await axiosInstance.get(endpoints.medical_record_staff.getID);
       const fetchedRecords = response.data.data || [];
       setRecords(fetchedRecords);
       setOriginalRecords(fetchedRecords);
@@ -448,30 +447,30 @@ export function MedicalRecordsCreate() {
               <VitalIndicatorsList onIndicatorClick={setSelectedIndicator} />
           </Grid>
         </Grid>
-      </Box>
 
-      {/* CÁC DIALOG VÀ MENU */}
       <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={handleCloseMenu}>
-        <MenuItem onClick={handleStartEdit}><EditIcon sx={{ mr: 1 }} /> Sửa</MenuItem>
-        <MenuItem onClick={handleStartDelete} sx={{ color: 'error.main' }}><DeleteIcon sx={{ mr: 1 }} /> Xóa</MenuItem>
+      <MenuItem onClick={handleStartEdit}><EditIcon sx={{ mr: 1 }} /> Sửa</MenuItem>
+      <MenuItem onClick={handleStartDelete} sx={{ color: 'error.main' }}><DeleteIcon sx={{ mr: 1 }} /> Xóa</MenuItem>
       </Menu>
-
+      
       <UpdateRecordDialog open={!!editingRecord} onClose={() => setEditingRecord(null)} record={editingRecord} onUpdateSuccess={handleUpdateSuccess} />
       
       <Dialog open={!!deletingId} onClose={() => setDeletingId(null)}>
-        <DialogTitle>Xác nhận xóa</DialogTitle>
-        <DialogContent><DialogContentText>Bạn có chắc chắn muốn xóa bệnh án này không?</DialogContentText></DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeletingId(null)}>Hủy</Button>
-          <Button onClick={handleDeleteConfirm} color="error" autoFocus>Xóa</Button>
-        </DialogActions>
+      <DialogTitle>Xác nhận xóa</DialogTitle>
+      <DialogContent><DialogContentText>Bạn có chắc chắn muốn xóa bệnh án này không?</DialogContentText></DialogContent>
+      <DialogActions>
+      <Button onClick={() => setDeletingId(null)}>Hủy</Button>
+      <Button onClick={handleDeleteConfirm} color="error" autoFocus>Xóa</Button>
+      </DialogActions>
       </Dialog>
       
       <IndicatorDetailsDialog 
-        indicator={selectedIndicator} 
-        open={!!selectedIndicator} 
-        onClose={() => setSelectedIndicator(null)} 
+      indicator={selectedIndicator} 
+      open={!!selectedIndicator} 
+      onClose={() => setSelectedIndicator(null)} 
       />
+    
+            </Box>
     </>
   );
 }

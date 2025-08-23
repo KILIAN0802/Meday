@@ -69,9 +69,13 @@ export const navData = [
             title: 'Bệnh án',
             path: paths.dashboard.MedicalRecords.root,
             children: [
-            { title: 'Tạo bệnh án', path: paths.dashboard.MedicalRecords.create },
+              ...(user?.role === 1
+                ? [{ title: 'Quản lý bệnh án', path: paths.dashboard.MedicalRecords.record },]
+               : [{ title: 'Tạo bệnh án', path: paths.dashboard.MedicalRecords.create },]),
+            
             { title: 'Bệnh án chờ xử lý', path: paths.dashboard.MedicalRecords.pending },
             { title: 'Bệnh án đang xử lý', path: paths.dashboard.MedicalRecords.processing },
+
             ],
             },
             ],

@@ -74,6 +74,17 @@ export const endpoints = {
     deleteID: (id) => `/api/v1/admin/vital-indicators/${id}`, 
   },
 
+  medical_record_staff:{
+    create:'/api/staff/medical-records',
+    get:'/api/staff/medical-records',
+    getCurrent:'/api/staff/medical-records/my-records',
+    getID:(id) => `/api/staff/medical-records/${id}`,
+    UpdateID:(id) => `/api/staff/medical-records/${id}`,
+    DeleteID:(id) => `/api/staff/medical-records/${id}`,
+    getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
+    UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`
+  },
+
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',
