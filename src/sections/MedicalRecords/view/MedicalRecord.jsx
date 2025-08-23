@@ -104,7 +104,7 @@ const handleDelete = async (id) => {
   if (!window.confirm("Bạn có chắc muốn xóa bệnh án này?")) return;
 
   try {
-    await axiosInstance.delete(endpoints.medical_record_staff.DeleteID);
+    await axiosInstance.delete(endpoints.medical_record_staff.DeleteID(id));
     console.log("Xóa thành công");
     fetchInitialRecords1(); // reload lại danh sách
   } catch (error) {
@@ -174,7 +174,8 @@ const handleUpdate = async () => {
                   <Dialog open={openForm} onClose={() => setOpenForm(false)} fullWidth maxWidth="md">
                  <DialogTitle>Tạo bệnh án mới</DialogTitle>
               <DialogContent>
-                <Grid container spacing={2}>
+                <Box margin={3}>
+                  <Grid container spacing={2}>
                   <Grid item xs={2}>
                     <TextField
                       label="Patient ID"
@@ -236,7 +237,8 @@ const handleUpdate = async () => {
                     />
                   </Grid>
                   
-            </Grid>
+               </Grid>
+                </Box>
               </DialogContent>
               <DialogActions>
                 <Button onClick={() => setOpenForm(false)}>Hủy</Button>
@@ -248,12 +250,14 @@ const handleUpdate = async () => {
       <DialogTitle>Sửa bệnh án</DialogTitle>
       <DialogContent>
         {editData && (
-          <Grid container spacing={2}>
+         <Box margin={5}>
+               <Grid container spacing={2}>
 
              <Grid item xs={6}>
                     <TextField
                       label="ID bệnh nhân"
                       fullWidth
+                      size="large" // hoặc "medium"
                       value={editData.patientId}
                       onChange={(e) => setEditData({ ...editData, patientId: e.target.value })}
                     />
@@ -322,6 +326,7 @@ const handleUpdate = async () => {
                   </Grid>
 
           </Grid>
+         </Box>
         )}
       </DialogContent>
       <DialogActions>
