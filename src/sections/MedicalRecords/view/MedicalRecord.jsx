@@ -59,6 +59,7 @@ export function MedicalRecords() {
     notes: '',
      reExaminationDate: new Date().toISOString().split("T")[0],
     type: '',
+     vitalValues: null
   });
 
   const fetchInitialRecords1 = useCallback(async () => {
@@ -94,11 +95,20 @@ export function MedicalRecords() {
 
 const handleSubmit = async () => {
   try {
-    const response = await axiosInstance.post(endpoints.medical_record_staff.create, formData);
+    const payload = {
+      patientId: Number(formData.patientId),
+      doctorId: Number(formData.doctorId),
+      diagnosis: formData.diagnosis,
+      symptoms: formData.symptoms,
+      notes: formData.notes,
+      vitalValues: formData.vitalValues || []
+    };
+
+    const response = await axiosInstance.post(endpoints.medical_record_staff.create, payload);
     console.log("Tạo thành công:", response.data);
     setOpenForm(false);
   } catch (error) {
-    console.error("Lỗi khi tạo bệnh án:", error);
+    console.error("Lỗi khi tạo bệnh án:", error.response?.data || error.message);
   }
 };
 
@@ -118,7 +128,7 @@ const handleDelete = async (id) => {
 
 const handleEdit = async (id) => {
   try {
-    const response = await axiosInstance.get(`/api/staff/medical-records/${id}`);
+    const response = await axiosInstance.get(`/api/staff/medical-records/${_id}`);
     const record = response.data.data;
     setEditData(record);
     setOpenEditForm(true);
@@ -129,7 +139,7 @@ const handleEdit = async (id) => {
 
 const handleUpdate = async () => {
   try {
-    const response = await axiosInstance.put(`/api/staff/medical-records/${editData.id}`, editData);
+    const response = await axiosInstance.patch(`/api/staff/medical-records/${editData.id}`, editData);
     console.log("Cập nhật thành công:", response.data);
     setOpenEditForm(false);
     fetchInitialRecords1(); // reload lại danh sách
@@ -182,169 +192,168 @@ const handleUpdate = async () => {
                     Tạo bệnh án mới
                   </Button>
 
-                  <Dialog open={openForm} onClose={() => setOpenForm(false)} fullWidth maxWidth="md">
-                 <DialogTitle>Tạo bệnh án mới</DialogTitle>
-              <DialogContent>
-                <Box margin={3}>
-                  <Grid container spacing={2}>
-                  <Grid item xs={2}>
-                    <TextField
-                      label="Patient ID"
-                      fullWidth
-                      value={formData.patientId}
-                      onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Doctor ID"
-                      fullWidth
-                      value={formData.doctorId}
-                      onChange={(e) => setFormData({ ...formData, doctorId: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="Triệu chứng"
-                      fullWidth
-                      multiline
-                      value={formData.symptoms}
-                      onChange={(e) => setFormData({ ...formData, symptoms: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="Chẩn đoán"
-                      fullWidth
-                      value={formData.diagnosis}
-                      onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="Ghi chú"
-                      fullWidth
-                      multiline
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Ngày tái khám"
-                      type="date"
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      value={formData.reExaminationDate}
-                      onChange={(e) => setFormData({ ...formData, reExaminationDate: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Loại bệnh án"
-                      fullWidth
-                      value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    />
-                  </Grid>
-                  
-               </Grid>
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setOpenForm(false)}>Hủy</Button>
-                <Button variant="contained" onClick={handleSubmit}>Lưu</Button>
-              </DialogActions>
-              </Dialog>
+                 <Dialog open={openForm} onClose={() => setOpenForm(false)} fullWidth maxWidth="md">
+                    <DialogTitle>Tạo bệnh án mới</DialogTitle>
+                    <DialogContent>
+                      <Box margin={3}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <TextField
+                              label="Patient ID"
+                              type="number"
+                              fullWidth
+                              value={formData.patientId}
+                              onChange={(e) => setFormData({ ...formData, patientId: Number(e.target.value) })}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <TextField
+                              label="Doctor ID"
+                              type="number"
+                              fullWidth
+                              value={formData.doctorId}
+                              onChange={(e) => setFormData({ ...formData, doctorId: Number(e.target.value) })}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Triệu chứng"
+                              fullWidth
+                              multiline
+                              value={formData.symptoms}
+                              onChange={(e) => setFormData({ ...formData, symptoms: e.target.value })}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Chẩn đoán"
+                              fullWidth
+                              value={formData.diagnosis}
+                              onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Ghi chú"
+                              fullWidth
+                              multiline
+                              value={formData.notes}
+                              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            />
+                          </Grid>
+
+                          {/* Optional: Cho phép nhập vitalValues nếu cần */}
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Giá trị sinh tồn (Vital Values)"
+                              fullWidth
+                              placeholder="Nhập dạng JSON hoặc để trống"
+                              value={JSON.stringify(formData.vitalValues)}
+                              onChange={(e) => {
+                                try {
+                                  const parsed = JSON.parse(e.target.value);
+                                  setFormData({ ...formData, vitalValues: parsed });
+                                } catch {
+                                  // Không làm gì nếu JSON không hợp lệ
+                                }
+                              }}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </DialogContent>
+                    <DialogActions>
+                      <Button onClick={() => setOpenForm(false)}>Hủy</Button>
+                      <Button variant="contained" onClick={handleSubmit}>Lưu</Button>
+                    </DialogActions>
+                </Dialog>
 
                <Dialog open={openEditForm} onClose={() => setOpenEditForm(false)} fullWidth maxWidth="md">
-      <DialogTitle>Sửa bệnh án</DialogTitle>
-      <DialogContent>
-        {editData && (
-         <Box margin={5}>
-               <Grid container spacing={2}>
-
-             <Grid item xs={6}>
-                    <TextField
-                      label="ID bệnh nhân"
-                      fullWidth
-                      size="large" // hoặc "medium"
-                      value={editData.patientId}
-                      onChange={(e) => setEditData({ ...editData, patientId: e.target.value })}
-                    />
-            </Grid>
-            <Grid item xs={6}>
-                    <TextField
-                      label="ID bác sỹ"
-                      fullWidth
-                      value={editData.doctorId}
-                      onChange={(e) => setEditData({ ...editData, doctorId: e.target.value })}
-                    />
-           </Grid>
-
-            <Grid item xs={6}>
-             <TextField
-                label="Triệu chứng"
-                fullWidth
-                multiline
-                rows={4} // số dòng hiển thị mặc định
-                value={editData.symptoms}
-                onChange={(e) => setEditData({ ...editData, symptoms: e.target.value })}
-                sx={{
-                  overflow: 'auto',
-                  maxHeight: 200 // giới hạn chiều cao để có thể cuộn
-                }}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Chẩn đoán"
-                fullWidth
-                value={editData.diagnosis}
-                onChange={(e) => setEditData({ ...editData, diagnosis: e.target.value })}
-              />
-            </Grid>
-            {/* Thêm các trường khác tương tự */}
-            
-            <Grid item xs={12}>
-                    <TextField
-                      label="Ghi chú"
-                      fullWidth
-                      multiline
-                      value={editData.notes}
-                      onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                    />
-                  </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Ngày tái khám"
-                    type="date"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    value={editData.reExaminationDate || ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, reExaminationDate: e.target.value })
-                    }
-                  />
-                </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Loại bệnh án"
-                      fullWidth
-                      value={editData.type}
-                      onChange={(e) => setEditData({ ...editData, type: e.target.value })}
-                    />
-                  </Grid>
-
+  <DialogTitle>Sửa bệnh án</DialogTitle>
+  <DialogContent>
+    {editData && (
+      <Box margin={4}>
+        <Grid container spacing={2}>
+          {/* Chỉ hiển thị, không cho sửa */}
+          <Grid item xs={6}>
+            <TextField
+              label="ID bệnh nhân"
+              fullWidth
+              value={editData.patientId}
+              disabled
+            />
           </Grid>
-         </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setOpenEditForm(false)}>Hủy</Button>
-        <Button variant="contained" onClick={handleUpdate}>Lưu</Button>
-      </DialogActions>
-                </Dialog>
+
+          <Grid item xs={6}>
+            <TextField
+              label="ID bác sỹ"
+              fullWidth
+              value={editData.doctorId}
+              disabled
+            />
+          </Grid>
+
+          <Grid item xs={6}>
+            <TextField
+              label="Ngày tái khám"
+              fullWidth
+              value={editData.reExaminationDate || ""}
+              disabled
+            />
+          </Grid>
+
+          <Grid item xs={6}>
+            <TextField
+              label="Loại bệnh án"
+              fullWidth
+              value={editData.type || ""}
+              disabled
+            />
+          </Grid>
+
+          {/* Các field cho phép sửa */}
+          <Grid item xs={6}>
+            <TextField
+              label="Triệu chứng"
+              fullWidth
+              multiline
+              rows={4}
+              value={editData.symptoms}
+              onChange={(e) => setEditData({ ...editData, symptoms: e.target.value })}
+            />
+          </Grid>
+
+          <Grid item xs={6}>
+            <TextField
+              label="Chẩn đoán"
+              fullWidth
+              value={editData.diagnosis}
+              onChange={(e) => setEditData({ ...editData, diagnosis: e.target.value })}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              label="Ghi chú"
+              fullWidth
+              multiline
+              rows={3}
+              value={editData.notes}
+              onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+            />
+          </Grid>
+        </Grid>
+      </Box>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenEditForm(false)}>Hủy</Button>
+    <Button variant="contained" onClick={handleUpdate}>
+      Lưu
+    </Button>
+  </DialogActions>
+</Dialog>
+
                   </Box>
                 </Grid>
 
