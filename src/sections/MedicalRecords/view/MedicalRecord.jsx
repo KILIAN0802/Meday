@@ -128,7 +128,7 @@ const handleDelete = async (id) => {
 
 const handleEdit = async (id) => {
   try {
-    const response = await axiosInstance.get(`/api/staff/medical-records/${_id}`);
+    const response = await axiosInstance.get(`/api/staff/medical-records/${id}`);
     const record = response.data.data;
     setEditData(record);
     setOpenEditForm(true);
