@@ -45,9 +45,9 @@ export function HomeView() {
 
         <HomeHighlightFeatures />
 
-        <HomeIntegrations />
+        {/* <HomeIntegrations /> */}
 
-        <HomePricing />
+        {/* <HomePricing /> */}
 
         <HomeTestimonials />
 

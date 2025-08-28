@@ -259,16 +259,16 @@ function MedicalRecordsList({ records, isLoading, onOpenMenu, searchId, setSearc
 
   return (
     <Card sx={{ width: '90vw' , display: 'flex', flexDirection: 'column', justifyContent: 'center'}}>
-      <CardHeader title="Danh sách bệnh án" />
+      <CardHeader title="Danh sách các mẫu bệnh án" />
       <Box sx={{ p: 2 }}>
-        <TextField fullWidth variant="outlined" label="Lọc bệnh án theo ID" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+        <TextField fullWidth variant="outlined" label="Lọc mẫu bệnh án theo ID" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
       </Box>
       <TableContainer >
         <Table>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Mã</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Tên bệnh án</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Tên mẫu (khung) bệnh án</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Mô tả</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Thời gian tạo</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Cập nhật lần cuối</TableCell>

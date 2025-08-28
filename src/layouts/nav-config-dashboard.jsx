@@ -104,7 +104,7 @@ import { CONFIG } from 'src/global-config';
 import { Iconify } from 'src/components/iconify';
 import { SvgColor } from 'src/components/svg-color';
 import { useMockedUser } from 'src/auth/hooks';
-
+import { useMemo } from 'react';
 // ----------------------------------------------------------------------
 const icon = (name) => (
   <SvgColor src={`${CONFIG.assetsDir}/assets/icons/navbar/${name}.svg`} />
@@ -143,6 +143,24 @@ const ICONS = {
 export function useNavData() {
   const { user } = useMockedUser();
 
+  
+  const medicalRecordItems = useMemo(() => [
+    {
+      title: 'Bệnh án',
+      path: paths.dashboard.MedicalRecords.root,
+      children: [
+        ...(user?.role === 1
+          ? [
+            { title: 'Quản lý bệnh án', path: paths.dashboard.MedicalRecords.record },
+              { title: 'Bệnh án chờ xử lý', path: paths.dashboard.MedicalRecords.pending },
+            { title: 'Bệnh án đang xử lý', path: paths.dashboard.MedicalRecords.processing },
+          ]
+          : [{ title: 'Tạo mẫu bệnh án', path: paths.dashboard.MedicalRecords.create }]),
+
+      ],
+    },
+  ], [user?.role]);
+
   return [
     {
       subheader: 'Tổng quát',
@@ -158,22 +176,28 @@ export function useNavData() {
         { title: 'Thêm bệnh nhân', path: paths.dashboard.general.CreatePatientUser, icon: ICONS.banking },
       ],
     },
-    {
+    // {
+    //   subheader: 'Quản lý bệnh án',
+    //   items: [
+    //     {
+    //       title: 'Bệnh án',
+    //       path: paths.dashboard.MedicalRecords.root,
+    //       children: [
+    //         ...(user?.role === 1
+    //           ? [{ title: 'Quản lý bệnh án', path: paths.dashboard.MedicalRecords.record }]
+    //           : [{ title: 'Tạo bệnh án', path: paths.dashboard.MedicalRecords.create }]),
+    //         { title: 'Bệnh án chờ xử lý', path: paths.dashboard.MedicalRecords.pending },
+    //         { title: 'Bệnh án đang xử lý', path: paths.dashboard.MedicalRecords.processing },
+    //       ],
+    //     },
+    //   ],
+    // },
+
+     {
       subheader: 'Quản lý bệnh án',
-      items: [
-        {
-          title: 'Bệnh án',
-          path: paths.dashboard.MedicalRecords.root,
-          children: [
-            ...(user?.role === 1
-              ? [{ title: 'Quản lý bệnh án', path: paths.dashboard.MedicalRecords.record }]
-              : [{ title: 'Tạo bệnh án', path: paths.dashboard.MedicalRecords.create }]),
-            { title: 'Bệnh án chờ xử lý', path: paths.dashboard.MedicalRecords.pending },
-            { title: 'Bệnh án đang xử lý', path: paths.dashboard.MedicalRecords.processing },
-          ],
-        },
-      ],
+      items: medicalRecordItems,
     },
+
     {
       subheader: 'Misc',
       items: [
