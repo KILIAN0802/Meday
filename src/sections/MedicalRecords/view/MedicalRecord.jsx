@@ -245,7 +245,7 @@ const handleUpdate = async () => {
                           {/* Optional: Cho phép nhập vitalValues nếu cần */}
                           <Grid item xs={12}>
                             <TextField
-                              label="Giá trị sinh tồn (Vital Values)"
+                              label="Giá trị "
                               fullWidth
                               placeholder="Nhập dạng JSON hoặc để trống"
                               value={JSON.stringify(formData.vitalValues)}
@@ -362,74 +362,81 @@ const handleUpdate = async () => {
           <Typography variant="h4" sx={{ mb: 2 }}>
             Danh sách hồ sơ bệnh án
           </Typography>
-          <Table className="border rounded-lg shadow-sm">
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Bệnh nhân</TableCell>
-                <TableCell>Bác sĩ</TableCell>
-                <TableCell>Chẩn đoán</TableCell>
-                <TableCell>Triệu chứng</TableCell>
-                <TableCell>Ghi chú</TableCell>
-                <TableCell>Ngày tạo</TableCell>
-                <TableCell>Chức năng</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading1 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    Đang tải dữ liệu...
-                  </TableCell>
-                </TableRow>
-              ) : (searchId1 ? filteredRecords : record1).length > 0 ? (
-                      (searchId1 ? filteredRecords : record1).map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell>{record.id}</TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{record.patient?.fullname}</p>
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 4 , width: '90vw'}}>
+              <TableContainer sx={{ width: "100%", maxWidth: 1200 }}>
+                                  <Table className="border rounded-lg shadow-sm">
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell>ID</TableCell>
+                                        <TableCell>Bệnh nhân</TableCell>
+                                        <TableCell>Bác sĩ</TableCell>
+                                        <TableCell>Chẩn đoán</TableCell>
+                                        <TableCell>Triệu chứng</TableCell>
+                                        <TableCell>Ghi chú</TableCell>
+                                        <TableCell>Ngày tạo</TableCell>
+                                        <TableCell>Chức năng</TableCell>
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {isLoading1 ? (
+                                        <TableRow>
+                                          <TableCell colSpan={7} align="center">
+                                            Đang tải dữ liệu...
+                                          </TableCell>
+                                        </TableRow>
+                                      ) : (searchId1 ? filteredRecords : record1).length > 0 ? (
+                                              (searchId1 ? filteredRecords : record1).map((record) => (
+                                                <TableRow key={record.id}>
+                                                  <TableCell>{record.id}</TableCell>
+                                                  <TableCell>
+                                                    <div>
+                                                      <p className="font-medium">{record.patient?.fullname}</p>
 
-                            </div>
-                          </TableCell>
-                          <TableCell>{record.doctor?.fullname}</TableCell>
-                          <TableCell>{record.diagnosis}</TableCell>
-                          <TableCell>{record.symptoms}</TableCell>
-                          <TableCell>{record.notes}</TableCell>
-                          <TableCell>
-                            {new Date(record.createdAt).toLocaleDateString("vi-VN")}
-                          </TableCell>
+                                                    </div>
+                                                  </TableCell>
+                                                  <TableCell>{record.doctor?.fullname}</TableCell>
+                                                  <TableCell>{record.diagnosis}</TableCell>
+                                                  <TableCell>{record.symptoms}</TableCell>
+                                                  <TableCell>{record.notes}</TableCell>
+                                                  <TableCell>
+                                                    {new Date(record.createdAt).toLocaleDateString("vi-VN")}
+                                                  </TableCell>
 
-                          <TableCell>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => handleEdit(record.id)}
-                              >
-                                Sửa
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                color="error"
-                                size="small"
-                                onClick={() => handleDelete(record.id)}
-                              >
-                                Xóa
-                              </Button>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={8} align="center">
-                          Không tìm thấy ID thỏa mãn
-                        </TableCell>
-                      </TableRow>
-                    )}
-            </TableBody>
-          </Table>
+                                                  <TableCell>
+                                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                                      <Button
+                                                        variant="outlined"
+                                                        size="small"
+                                                        onClick={() => handleEdit(record.id)}
+                                                      >
+                                                        Sửa
+                                                      </Button>
+                                                      <Button
+                                                        variant="outlined"
+                                                        color="error"
+                                                        size="small"
+                                                        onClick={() => handleDelete(record.id)}
+                                                      >
+                                                        Xóa
+                                                      </Button>
+                                                    </Box>
+                                                  </TableCell>
+                                                </TableRow>
+                                              ))
+                                            ) : (
+                                              <TableRow>
+                                                <TableCell colSpan={8} align="center">
+                                                  Không tìm thấy ID thỏa mãn
+                                                </TableCell>
+                                              </TableRow>
+                                            )}
+                                    </TableBody>
+                                  </Table>
+
+              </TableContainer>
+          </Box>
+            
+          
         </Box>
       </Grid>
        </Grid>
