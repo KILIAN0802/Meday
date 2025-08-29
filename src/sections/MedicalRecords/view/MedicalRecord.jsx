@@ -388,11 +388,11 @@ const handleUpdate = async () => {
                           <TableCell>{record.id}</TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium">{record.patient.fullname}</p>
-                              <p className="text-xs text-gray-500">{record.patient.phone}</p>
+                              <p className="font-medium">{record.patient?.fullname}</p>
+
                             </div>
                           </TableCell>
-                          <TableCell>{record.doctor.fullname}</TableCell>
+                          <TableCell>{record.doctor?.fullname}</TableCell>
                           <TableCell>{record.diagnosis}</TableCell>
                           <TableCell>{record.symptoms}</TableCell>
                           <TableCell>{record.notes}</TableCell>
