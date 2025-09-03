@@ -170,7 +170,7 @@ function VitalIndicatorsList({ onIndicatorClick }) {
                     </TableCell>
                 </TableRow>
             ) : (
-                indicators.map((row) => (
+                indicators.slice().reverse().map((row) => (
                   <TableRow hover key={row.id} sx={{ height: 60 }}>
                     <TableCell>{row.id}</TableCell>
                     <TableCell>{row.code}</TableCell>

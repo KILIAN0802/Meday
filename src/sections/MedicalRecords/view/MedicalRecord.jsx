@@ -59,7 +59,7 @@ export function MedicalRecords() {
     notes: '',
      reExaminationDate: new Date().toISOString().split("T")[0],
     type: '',
-     vitalValues: null
+     vitalValues: {}
   });
 
   const fetchInitialRecords1 = useCallback(async () => {
@@ -248,7 +248,9 @@ const handleUpdate = async () => {
                               label="Giá trị "
                               fullWidth
                               placeholder="Nhập dạng JSON hoặc để trống"
-                              value={JSON.stringify(formData.vitalValues)}
+                              value={
+                                formData.vitalValues ? JSON.stringify(formData.vitalValues) : ''
+                              }
                               onChange={(e) => {
                                 try {
                                   const parsed = JSON.parse(e.target.value);
@@ -385,7 +387,7 @@ const handleUpdate = async () => {
                                           </TableCell>
                                         </TableRow>
                                       ) : (searchId1 ? filteredRecords : record1).length > 0 ? (
-                                              (searchId1 ? filteredRecords : record1).map((record) => (
+                                              (searchId1 ? filteredRecords : record1).slice().reverse().map((record) => (
                                                 <TableRow key={record.id}>
                                                   <TableCell>{record.id}</TableCell>
                                                   <TableCell>
