@@ -59,7 +59,7 @@ export function MedicalRecords() {
     notes: '',
      reExaminationDate: new Date().toISOString().split("T")[0],
     type: '',
-     vitalValues: {}
+     vitalValues: ''
   });
 
   const fetchInitialRecords1 = useCallback(async () => {
