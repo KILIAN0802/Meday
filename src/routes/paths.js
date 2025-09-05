@@ -129,6 +129,10 @@ export const paths = {
       chronic:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/chronic`,
       rechronic:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/rechronic`,
     },
+      appointment:{
+      root: `${ROOTS.DASHBOARD}/Appointment`,
+     
+    },
 
     
     product: {
