@@ -135,6 +135,9 @@ export const paths = {
     },
     medicalRecordManager:{
       root: `${ROOTS.DASHBOARD}/medicalRecordManager/table`,
+      pendingView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/pending-view`,
+      processingView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/processing-view`,
+      doneView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/done-view`,
     },
     medicalRecordStaff:{
       root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager`,

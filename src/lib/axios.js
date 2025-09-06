@@ -87,7 +87,7 @@ export const endpoints = {
     UpdateID:(id) => `/api/staff/medical-records/${id}`,
     DeleteID:(id) => `/api/staff/medical-records/${id}`,
     getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
-    UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`,
+    UpdateVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
     UpdateGroupID: (id) => `/api/staff/medical-records/vital-group/${id}`,
   },
   medical_record_templates_staff:{

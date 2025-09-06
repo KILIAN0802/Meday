@@ -1,10 +1,8 @@
 'use client';
 
-import { PendingMedicalRecords } from '../table-pending'
-import { ConfirmedMedicalRecords } from '../table-processing'
-import { CompletedMedicalRecords } from '../table-done'
+import { AllMedicalRecords } from '../table-all'
 
 export function ViewTableMedicalRecord(){
     
-    return <ConfirmedMedicalRecords/>;
+    return <AllMedicalRecords/>;
 }

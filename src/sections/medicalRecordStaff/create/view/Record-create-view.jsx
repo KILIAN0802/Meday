@@ -30,7 +30,7 @@ import CloseIcon from '@mui/icons-material/Close';
 // --- Custom Hook & Components ---
 import { useRecordCreateQuestion } from '../Record-create-question';
 import { RecordCreateButtons } from '../Record-create-button';
-
+import { TableManager} from '../Record-create-tableManager'
 // ----------------------------------------------------------------------
 
 const renderQuestion = (question, formState, handleInputChange) => {
@@ -42,7 +42,7 @@ const renderQuestion = (question, formState, handleInputChange) => {
     variant: 'outlined',
   };
 
-  // Hàm render không có case 'full_date' nữa, nó sẽ rơi vào default
+
   switch (question.valueType) {
     case 'number':
       return <TextField key={questionCode} {...commonProps} type="number" value={value || ''} onChange={(e) => handleInputChange(questionCode, e.target.value)} helperText={question.description} />;
@@ -90,10 +90,9 @@ export function RecordCreateView() {
   };
   
   return (
-    // 👇 Bỏ LocalizationProvider, dùng Fragment <>...</> để bọc
     <>
       <RecordCreateButtons onTemplateSelect={handleTemplateSelect} />
-
+      <TableManager/>
       <Dialog
         fullWidth
         maxWidth="md"

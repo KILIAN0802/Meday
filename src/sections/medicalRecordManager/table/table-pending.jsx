@@ -1,10 +1,19 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getMedicalRecordeById } from 'src/api/medical-record-staff';
-import { getAppointment, updateAppointmentStatusID, check_Availability, getAppointmentID } from 'src/api/appointments-staff';
+
+// --- Import các API cần thiết ---
+import {
+  getAppointment,
+  updateAppointmentStatusID,
+  check_Availability,
+} from 'src/api/appointments-staff';
+import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
+import { getVitalGroupById } from 'src/api/vitals';
+import { getVitalValuesMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { ReusableTablePagination } from 'src/components/pagination';
-// ---------------------------------------------------------
+
+// --- Material-UI Imports ---
 import {
   Snackbar,
   Alert,
@@ -25,29 +34,31 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  TextField,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel,
 } from '@mui/material';
+
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 1: HIỂN THỊ CHI TIẾT NGƯỜI DÙNG ###
+// ----------------------------------------------------------------------
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
-  const KEY_LABELS = {
-    id: 'Mã số',
-    fullname: 'Họ và tên',
-    phone: 'Số điện thoại',
-    email: 'Email',
-    role: 'Vai trò'
-  };
+  const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
   const roleMap = { 1: 'Bác sĩ', 2: 'Y tá' };
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>Thông tin chi tiết</DialogTitle>
       <DialogContent dividers>
         {Object.keys(KEY_LABELS).map((key) => {
-          if (person[key]) {
+          if (person?.[key]) {
             const displayValue = key === 'role' ? roleMap[person[key]] || 'Không xác định' : person[key];
             return (
               <Box key={key} sx={{ display: 'flex', mb: 1.5 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', minWidth: '120px' }}>
-                  {`${KEY_LABELS[key]}:`}
-                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', minWidth: '120px' }}>{`${KEY_LABELS[key]}:`}</Typography>
                 <Typography variant="body2">{displayValue}</Typography>
               </Box>
             );
@@ -55,36 +66,152 @@ function PersonDetailsModal({ person, open, onClose }) {
           return null;
         })}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Đóng</Button>
-      </DialogActions>
+      <DialogActions><Button onClick={onClose}>Đóng</Button></DialogActions>
     </Dialog>
   );
-};
+}
 
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 2: HIỂN THỊ CHIP TRẠNG THÁI ###
+// ----------------------------------------------------------------------
 function StatusChip({ status }) {
   const statusMap = {
     PENDING: { color: 'warning', text: 'CHỜ XỬ LÝ' },
+    CONFIRMED: { color: 'primary', text: 'ĐANG XỬ LÝ' },
+    COMPLETED: { color: 'success', text: 'HOÀN THÀNH' },
   };
   const { color, text } = statusMap[status] || { color: 'default', text: 'KHÔNG RÕ' };
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
-};
+}
 
-// --- Component chính ---
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 3: RENDER CÁC TRƯỜNG TRONG FORM ###
+// ----------------------------------------------------------------------
+function QuestionRenderer({ indicator, value, onChange }) {
+  const handleChange = (event) => {
+    onChange(indicator.id, event.target.value);
+  };
+
+  switch (indicator.valueType) {
+    case 'selection': {
+      const options = (indicator.valueOptions || [])
+        .filter(Boolean)
+        .map(optStr => {
+          let optValue = optStr, optLabel = optStr;
+          if (optStr.includes('.')) {
+            const parts = optStr.split('.');
+            optValue = parts[0];
+            optLabel = parts.slice(1).join('.');
+          }
+          return { value: optValue, label: optLabel };
+        });
+
+      return (
+        <FormControl component="fieldset" margin="normal" fullWidth>
+          <FormLabel component="legend">{indicator.name}</FormLabel>
+          <RadioGroup row name={indicator.code || `indicator-${indicator.id}`} value={value} onChange={handleChange}>
+            {options.map(optionObj => (
+              <FormControlLabel key={optionObj.value} value={optionObj.value} control={<Radio />} label={optionObj.label} />
+            ))}
+          </RadioGroup>
+        </FormControl>
+      );
+    }
+    default:
+      return (
+        <TextField
+          key={indicator.id}
+          fullWidth
+          margin="normal"
+          type={indicator.valueType === 'number' ? 'number' : indicator.valueType === 'full_date' ? 'date' : 'text'}
+          label={indicator.name || `Chỉ số ${indicator.id}`}
+          variant="outlined"
+          helperText={indicator.unit || ''}
+          value={value}
+          onChange={handleChange}
+          InputLabelProps={indicator.valueType === 'full_date' ? { shrink: true } : {}}
+        />
+      );
+  }
+}
+
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 4: MODAL HIỂN THỊ FORM CHỈ SỐ SINH TỒN ###
+// ----------------------------------------------------------------------
+function VitalsFormModal({ open, onClose, questions, loading, onSave, medicalRecordId }) {
+  const [formValues, setFormValues] = useState({});
+
+  useEffect(() => {
+    if (questions) {
+      const initialValues = {};
+      questions.forEach(q => {
+        initialValues[q.id] = q.savedValue ?? '';
+      });
+      setFormValues(initialValues);
+    }
+  }, [questions]);
+
+  const handleValueChange = (indicatorId, newValue) => {
+    setFormValues(prev => ({
+      ...prev,
+      [indicatorId]: newValue,
+    }));
+  };
+
+  const handleSave = () => {
+    onSave(medicalRecordId, formValues);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Form Bệnh án</DialogTitle>
+      <DialogContent dividers>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress /></Box>
+        ) : questions.length > 0 ? (
+          <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
+            {questions.map((indicator) => (
+              <QuestionRenderer 
+                key={indicator.id} 
+                indicator={indicator} 
+                value={formValues[indicator.id] || ''}
+                onChange={handleValueChange}
+              />
+            ))}
+          </Box>
+        ) : (
+          <Typography sx={{ my: 5, textAlign: 'center' }}>Không tìm thấy chỉ số sinh tồn nào cho mẫu bệnh án này.</Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Hủy</Button>
+        <Button variant="contained" onClick={handleSave} disabled={loading}>Lưu</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ----------------------------------------------------------------------
+// ### COMPONENT CHÍNH: BẢNG BỆNH ÁN CHỜ XỬ LÝ ###
+// ----------------------------------------------------------------------
 export function PendingMedicalRecords() {
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedPerson, setSelectedPerson] = useState(null);
-  const [allRecordIds, setAllRecordIds] = useState([]);
-  
   const [isAcceptingId, setIsAcceptingId] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
+  // State cho Vitals Form Modal
+  const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
+  const [isLoadingVitals, setIsLoadingVitals] = useState(false);
+  const [vitalQuestions, setVitalQuestions] = useState([]);
+  const [activeMedicalRecordId, setActiveMedicalRecordId] = useState(null);
 
   const templateMap = {
     16: 'Bệnh án cấp tính',
@@ -92,146 +219,177 @@ export function PendingMedicalRecords() {
     18: 'Bệnh án mãn tính tái khám',
   };
 
-  const handleViewDetails = (person) => { setSelectedPerson(person); };
-  const handleCloseModal = () => { setSelectedPerson(null); };
-  const handleChangePage = (event, newPage) => { setPage(newPage); };
-  const handleCloseNotification = () => setNotification({ ...notification, open: false });
+  const handleChangePage = (event, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
-// --- Thay thế toàn bộ handleAccept bằng đoạn này ---
-const handleAccept = async (medicalRecordId) => {
-  setIsAcceptingId(medicalRecordId);
-  try {
-    // Tìm record trong state hiện tại
-    const recordToAccept = medicalRecords.find(record => record.id === medicalRecordId);
-    if (!recordToAccept) throw new Error('Không tìm thấy bệnh án trong trang hiện tại.');
-
-    // Lấy appointmentId từ record (medicalRecord có trường appointmentId)
-    const appointmentId = recordToAccept?.appointmentId || recordToAccept?.appointment?.id;
-    if (!appointmentId) throw new Error('Không tìm thấy appointmentId trong bệnh án.');
-
-    // Lấy appointment chi tiết (để có appointmentDate dùng cho check_Availability)
-    const appointmentResp = await getAppointmentID(appointmentId);
-    // xử lý nhiều dạng response: res.data.data hoặc res.data
-    const appointment = appointmentResp?.data?.data || appointmentResp?.data;
-    if (!appointment) throw new Error('Không lấy được dữ liệu lịch hẹn từ server.');
-
-    const appointmentDate = appointment?.appointmentDate;
-    if (!appointmentDate) throw new Error('Không tìm thấy appointmentDate.');
-
-    // Kiểm tra lịch trùng
-    const currentDoctorId = 1; // thay bằng id bác sĩ hiện tại nếu có
-    const availabilityResponse = await check_Availability({
-      doctorId: currentDoctorId,
-      appointmentDate,
-    });
-
-    console.log('check_Availability response:', availabilityResponse);
-
-    if (availabilityResponse?.available === true) {
-      // Gọi update với body { status: 'CONFIRMED' } (theo Postman của bạn)
-      const updateResp = await updateAppointmentStatusID(appointmentId, { status: 'CONFIRMED' });
-      console.log('updateAppointmentStatusID response:', updateResp);
-
-      // Verify lại appointment từ server để chắc chắn backend đã đổi trạng thái
-      const verifyResp = await getAppointmentID(appointmentId);
-      const verifiedAppointment = verifyResp?.data?.data || verifyResp?.data;
-      console.log('verify appointment after update:', verifiedAppointment);
-
-      if (verifiedAppointment?.status === 'CONFIRMED') {
-        // Cập nhật UI tức thì: loại bỏ medicalRecord khỏi danh sách hiện tại
-        setMedicalRecords(prev => prev.filter(r => r.id !== medicalRecordId));
-        setAllRecordIds(prev => prev.filter(id => id !== medicalRecordId));
-        setTotalRecords(prev => Math.max(0, prev - 1));
-
-        setNotification({ open: true, message: 'Tiếp nhận bệnh án thành công!', severity: 'success' });
-      } else {
-        // Nếu backend chưa confirm, báo lỗi để điều tra (có thể cache/đồng bộ chậm)
-        console.warn('Update returned BUT appointment.status !== CONFIRMED', verifiedAppointment);
-        setNotification({ open: true, message: 'Đã gửi yêu cầu tiếp nhận nhưng server chưa cập nhật trạng thái (có thể cache).', severity: 'warning' });
-        // vẫn trigger refetch để đảm bảo dữ liệu đồng bộ
-        setRefetchTrigger(prev => prev + 1);
-      }
-    } else {
-      setNotification({ open: true, message: 'Lịch của cán bộ nhân viên bị trùng.', severity: 'error' });
+  const handleViewVitalsForm = async (templateId, medicalRecordId) => {
+    setActiveMedicalRecordId(medicalRecordId);
+    if (!templateId) {
+      setNotification({ open: true, message: 'Mẫu bệnh án không có ID hợp lệ.', severity: 'error' });
+      return;
     }
-  } catch (err) {
-    console.error('Lỗi trong quá trình tiếp nhận bệnh án:', err);
-    setNotification({ open: true, message: err.message || 'Có lỗi xảy ra, vui lòng thử lại.', severity: 'error' });
-  } finally {
-    setIsAcceptingId(null);
-  }
-};
-
-  
-useEffect(() => {
-  const fetchAllAppointmentData = async () => {
-    setLoading(true);
-    setError(null);
+    setIsVitalsModalOpen(true);
+    setIsLoadingVitals(true);
+    setVitalQuestions([]);
     try {
-      const appointmentParams = { status: 'PENDING', page: 1, limit: 10 };
-      console.log('Fetching appointments (PENDING) - trigger:', refetchTrigger);
-      const appointmentResponse = await getAppointment(appointmentParams);
-      // tùy shape trả về của API: appointmentResponse.data có thể là { data: [...], total } hoặc trực tiếp mảng
-      const appointments = appointmentResponse?.data?.data || appointmentResponse?.data || appointmentResponse;
-      console.log('appointments raw:', appointmentResponse, 'normalized:', appointments);
-      const allIds = (appointments || []).flatMap(
-        (app) => app.medicalRecords?.map((record) => record.id) || []
-      );
-      setAllRecordIds(allIds);
-      setTotalRecords(Array.isArray(appointments) ? appointments.length : appointmentResponse?.data?.total || allIds.length);
+      const [templateResponse, savedValuesResponse] = await Promise.all([
+        getMedicalRecordTemplateById(templateId),
+        getVitalValuesMedicalRecord(medicalRecordId)
+      ]);
+      const savedValues = savedValuesResponse?.data || [];
+      const valuesMap = new Map();
+      savedValues.forEach(val => {
+        let actualValue = val.value;
+        if (typeof actualValue === 'object' && actualValue !== null && 'value' in actualValue) {
+          actualValue = actualValue.value;
+        }
+        valuesMap.set(val.vitalIndicatorId, actualValue);
+      });
+      const vitalGroupIds = templateResponse?.data?.vitalGroupIds || [];
+      if (vitalGroupIds.length === 0) {
+        setIsLoadingVitals(false);
+        return;
+      }
+      const vitalGroupPromises = vitalGroupIds.map((id) => getVitalGroupById(id));
+      const vitalGroupResponses = await Promise.all(vitalGroupPromises);
+      const allIndicators = vitalGroupResponses.flatMap((response) => response?.data?.indicators || []);
+      const questionsWithValues = allIndicators.map(indicator => ({
+        ...indicator,
+        savedValue: valuesMap.get(indicator.id) ?? ''
+      }));
+      setVitalQuestions(questionsWithValues);
     } catch (err) {
-      setError('Không thể tải dữ liệu tổng.');
-      console.error('Lỗi khi fetch toàn bộ lịch hẹn:', err);
+      console.error('Lỗi khi lấy dữ liệu form:', err);
+      setNotification({ open: true, message: 'Không thể tải dữ liệu form.', severity: 'error' });
     } finally {
-      setLoading(false);
+      setIsLoadingVitals(false);
+    }
+  };
+  
+  const handleSaveChanges = async (medicalRecordId, updatedValues) => {
+    try {
+      const formattedValues = Object.entries(updatedValues)
+        .filter(([indicatorId, value]) => value !== '' && value !== null && value !== undefined)
+        .map(([indicatorId, value]) => {
+          const idAsNumber = parseInt(indicatorId, 10);
+          const originalIndicator = vitalQuestions.find(q => q.id === idAsNumber);
+          
+          let finalValue = value;
+          if (originalIndicator?.valueType === 'number' && value !== '' && !isNaN(value)) {
+            finalValue = parseFloat(value);
+          }
+
+          return {
+            vitalIndicatorId: idAsNumber,
+            value: { value: finalValue },
+            note: ""
+          };
+        });
+      
+      if (formattedValues.length === 0) {
+        setNotification({ open: true, message: 'Không có thay đổi nào để lưu.', severity: 'info' });
+        return; 
+      }
+
+      const requestBody = { vitalValues: formattedValues };
+      await updateVitalMedicalRecordeById(medicalRecordId, requestBody);
+      setNotification({ open: true, message: 'Cập nhật chỉ số thành công!', severity: 'success' });
+    } catch (err) {
+      console.error('Lỗi khi cập nhật chỉ số:', err);
+      if (err.response) {
+        console.error('Data lỗi từ backend:', err.response.data);
+        const backendMessage = err.response.data.message || 'Có lỗi xảy ra từ server.';
+        setNotification({ open: true, message: backendMessage, severity: 'error' });
+      } else {
+        setNotification({ open: true, message: 'Lỗi mạng hoặc server không phản hồi.', severity: 'error' });
+      }
     }
   };
 
-  fetchAllAppointmentData();
-}, [refetchTrigger]);
+  const handleAccept = async (appointmentId) => {
+    setIsAcceptingId(appointmentId);
+    try {
+      await updateAppointmentStatusID(appointmentId, { status: 'CONFIRMED' });
+      setNotification({ open: true, message: 'Tiếp nhận bệnh án thành công!', severity: 'success' });
+      setRefetchTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Lỗi trong quá trình tiếp nhận bệnh án:', err);
+      setNotification({ open: true, message: err.message || 'Có lỗi xảy ra, vui lòng thử lại.', severity: 'error' });
+    } finally {
+      setIsAcceptingId(null);
+    }
+  };
 
-
+  // LƯU Ý QUAN TRỌNG:
+  // Logic useEffect dưới đây là giải pháp TẠM THỜI để khắc phục lỗi backend trả về 1 dòng/lần.
+  // Khi backend được sửa để tôn trọng tham số 'limit', hãy quay lại phiên bản useEffect đơn giản hơn.
   useEffect(() => {
-    if (allRecordIds.length === 0 && totalRecords === 0) {
-        if(!loading) setLoading(true);
-        const timer = setTimeout(() => setLoading(false), 500); 
-        return () => clearTimeout(timer);
+    const fetchAndAggregateData = async () => {
+      setLoading(true);
+      setError(null);
+      setMedicalRecords([]);
+
+      try {
+        let aggregatedRecords = [];
+        let currentApiPage = (page * rowsPerPage) + 1;
+        let lastKnownTotal = 0;
+        let continueFetching = true;
+
+        while (aggregatedRecords.length < rowsPerPage && continueFetching) {
+          const params = { status: 'PENDING', page: currentApiPage, limit: rowsPerPage };
+          const response = await getAppointment(params);
+          
+          const appointments = response?.data || [];
+          lastKnownTotal = response?.total || 0;
+
+          if (appointments.length === 0) {
+            continueFetching = false;
+            break;
+          }
+
+          const newRecords = appointments
+            .flatMap(app => {
+              if (app && Array.isArray(app.medicalRecords)) {
+                return app.medicalRecords.map(record => ({
+                  ...record,
+                  appointment: { id: app.id, status: app.status, reason: app.reason }
+                }));
+              }
+              return [];
+            })
+            .filter(Boolean);
+
+          aggregatedRecords.push(...newRecords);
+          
+          // Giả định backend trả về 1 dòng/lần, nên chỉ cần tăng 1
+          // Nếu backend trả về nhiều dòng, logic này cần phức tạp hơn
+          currentApiPage++;
+        }
+
+        const finalRecordsForPage = aggregatedRecords.slice(0, rowsPerPage);
+
+        setMedicalRecords(finalRecordsForPage);
+        setTotalRecords(lastKnownTotal);
+
+      } catch (err) {
+        setError('Không thể tải dữ liệu bệnh án.');
+        console.error('Lỗi khi fetch và gom dữ liệu bệnh án:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    if (allRecordIds.length > 0) {
-        const fetchDetailsForCurrentPage = async () => {
-          setLoading(true);
-          try {
-            const startIndex = page * rowsPerPage;
-            const endIndex = startIndex + rowsPerPage;
-            const idsForCurrentPage = allRecordIds.slice(startIndex, endIndex);
-
-            if (idsForCurrentPage.length > 0) {
-                const detailPromises = idsForCurrentPage.map(id => getMedicalRecordeById(id));
-                const detailResponses = await Promise.all(detailPromises);
-                const detailedMedicalRecords = detailResponses.map(res => res.data);
-                setMedicalRecords(detailedMedicalRecords);
-            } else {
-                setMedicalRecords([]);
-            }
-          } catch (err) {
-            setError('Không thể tải chi tiết bệnh án.');
-            console.error('Lỗi khi fetch chi tiết bệnh án:', err);
-          } finally {
-            setLoading(false);
-          }
-        };
-        
-        fetchDetailsForCurrentPage();
-    }
-  }, [allRecordIds, page, rowsPerPage]);
+    fetchAndAggregateData();
+  }, [page, rowsPerPage, refetchTrigger]);
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Chờ xử lý</Typography>
+      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Chờ tiếp nhận</Typography>
       <Card>
         {error && <Typography color="error" sx={{ px: 3, py: 1 }}>Lỗi: {error}</Typography>}
-        
         <TableContainer>
           <Table>
             <TableHead sx={{ bgcolor: 'action.hover' }}>
@@ -247,68 +405,86 @@ useEffect(() => {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={6} align="center"><CircularProgress sx={{ my: 4 }}/></TableCell></TableRow>
-              ) : medicalRecords.length > 0 ? (
+              ) : (Array.isArray(medicalRecords) && medicalRecords.length > 0) ? (
                 medicalRecords.map((row) => (
                   <TableRow key={row.id} hover>
                     <TableCell>{row.id}</TableCell>
                     <TableCell>
-                      <Typography onClick={() => handleViewDetails(row.patient)} variant="body2" sx={{ color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>
+                      <Typography
+                        onClick={() => setSelectedPerson(row.patient)}
+                        variant="body2"
+                        sx={{ color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                      >
                         {row.patient?.fullname || 'N/A'}
                       </Typography>
                     </TableCell>
-                    <TableCell>{templateMap[row.templateId] || 'N/A'}</TableCell>
+                    <TableCell
+                      onClick={() => handleViewVitalsForm(row.templateId, row.id)}
+                      sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+                    >
+                      {templateMap[row.templateId] || `Mẫu ${row.templateId}`}
+                    </TableCell>
                     <TableCell>{row.appointment?.reason || 'N/A'}</TableCell>
-                    <TableCell align="center"><StatusChip status={row.appointment?.status || 'UNKNOWN'} /></TableCell>
+                    <TableCell align="center">
+                      <StatusChip status={row.appointment?.status || 'UNKNOWN'} />
+                    </TableCell>
                     <TableCell align="right">
-                      <Button 
-                        variant="contained" 
-                        size="small" 
-                        onClick={() => handleAccept(row.id)}
-                        disabled={isAcceptingId === row.id}
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => handleAccept(row.appointment.id)}
+                        disabled={isAcceptingId === row.appointment.id}
                       >
-                        {isAcceptingId === row.id ? <CircularProgress size={20} color="inherit" /> : 'Tiếp nhận'}
+                        {isAcceptingId === row.appointment.id ? <CircularProgress size={20} color="inherit" /> : 'Tiếp nhận'}
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={6} align="center">
-                        <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>
-                            Không tìm thấy bệnh án nào đang chờ xử lý.
-                        </Typography>
-                    </TableCell>
+                  <TableCell colSpan={6} align="center">
+                    <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>Không tìm thấy bệnh án nào đang chờ xử lý.</Typography>
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
-
         <ReusableTablePagination
-            count={totalRecords}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
+          count={totalRecords}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
-
       <PersonDetailsModal
         person={selectedPerson}
         open={Boolean(selectedPerson)}
-        onClose={handleCloseModal}
+        onClose={() => setSelectedPerson(null)}
       />
-
-      <Snackbar 
-        open={notification.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseNotification}
+      <VitalsFormModal
+        open={isVitalsModalOpen}
+        onClose={() => setIsVitalsModalOpen(false)}
+        loading={isLoadingVitals}
+        questions={vitalQuestions}
+        onSave={handleSaveChanges}
+        medicalRecordId={activeMedicalRecordId}
+      />
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={() => setNotification({ ...notification, open: false })} 
+          severity={notification.severity} 
+          sx={{ width: '100%' }}
+        >
           {notification.message}
         </Alert>
       </Snackbar>
     </Container>
   );
-};
-
+}
