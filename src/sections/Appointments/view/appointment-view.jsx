@@ -22,7 +22,7 @@ import axiosInstance from 'src/lib/axios';
 
 export function StaffAppointment() {
   const [appointments, setAppointments] = useState([]);
-  const [allAppointments, setAllAppointments] = useState([]); // dữ liệu gốc
+  const [allAppointments, setAllAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchId, setSearchId] = useState('');
   const [showMyAppointments, setShowMyAppointments] = useState(false);
@@ -38,7 +38,7 @@ export function StaffAppointment() {
       const response = await axiosInstance.get(endpoint);
       const data = response.data?.data || [];
       setAppointments(data);
-      setAllAppointments(data); // lưu bản gốc để search cục bộ
+      setAllAppointments(data);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách lịch hẹn:', error);
     } finally {
@@ -51,7 +51,7 @@ export function StaffAppointment() {
       await axiosInstance.patch(`/api/v1/staff/appointments/${id}/status`, {
         status: newStatus,
       });
-      fetchAppointments(); // reload lại sau khi đổi trạng thái
+      fetchAppointments();
     } catch (error) {
       console.error('Lỗi khi cập nhật trạng thái:', error);
     }
@@ -60,8 +60,6 @@ export function StaffAppointment() {
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
-
-  // hàm filter theo id
   const handleSearch = (value) => {
     setSearchId(value);
     if (value === '') {
@@ -74,7 +72,7 @@ export function StaffAppointment() {
     }
   };
 
-  const [openCreateForm, setOpenCreateForm] = useState(false);
+const [openCreateForm, setOpenCreateForm] = useState(false);
 const [formData, setFormData] = useState({
   reason: '',
   appointmentDate: '',

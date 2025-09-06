@@ -87,7 +87,8 @@ export const endpoints = {
     UpdateID:(id) => `/api/staff/medical-records/${id}`,
     DeleteID:(id) => `/api/staff/medical-records/${id}`,
     getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
-    UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`
+    UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`,
+    UpdateGroupID: (id) => `/api/staff/medical-records/vital-group/${id}`,
   },
   medical_record_templates_staff:{
     get:'/api/staff/medical-record-templates',
@@ -97,8 +98,11 @@ export const endpoints = {
     create:'/api/v1/staff/appointments',
     getAll:'/api/v1/staff/appointments',
     getCurrent:'/api/v1/staff/appointments/my-appointments',
+    checkAvailability:'/api/v1/staff/appointments/check-availability',
+    getID:(id) => `/api/v1/staff/appointments/${id}`,
     UpdateID:(id) => `/api/staff/medical-records/${id}`,
     DeleteID:(id) => `/api/staff/medical-records/${id}`,
+    updateStatus:(id) => `/api/v1/staff/appointments/${id}/status`,
     getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
     UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`
   },

@@ -28,7 +28,6 @@ export function useRecordCreateQuestion(templateId) {
         setIsLoading(false);
         return;
       }
-
       const groupPromises = vitalGroupIds.map(id => getVitalGroupById(id));
       const groupResponses = await Promise.all(groupPromises);
 
@@ -37,21 +36,17 @@ export function useRecordCreateQuestion(templateId) {
 
       const initialFormState = {};
       allQuestions.forEach(q => {
-        // Nếu là câu hỏi ngày mở hồ sơ, gán ngày hôm nay
         if (q.code === 'OPENINGDATE') {
-          initialFormState[q.code] = new Date(); // Gán object Date
-        } 
-        // Nếu là câu hỏi đa lựa chọn, gán mảng rỗng
+          initialFormState[q.code] = new Date();
+        }
         else if (q.valueType === 'multi_selection') {
           initialFormState[q.code] = [];
-        } 
-        // Mặc định là chuỗi rỗng
+        }
         else {
           initialFormState[q.code] = '';
         }
       });
       setFormState(initialFormState);
-
     } catch (err) {
       setError('Không thể tải danh sách câu hỏi.');
       console.error(err);
@@ -59,7 +54,6 @@ export function useRecordCreateQuestion(templateId) {
       setIsLoading(false);
     }
   }, [templateId]);
-
   useEffect(() => {
     fetchQuestions();
   }, [fetchQuestions]);
@@ -70,6 +64,5 @@ export function useRecordCreateQuestion(templateId) {
       [questionCode]: value,
     }));
   };
-
   return { questions, formState, isLoading, error, templateName, handleInputChange };
 }
