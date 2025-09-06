@@ -67,9 +67,9 @@ const [appointments, setAppointments] = useState([]);
   const translateStatus = (status) => {
   switch (status) {
     case 'PENDING':
-      return 'Chờ xác nhận';
+      return 'Chờ xử lý';
     case 'CONFIRMED':
-      return 'Đã xác nhận';
+      return 'Đang xử lý';
     case 'COMPLETED':
       return 'Đã hoàn thành';
     case 'CANCELLED':

@@ -40,7 +40,7 @@ export function MedicalRecordsProcessing() {
     const data = response.data?.data || [];
 
     // Chỉ lấy PENDING
-    const pendingAppointments = data.filter((item) => item.status === 'PROCESSING');
+    const pendingAppointments = data.filter((item) => item.status === 'CONFIRMED');
     setAppointments(pendingAppointments);
 
     // Cập nhật thống kê nếu cần
@@ -66,9 +66,9 @@ export function MedicalRecordsProcessing() {
   const translateStatus = (status) => {
   switch (status) {
     case 'PENDING':
-      return 'Chờ xác nhận';
+      return 'Chờ xử lý';
     case 'CONFIRMED':
-      return 'Đã xác nhận';
+      return 'Đang xử lý';
     case 'COMPLETED':
       return 'Đã hoàn thành';
     case 'CANCELLED':
