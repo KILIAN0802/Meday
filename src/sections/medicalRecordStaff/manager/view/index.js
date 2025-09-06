@@ -1,1 +1,1 @@
-// export * from './Record-manager-view'
+export * from './Record-manager-view'

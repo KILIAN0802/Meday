@@ -56,8 +56,8 @@ export function useNavData() {
              
               { title: 'Bệnh án chờ xử lý', path: paths.dashboard.MedicalRecords.pending },
               { title: 'Bệnh án đang xử lý', path: paths.dashboard.MedicalRecords.processing },
-            //    { title: 'Quản lý bệnh án demo', path: paths.dashboard.medicalRecordStaff.root },
-            // { title: 'Tạo bệnh án demo', path: paths.dashboard.medicalRecordStaff.create},
+               { title: 'Quản lý bệnh án demo', path: paths.dashboard.medicalRecordStaff.root },
+            { title: 'Tạo bệnh án demo', path: paths.dashboard.medicalRecordStaff.create},
             
           ]
           : [{ title: 'Tạo mẫu bệnh án', path: paths.dashboard.MedicalRecords.create }]),

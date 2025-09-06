@@ -179,12 +179,12 @@ export const endpoints = {
     updateID: (id) => `/api/v1/admin/vital-indicators/${id}`, // Dùng cho PUT/PATCH
     deleteID: (id) => `/api/v1/admin/vital-indicators/${id}`, 
   },
-  // vitals:{
-  //   getAllGroup: '/api/v1/vitals/groups',
-  //   getIDGroup: (id) => `/api/v1/vitals/groups/${id}`,
-  //   getAllIndicator: '/api/v1/vitals/indicator',
-  //   getIDIndicator: (id) => `/api/v1/vitals/indicators/${id}`,
-  // },
+  vitals:{
+    getAllGroup: '/api/v1/vitals/groups',
+    getIDGroup: (id) => `/api/v1/vitals/groups/${id}`,
+    getAllIndicator: '/api/v1/vitals/indicator',
+    getIDIndicator: (id) => `/api/v1/vitals/indicators/${id}`,
+  },
   medical_record_staff:{
     create:'/api/staff/medical-records',
     get:'/api/staff/medical-records',
@@ -195,19 +195,19 @@ export const endpoints = {
     getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
     UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`
   },
-  // medical_record_templates_staff:{
-  //   get:'/api/staff/medical-record-templates',
-  //   getID:(id) => `/api/staff/medical-record-templates/${id}`,
-  // },
-  // appointments_staff:{
-  //   create:'/api/v1/staff/appointments',
-  //   getAll:'/api/v1/staff/appointments',
-  //   getCurrent:'/api/v1/staff/appointments/my-appointments',
-  //   UpdateID:(id) => `/api/staff/medical-records/${id}`,
-  //   DeleteID:(id) => `/api/staff/medical-records/${id}`,
-  //   getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
-  //   UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`
-  // },
+  medical_record_templates_staff:{
+    get:'/api/staff/medical-record-templates',
+    getID:(id) => `/api/staff/medical-record-templates/${id}`,
+  },
+  appointments_staff:{
+    create:'/api/v1/staff/appointments',
+    getAll:'/api/v1/staff/appointments',
+    getCurrent:'/api/v1/staff/appointments/my-appointments',
+    UpdateID:(id) => `/api/staff/medical-records/${id}`,
+    DeleteID:(id) => `/api/staff/medical-records/${id}`,
+    getVitalId:(id) => `/api/staff/medical-records/${id}/vital-values`,
+    UpdateVitalId:(id) => `/api/staff/medical-records/vital-group/${id}`
+  },
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',

@@ -1,5 +1,5 @@
 
-// export function RecordManagerView(){
+export function RecordManagerView(){
 
-//     return null
-// }
+    return null
+}

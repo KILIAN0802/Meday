@@ -63,11 +63,6 @@ export function StaffAppointment() {
     templateId: '',
     vitalValuesCSV: '', // input as comma-separated string, will parse to array
   });
-  console.log("patientId:", medicalForm.patientId);
-console.log("doctorId:", medicalForm.doctorId);
-console.log("appointmentId:", medicalForm.appointmentId);
-console.log("templateId:", medicalForm.templateId);
-
 
   // fetch appointments
   const fetchAppointments = useCallback(async () => {

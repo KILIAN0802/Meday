@@ -1,1 +1,1 @@
-// export * from './Record-create-view'
+export * from './Record-create-view'

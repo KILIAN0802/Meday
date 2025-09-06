@@ -455,7 +455,7 @@ export function MedicalRecords() {
       const response = await axiosInstance.get('/api/v1/staff/appointments', {
         params: {
           page: 1,
-          limit: 100, // lấy nhiều để thống kê
+          limit: 5, // lấy nhiều để thống kê
         },
       });
 
@@ -504,12 +504,12 @@ export function MedicalRecords() {
     {/* =============================================================== */}
 
     {/* Tiêu đề và nút tạo bệnh án */} 
-    <Typography variant="h4" gutterBottom> Tạo bệnh án </Typography>
+    {/* <Typography variant="h4" gutterBottom> Tạo bệnh án </Typography>
     <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
     <Button variant="contained" color="primary">Bệnh án cấp tính</Button>
     <Button variant="contained" color="secondary">Bệnh án mãn tính lần 1</Button>
     <Button variant="contained" color="success">Bệnh án mãn tính tái khám</Button>
-    </Stack>
+    </Stack> */}
 
     {/* =============================================================== */}
       <Typography variant="h4" gutterBottom>

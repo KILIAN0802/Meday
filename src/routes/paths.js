@@ -133,10 +133,10 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/Appointment`,
      
     },
-    // medicalRecordStaff:{
-    //   root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager`,
-    //   create:`${ROOTS.DASHBOARD}/medicalRecordStaff/create`,
-    // },
+    medicalRecordStaff:{
+      root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager`,
+      create:`${ROOTS.DASHBOARD}/medicalRecordStaff/create`,
+    },
     
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
