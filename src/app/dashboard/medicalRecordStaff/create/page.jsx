@@ -1,8 +1,6 @@
+// src/app/dashboard/medicalRecordStaff/create/page.server.jsx
 import { CONFIG } from 'src/global-config';
-
-import { RecordCreateView} from 'src/sections/medicalRecordStaff/create/view';
-
-// ----------------------------------------------------------------------
+import { RecordCreateView } from 'src/sections/medicalRecordStaff/create/view';
 
 export const metadata = { title: `Medical Records Create | Dashboard - ${CONFIG.appName}` };
 
