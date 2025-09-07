@@ -151,9 +151,35 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   const [vitalValuesState, setVitalValuesState] = useState([]);
   const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
   const [recordError, setRecordError] = useState(null);
+  const [allVitalGroups, setAllVitalGroups] = useState([]);
 
-  const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, templateName = '' } =
-    useRecordCreateQuestion(selectedTemplateId);
+useEffect(() => {
+  const fetchAllVitalGroups = async () => {
+    try {
+      const res = await axiosInstance.get('/api/v1/vitals/groups');
+      setAllVitalGroups(res.data?.data || []);
+    } catch (err) {
+      console.error('Lỗi khi lấy toàn bộ vital groups:', err);
+    }
+  };
+  fetchAllVitalGroups();
+}, []);
+
+
+  // const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, templateName = '' } =
+  //   useRecordCreateQuestion(selectedTemplateId);
+
+  const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
+  useRecordCreateQuestion(selectedTemplateId);
+
+  
+useEffect(() => {
+  if (vitalGroupIds.length && !vitalGroupIds.includes(selectedVitalGroupId)) {
+    setSelectedVitalGroupId(vitalGroupIds[0]); // tự chọn nhóm hợp lệ đầu tiên
+  }
+}, [vitalGroupIds, selectedVitalGroupId]);
+
+
 
   // --- Fetch appointments ---
   const fetchAppointments = useCallback(async () => {
@@ -219,6 +245,8 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
       preMedicalResponses: formData.preMedicalResponses,
     };
     try {
+      console.log('Submitting record payload:', JSON.stringify(payload, null, 2));
+
       await axiosInstance.post('/api/v1/staff/appointments', payload);
       setOpenCreateForm(false);
       setSnackbar({ open: true, severity: 'success', message: 'Tạo lịch hẹn thành công' });
@@ -241,14 +269,22 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   };
 
   // --- Open RecordCreateView ---
-  const openRecordDialog = (appt) => {
-    if (!appt || !currentStaff) return;
-    setSelectedRecordAppt(appt);
-    setSelectedTemplateId(null);
-    setSelectedVitalGroupId(null);
-    setVitalValuesState([]);
-    setRecordError(null);
-  };
+ const openRecordDialog = (appt) => {
+  if (!appt || !currentStaff) return;
+  setSelectedRecordAppt(appt);
+
+  const defaultTemplateId = 17; 
+  setSelectedTemplateId(defaultTemplateId);
+
+  // chọn nhóm sinh tồn đầu tiên hợp lệ luôn
+  const defaultVitalGroupId = appt.vitalGroupIds?.[0] || null;
+  setSelectedVitalGroupId(defaultVitalGroupId);
+
+  setVitalValuesState([]);
+  setRecordError(null);
+};
+
+
 
   // --- Handle vitalValues ---
   const handleVitalValueChange = (vitalId, value, note) => {
@@ -260,43 +296,65 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   };
 
   // --- Submit Record ---
-  const handleSubmitRecord = async () => {
-    if (!selectedRecordAppt) return;
-    setIsSubmittingRecord(true);
-    setRecordError(null);
-    try {
-      const payload = {
-        appointmentId: Number(selectedRecordAppt.id),
-        patientId: Number(selectedRecordAppt.patient?.id),
-        doctorId: Number(currentStaff.id),
-        templateId: selectedTemplateId ? Number(selectedTemplateId) : undefined,
-        answers: formState,
-      };
-      const recordRes = await axiosInstance.post('/api/staff/medical-records', payload);
-      const recordId = recordRes.data?.data?.id;
-      if (!recordId) throw new Error('Không lấy được recordId');
+const handleSubmitRecord = async () => {
+  if (!selectedRecordAppt || !currentStaff) return;
+  if (!selectedTemplateId) {
+    setRecordError('Chưa chọn template hồ sơ.');
+    return;
+  }
 
-      if (selectedVitalGroupId) {
-        await axiosInstance.patch(`/api/staff/medical-records/vital-group/${recordId}`, {
-          groupId: Number(selectedVitalGroupId),
-          doctorId: Number(currentStaff.id),
-          examinationDate: new Date().toISOString(),
-        });
-      }
+  setIsSubmittingRecord(true);
+  setRecordError(null);
 
-      if (vitalValuesState.length > 0) {
-        await axiosInstance.patch(`/api/staff/medical-records/${recordId}/vital-values`, { vitalValues: vitalValuesState });
-      }
+  try {
+    // --- Map formState thành các câu trả lời ---
+    const answers = Object.entries(formState).map(([questionCode, answerValue]) => ({
+      questionCode,
+      answerValue,
+    }));
 
-      setSelectedRecordAppt(null);
-      fetchAppointments();
-    } catch (err) {
-      console.error(err.response?.data || err.message);
-      setRecordError('Tạo hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
-    } finally {
-      setIsSubmittingRecord(false);
-    }
-  };
+    // --- Map vitalValuesState sang vitalValues chuẩn ---
+    const vitalValues = vitalValuesState.map(v => ({
+      vitalIndicatorId: v.vitalIndicatorId,
+      value: { value: Number(v.value.value) },
+      note: v.note || '',
+    }));
+
+    // --- Payload chuẩn backend ---
+    const payload = {
+      patientId: Number(selectedRecordAppt.patient?.id),
+      date: new Date().toISOString().split('T')[0], // hoặc formData.date nếu có field date
+      diagnosis: formState.DIAGNOSIS || 'Chưa có chẩn đoán',
+      symptoms: formState.SYMPTOMS || 'chưa có triệu chứng',
+      notes: formState.NOTES || 'chưa có ghi chú',
+      temperature: formState.TEMPERATURE || 0,
+      bloodPressure: formState.BLOOD_PRESSURE || '',
+      heartRate: formState.HEART_RATE || 0,
+      respiratoryRate: formState.RESPIRATORY_RATE || 0,
+      vitalValues,
+      answers, // vẫn giữ nếu backend dùng chung
+    };
+
+    console.log('Submitting record payload:', payload);
+
+    const recordRes = await axiosInstance.post('/api/staff/medical-records', payload);
+    const recordId = recordRes.data?.data?.id;
+
+    if (!recordId) throw new Error('Không lấy được recordId');
+
+    setSelectedRecordAppt(null);
+    fetchAppointments();
+    setSnackbar({ open: true, severity: 'success', message: 'Tạo hồ sơ thành công' });
+  } catch (err) {
+    console.error('Submit record error:', err.response?.data || err.message);
+    setRecordError('Tạo hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
+    setSnackbar({ open: true, severity: 'error', message: 'Tạo hồ sơ thất bại' });
+  } finally {
+    setIsSubmittingRecord(false);
+  }
+};
+
+
 
   // --- Init vitalValues khi chọn group ---
   useEffect(() => {
@@ -357,67 +415,70 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
       </Dialog>
 
       {/* Dialog tạo bệnh án */}
-      <Dialog fullWidth maxWidth="md" open={!!selectedRecordAppt} onClose={() => setSelectedRecordAppt(null)}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {`Tạo hồ sơ cho: ${selectedRecordAppt?.fullName || selectedRecordAppt?.patient?.fullname || ''}`}
-          <IconButton onClick={() => setSelectedRecordAppt(null)}><CloseIcon /></IconButton>
-        </DialogTitle>
-        <DialogContent dividers>
-          <RecordCreateButtons onTemplateSelect={setSelectedTemplateId} />
-          {isRecordLoading && <CircularProgress />}
-          {recordError && <Alert severity="error">{recordError}</Alert>}
+<Dialog fullWidth maxWidth="md" open={!!selectedRecordAppt} onClose={() => setSelectedRecordAppt(null)}>
+  <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    {`Tạo hồ sơ cho: ${selectedRecordAppt?.fullName || selectedRecordAppt?.patient?.fullname || ''}`}
+    <IconButton onClick={() => setSelectedRecordAppt(null)}><CloseIcon /></IconButton>
+  </DialogTitle>
 
-          {!isRecordLoading && questions.length > 0 && (
-            <Stack spacing={3} sx={{ mt: 2 }}>
-              {questions.map((q) => renderQuestion(q, formState, handleInputChange))}
+  <DialogContent dividers>
+    <RecordCreateButtons onTemplateSelect={setSelectedTemplateId} />
+    {isRecordLoading && <CircularProgress />}
+    {recordError && <Alert severity="error">{recordError}</Alert>}
 
-              {vitalGroups.length > 0 && (
-                <FormControl fullWidth>
-                  <Select value={selectedVitalGroupId || ''} onChange={(e) => setSelectedVitalGroupId(Number(e.target.value))}>
-                    {vitalGroups.map((vg) => (
-                      <MenuItem key={vg.id} value={vg.id}>{vg.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
+    {!isRecordLoading && questions.length > 0 && (
+      <Stack spacing={3} sx={{ mt: 2 }}>
+        {/* Render câu hỏi */}
+        {questions.map(q => renderQuestion(q, formState, handleInputChange))}
 
-              {selectedVitalGroupId && vitalValuesState.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle1" sx={{ mt: 2 }}>Giá trị sinh tồn</Typography>
-                  {vitalValuesState.map((v) => {
-                    const indicator = vitalIndicators.find(ind => ind.id === v.vitalIndicatorId);
-                    return (
-                      <Stack key={v.vitalIndicatorId} direction="row" spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                          label={indicator?.name || 'Vital'}
-                          type="number"
-                          value={v.value.value}
-                          onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, e.target.value, v.note)}
-                        />
-                        <TextField
-                          label="Ghi chú"
-                          value={v.note}
-                          onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, v.value.value, e.target.value)}
-                        />
-                      </Stack>
-                    );
-                  })}
-                </Box>
-              )}
+        {/* Chọn Vital Group */}
+        
 
-              <Button variant="contained" size="large" onClick={handleSubmitRecord} disabled={isSubmittingRecord}>
-                {isSubmittingRecord ? 'Đang tạo...' : 'Tạo hồ sơ'}
-              </Button>
-            </Stack>
-          )}
+        {/* Giá trị sinh tồn */}
+        {selectedVitalGroupId && vitalValuesState.length > 0 && (
+          <Box>
+            <Typography variant="subtitle1" sx={{ mt: 2 }}>Giá trị sinh tồn</Typography>
+            {vitalValuesState.map((v) => {
+              const indicator = vitalIndicators.find(ind => ind.id === v.vitalIndicatorId);
+              return (
+                <Stack key={v.vitalIndicatorId} direction="row" spacing={2} sx={{ mt: 1 }}>
+                  <TextField
+                    label={indicator?.name || 'Vital'}
+                    type="number"
+                    value={v.value.value}
+                    onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, e.target.value, v.note)}
+                  />
+                  <TextField
+                    label="Ghi chú"
+                    value={v.note}
+                    onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, v.value.value, e.target.value)}
+                  />
+                </Stack>
+              );
+            })}
+          </Box>
+        )}
 
-          {!isRecordLoading && questions.length === 0 && (
-            <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
-              Chưa chọn template hoặc không có câu hỏi nào.
-            </Typography>
-          )}
-        </DialogContent>
-      </Dialog>
+        {/* Nút tạo hồ sơ */}
+        <Button
+          variant="contained"
+          size="large"
+          onClick={handleSubmitRecord}
+          // disabled={isSubmittingRecord || !selectedTemplateId || !selectedVitalGroupId}
+        >
+          {isSubmittingRecord ? 'Đang tạo...' : 'Tạo hồ sơ'}
+        </Button>
+      </Stack>
+    )}
+
+    {!isRecordLoading && questions.length === 0 && (
+      <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
+        Chưa chọn template hoặc không có câu hỏi nào.
+      </Typography>
+    )}
+  </DialogContent>
+</Dialog>
+
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>{snackbar.message}</Alert>
