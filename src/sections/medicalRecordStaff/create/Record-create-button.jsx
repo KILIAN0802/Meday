@@ -42,9 +42,9 @@ export function RecordCreateButtons({ onTemplateSelect }) {
       const response = await axiosInstance.get(endpoint);
       const apiData = response.data?.data || [];
 
-      // Lấy danh sách version duy nhất từ notes
-      const uniqueVersions = [...new Set(apiData.map((item) => item.notes))];
-      setVersions(uniqueVersions);
+      // // Lấy danh sách version duy nhất từ notes
+      // const uniqueVersions = [...new Set(apiData.map((item) => item.notes))];
+      // setVersions(uniqueVersions);
 
       // Lọc theo version đang chọn
       const filtered = apiData.filter((item) => item.notes === selectedVersion);
