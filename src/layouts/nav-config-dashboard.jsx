@@ -74,58 +74,43 @@ export function useNavData() {
   ], [user?.role]);
 
   return [
-    {
-      subheader: 'Tổng quát',
-      items: [
-        { title: 'Trang chủ', path: paths.dashboard.root, icon: ICONS.dashboard },
-        ...(user?.accountType === 'admin'
-          ? [
-              { title: 'Danh sách nhân viên', path: paths.dashboard.general.EmployeeUserList, icon: ICONS.dashboard },
-              { title: 'Thêm nhân viên', path: paths.dashboard.general.CreateEmployeeUser, icon: ICONS.ecommerce },
-            ]
-          : []),
-        { title: 'Danh sách bệnh nhân', path: paths.dashboard.general.PatientUserList, icon: ICONS.analytics },
-        { title: 'Thêm bệnh nhân', path: paths.dashboard.general.CreatePatientUser, icon: ICONS.banking },
-      ],
-    },
-    // {
-    //   subheader: 'Quản lý bệnh án',
-    //   items: [
-    //     {
-    //       title: 'Bệnh án',
-    //       path: paths.dashboard.MedicalRecords.root,
-    //       children: [
-    //         ...(user?.role === 1
-    //           ? [{ title: 'Quản lý bệnh án', path: paths.dashboard.MedicalRecords.record }]
-    //           : [{ title: 'Tạo bệnh án', path: paths.dashboard.MedicalRecords.create }]),
-    //         { title: 'Bệnh án chờ xử lý', path: paths.dashboard.MedicalRecords.pending },
-    //         { title: 'Bệnh án đang xử lý', path: paths.dashboard.MedicalRecords.processing },
-    //       ],
-    //     },
-    //   ],
-    // },
-
-     {
-      subheader: 'Quản lý bệnh án',
-      items: medicalRecordItems,
-    },
-
-    {
-      subheader: 'Quản lý lịch hẹn',
-      items: appointment,
-    },
-
-    {
-      subheader: 'Misc',
-      items: [
+  ...(user?.accountType === 'admin'
+    ? [
         {
-          title: 'Các thông tin về bệnh may đay',
-          path: 'https://www.bing.com/search?q=urticaria',
-          icon: ICONS.external,
-          info: <Iconify width={18} icon="eva:external-link-fill" />,
+          subheader: 'Tổng quát',
+          items: [
+            { title: 'Trang chủ', path: paths.dashboard.root, icon: ICONS.dashboard },
+            { title: 'Danh sách nhân viên', path: paths.dashboard.general.EmployeeUserList, icon: ICONS.dashboard },
+            { title: 'Thêm nhân viên', path: paths.dashboard.general.CreateEmployeeUser, icon: ICONS.ecommerce },
+            { title: 'Danh sách bệnh nhân', path: paths.dashboard.general.PatientUserList, icon: ICONS.analytics },
+            { title: 'Thêm bệnh nhân', path: paths.dashboard.general.CreatePatientUser, icon: ICONS.banking },
+          ],
         },
-        { title: 'Blank', path: paths.dashboard.blank, icon: ICONS.blank },
-      ],
-    },
-  ];
+      ]
+    : []),
+
+  {
+    subheader: 'Quản lý bệnh án',
+    items: medicalRecordItems,
+  },
+
+  {
+    subheader: 'Quản lý lịch hẹn',
+    items: appointment,
+  },
+
+  {
+    subheader: 'Misc',
+    items: [
+      {
+        title: 'Các thông tin về bệnh may đay',
+        path: 'https://www.bing.com/search?q=urticaria',
+        icon: ICONS.external,
+        info: <Iconify width={18} icon="eva:external-link-fill" />,
+      },
+      { title: 'Blank', path: paths.dashboard.blank, icon: ICONS.blank },
+    ],
+  },
+];
+
 }

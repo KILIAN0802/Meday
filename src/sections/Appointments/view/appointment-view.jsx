@@ -75,9 +75,14 @@ const renderQuestion = (question, formState, handleInputChange) => {
     case 'selection':
       return (
         <FormControl key={questionCode} fullWidth>
-          <InputLabel>{question?.name}</InputLabel>
+          <InputLabel id={`${questionCode}-label`}>
+            {question?.name}
+          </InputLabel>
           <Select
+            labelId={`${questionCode}-label`}
+            id={`${questionCode}-select`}
             value={value}
+            label={question?.name}
             onChange={(e) => handleInputChange(questionCode, e.target.value)}
           >
             {(question?.valueOptions || []).map((option) => (
@@ -95,8 +100,12 @@ const renderQuestion = (question, formState, handleInputChange) => {
     case 'multi_selection':
       return (
         <FormControl key={questionCode} fullWidth>
-          <InputLabel>{question?.name}</InputLabel>
+          <InputLabel id={`${questionCode}-multi-label`}>
+            {question?.name}
+          </InputLabel>
           <Select
+            labelId={`${questionCode}-multi-label`}
+            id={`${questionCode}-multi-select`}
             multiple
             value={Array.isArray(value) ? value : []}
             onChange={(e) => handleInputChange(questionCode, e.target.value)}
@@ -129,9 +138,9 @@ const renderQuestion = (question, formState, handleInputChange) => {
           type="text"
           value={value}
           onChange={(e) => handleInputChange(questionCode, e.target.value)}
-          helperText={`Kiểu dữ liệu: ${
-            question?.valueType || 'text'
-          }. ${question?.description || ''}`}
+          // helperText={`Kiểu dữ liệu: ${
+          //   question?.valueType || 'text'
+          // }. ${question?.description || ''}`}
         />
       );
   }
@@ -149,6 +158,8 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   // --- Create appointment dialog ---
   const [openCreateForm, setOpenCreateForm] = useState(false);
   const [formData, setFormData] = useState({
+    patientId: '',
+    doctorId: '',
     reason: '',
     appointmentDate: '',
     status: 'PENDING',
@@ -255,13 +266,13 @@ useEffect(() => {
     else setAppointments(allAppointments.filter((r) => r.id?.toString().includes(value)));
   };
 
- const handleSubmitAppointment = async () => {
+const handleSubmitAppointment = async () => {
   const payload = {
-    patientId: formData.patientId, // 🔴 bắt buộc
-    doctorId: formData.doctorId,   // 🔴 bắt buộc
+   patientId: Number(formData.patientId), // ép thành số
+    doctorId: currentStaff.id,           // hardcode = chính bác sĩ login
     reason: formData.reason,
-    appointmentDate: new Date(formData.appointmentDate).toISOString(), // chuẩn ISO
-    status: formData.status || 'PENDING',
+    appointmentDate: new Date(formData.appointmentDate).toISOString(),
+    status: "CONFIRMED",                // bác sĩ tạo => CONFIRMED
     notes: formData.notes,
     fullName: formData.fullName,
     phone: formData.phone,
@@ -271,12 +282,14 @@ useEffect(() => {
     },
     preMedicalResponses: formData.preMedicalResponses?.length
       ? formData.preMedicalResponses
-      : [], // tránh gửi rỗng sai format
+      : [],
   };
 
   try {
-    console.log("Submitting record payload:", JSON.stringify(payload, null, 2));
+    console.log("Submitting record payload:", payload);
+
     await axiosInstance.post("/api/v1/staff/appointments", payload);
+
     setOpenCreateForm(false);
     setSnackbar({
       open: true,
@@ -285,11 +298,10 @@ useEffect(() => {
     });
     fetchAppointments();
     setFormData({
-      patientId: "", // reset lại
+      patientId: "",
       doctorId: "",
       reason: "",
       appointmentDate: "",
-      status: "PENDING",
       notes: "",
       fullName: "",
       phone: "",
@@ -308,6 +320,7 @@ useEffect(() => {
 };
 
 
+
   // --- Open RecordCreateView ---
  const openRecordDialog = (appt) => {
   if (!appt || !currentStaff) return;
@@ -323,8 +336,6 @@ useEffect(() => {
   setVitalValuesState([]);
   setRecordError(null);
 };
-
-
 
   // --- Handle vitalValues ---
   const handleVitalValueChange = (vitalId, value, note) => {
@@ -414,59 +425,125 @@ const handleSubmitRecord = async () => {
         <Button variant="contained" color="info" onClick={() => setOpenCreateForm(true)}>Tạo lịch hẹn</Button>
       </Stack>
 
-      {isLoading ? <CircularProgress /> :
-  appointments.length === 0 ? (
-    <Typography>Không có lịch hẹn nào.</Typography>
-  ) : (
-    <Stack spacing={2}>
-      {appointments.map((appt) => (
-        <Card key={appt.id}>
-          <CardContent>
-            <Typography>Lý do: {appt.reason}</Typography>
-            <Typography>
-              Thời gian: {appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleString() : 'Chưa có'}
-            </Typography>
-            <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullName}</Typography>
-            <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
+              {isLoading ? <CircularProgress /> :
+          appointments.length === 0 ? (
+            <Typography>Không có lịch hẹn nào.</Typography>
+                    ) : (
+                      <Stack spacing={2}>
+                        {appointments.map((appt) => (
+                          <Card key={appt.id}>
+                            <CardContent>
+                              <Stack spacing={1}>
+                    <Typography>Lý do: {appt.reason}</Typography>
 
-            <Select
-              value={appt.status}
-              onChange={(e) => handleStatusChange(appt.id, e.target.value)}
-              size="small"
-            >
-              <MenuItem value="PENDING">Chờ xác nhận</MenuItem>
-              <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
-              <MenuItem value="CANCELLED">Đã hủy</MenuItem>
-              <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
-            </Select>
+                    <Typography>
+                      Thời gian:{' '}
+                      {appt.appointmentDate
+                        ? new Date(appt.appointmentDate).toLocaleString('vi-VN')
+                        : 'Chưa có'}
+                    </Typography>
 
-            <Button sx={{ ml: 2 }} variant="outlined" onClick={() => openRecordDialog(appt)}>
-              Tạo bệnh án
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
-    </Stack>
-  )
+                    <Typography>
+                      Bệnh nhân: {appt.fullName || appt.patient?.fullname}
+                    </Typography>
+
+                    <Typography>
+                      SĐT: {appt.phone || appt.patient?.phone}
+                    </Typography>
+
+                    <Typography>Trạng thái: {appt.status}</Typography>
+
+                    {appt.notes && <Typography>Ghi chú: {appt.notes}</Typography>}
+
+                    {appt.customInfo?.emergencyContact && (
+                      <Typography>Liên hệ khẩn cấp: {appt.customInfo.emergencyContact}</Typography>
+                    )}
+                  </Stack>
+
+
+                      <Select
+                        value={appt.status}
+                        onChange={(e) => handleStatusChange(appt.id, e.target.value)}
+                        size="small"
+                      >
+                        <MenuItem value="PENDING">Chờ xác nhận</MenuItem>
+                        <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
+                        <MenuItem value="CANCELLED">Đã hủy</MenuItem>
+                        <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
+                      </Select>
+
+                      <Button sx={{ ml: 2 }} variant="outlined" onClick={() => openRecordDialog(appt)}>
+                        Tạo bệnh án
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            )
 }
 
 
       {/* Dialog tạo lịch hẹn */}
-      <Dialog open={openCreateForm} onClose={() => setOpenCreateForm(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Tạo lịch hẹn mới</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2}>
-            <TextField label="Họ tên" fullWidth value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} />
-            <TextField label="SĐT" fullWidth value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-            <TextField label="Lý do" fullWidth value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} />
-            <TextField label="Ngày hẹn" type="datetime-local" fullWidth value={formData.appointmentDate} onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })} InputLabelProps={{ shrink: true }} />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCreateForm(false)}>Hủy</Button>
-          <Button variant="contained" onClick={handleSubmitAppointment}>Tạo</Button>
-        </DialogActions>
-      </Dialog>
+<Dialog
+  open={openCreateForm}
+  onClose={() => setOpenCreateForm(false)}
+  fullWidth
+  maxWidth="sm"
+>
+  <DialogTitle>Tạo lịch hẹn mới</DialogTitle>
+  <DialogContent>
+    <Stack spacing={2}>
+      {/* chọn bệnh nhân */}
+      <TextField
+        label="Patient ID"
+        fullWidth
+        type="number"
+        value={formData.patientId}
+        onChange={(e) =>
+          setFormData({ ...formData, patientId: e.target.value })
+        }
+      />
+
+      <TextField
+        label="Họ tên"
+        fullWidth
+        value={formData.fullName}
+        onChange={(e) =>
+          setFormData({ ...formData, fullName: e.target.value })
+        }
+      />
+      <TextField
+        label="SĐT"
+        fullWidth
+        value={formData.phone}
+        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+      />
+      <TextField
+        label="Lý do"
+        fullWidth
+        value={formData.reason}
+        onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+      />
+      <TextField
+        label="Ngày hẹn"
+        type="datetime-local"
+        fullWidth
+        value={formData.appointmentDate}
+        onChange={(e) =>
+          setFormData({ ...formData, appointmentDate: e.target.value })
+        }
+        InputLabelProps={{ shrink: true }}
+      />
+    </Stack>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenCreateForm(false)}>Hủy</Button>
+    <Button variant="contained" onClick={handleSubmitAppointment}>
+      Tạo
+    </Button>
+  </DialogActions>
+</Dialog>
+
 
       {/* Dialog tạo bệnh án */}
 <Dialog fullWidth maxWidth="md" open={!!selectedRecordAppt} onClose={() => setSelectedRecordAppt(null)}>
