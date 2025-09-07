@@ -39,8 +39,8 @@ import { RecordCreateButtons } from '../../medicalRecordStaff/create/Record-crea
 
 // --- Render question template ---
 const renderQuestion = (question, formState, handleInputChange) => {
-  const questionCode = question?.code || '';
-  const value = formState?.[questionCode] ?? '';
+  const questionid = question?.id || '';
+  const value = formState?.[questionid] ?? '';
   const commonProps = {
     label: question?.name || 'Câu hỏi',
     fullWidth: true,
@@ -51,11 +51,11 @@ const renderQuestion = (question, formState, handleInputChange) => {
     case 'number':
       return (
         <TextField
-          key={questionCode}
+          key={questionid}
           {...commonProps}
           type="number"
           value={value}
-          onChange={(e) => handleInputChange(questionCode, e.target.value)}
+          onChange={(e) => handleInputChange(questionid, e.target.value)}
           helperText={question?.description}
         />
       );
@@ -63,27 +63,27 @@ const renderQuestion = (question, formState, handleInputChange) => {
     case 'text':
       return (
         <TextField
-          key={questionCode}
+          key={questionid}
           {...commonProps}
           type="text"
           value={value}
-          onChange={(e) => handleInputChange(questionCode, e.target.value)}
+          onChange={(e) => handleInputChange(questionid, e.target.value)}
           helperText={question?.description}
         />
       );
 
     case 'selection':
       return (
-        <FormControl key={questionCode} fullWidth>
-          <InputLabel id={`${questionCode}-label`}>
+        <FormControl key={questionid} fullWidth>
+          <InputLabel id={`${questionid}-label`}>
             {question?.name}
           </InputLabel>
           <Select
-            labelId={`${questionCode}-label`}
-            id={`${questionCode}-select`}
+            labelId={`${questionid}-label`}
+            id={`${questionid}-select`}
             value={value}
             label={question?.name}
-            onChange={(e) => handleInputChange(questionCode, e.target.value)}
+            onChange={(e) => handleInputChange(questionid, e.target.value)}
           >
             {(question?.valueOptions || []).map((option) => (
               <MenuItem key={option} value={option}>
@@ -99,16 +99,16 @@ const renderQuestion = (question, formState, handleInputChange) => {
 
     case 'multi_selection':
       return (
-        <FormControl key={questionCode} fullWidth>
-          <InputLabel id={`${questionCode}-multi-label`}>
+        <FormControl key={questionid} fullWidth>
+          <InputLabel id={`${questionid}-multi-label`}>
             {question?.name}
           </InputLabel>
           <Select
-            labelId={`${questionCode}-multi-label`}
-            id={`${questionCode}-multi-select`}
+            labelId={`${questionid}-multi-label`}
+            id={`${questionid}-multi-select`}
             multiple
             value={Array.isArray(value) ? value : []}
-            onChange={(e) => handleInputChange(questionCode, e.target.value)}
+            onChange={(e) => handleInputChange(questionid, e.target.value)}
             input={<OutlinedInput label={question?.name} />}
             renderValue={(selected) => (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -133,11 +133,11 @@ const renderQuestion = (question, formState, handleInputChange) => {
     default:
       return (
         <TextField
-          key={questionCode}
+          key={questionid}
           {...commonProps}
           type="text"
           value={value}
-          onChange={(e) => handleInputChange(questionCode, e.target.value)}
+          onChange={(e) => handleInputChange(questionid, e.target.value)}
           // helperText={`Kiểu dữ liệu: ${
           //   question?.valueType || 'text'
           // }. ${question?.description || ''}`}
@@ -267,12 +267,30 @@ useEffect(() => {
   };
 
 const handleSubmitAppointment = async () => {
+  if (!currentStaff) return;
+
+  // 1️⃣ Kiểm tra availability
+  const isAvailable = await checkDoctorAvailability(
+    currentStaff.id,
+    new Date(formData.appointmentDate).toISOString()
+  );
+console.log('Doctor availability:', isAvailable);
+  if (!isAvailable) {
+    setSnackbar({
+      open: true,
+      severity: 'warning',
+      message: 'Bác sĩ không rảnh vào thời gian này, vui lòng chọn thời gian khác',
+    });
+    return;
+  }
+
+  // 2️⃣ Nếu rảnh thì tạo appointment như bình thường
   const payload = {
-   patientId: Number(formData.patientId), // ép thành số
-    doctorId: currentStaff.id,           // hardcode = chính bác sĩ login
+    patientId: Number(formData.patientId),
+    doctorId: currentStaff.id,
     reason: formData.reason,
     appointmentDate: new Date(formData.appointmentDate).toISOString(),
-    status: "CONFIRMED",                // bác sĩ tạo => CONFIRMED
+    status: "CONFIRMED",
     notes: formData.notes,
     fullName: formData.fullName,
     phone: formData.phone,
@@ -280,16 +298,11 @@ const handleSubmitAppointment = async () => {
       emergencyContact: formData.emergencyContact,
       insurance: formData.insurance,
     },
-    preMedicalResponses: formData.preMedicalResponses?.length
-      ? formData.preMedicalResponses
-      : [],
+    preMedicalResponses: formData.preMedicalResponses?.length ? formData.preMedicalResponses : [],
   };
 
   try {
-    console.log("Submitting record payload:", payload);
-
     await axiosInstance.post("/api/v1/staff/appointments", payload);
-
     setOpenCreateForm(false);
     setSnackbar({
       open: true,
@@ -318,7 +331,6 @@ const handleSubmitAppointment = async () => {
     });
   }
 };
-
 
 
   // --- Open RecordCreateView ---
@@ -358,40 +370,41 @@ const handleSubmitRecord = async () => {
   setRecordError(null);
 
   try {
-    // --- Map formState thành các câu trả lời ---
-    const answers = Object.entries(formState).map(([questionCode, answerValue]) => ({
-      questionCode,
+    // Map formState thành answers
+    const answers = Object.entries(formState).map(([questionId, answerValue]) => ({
+      questionId: Number(questionId),
       answerValue,
     }));
 
-    // --- Map vitalValuesState sang vitalValues chuẩn ---
-    const vitalValues = vitalValuesState.map(v => ({
-      vitalIndicatorId: v.vitalIndicatorId,
-      value: { value: Number(v.value.value) },
-      note: v.note || '',
-    }));
-
-    // --- Payload chuẩn backend ---
+    // Payload để tạo record
     const payload = {
       patientId: Number(selectedRecordAppt.patient?.id),
-      date: new Date().toISOString().split('T')[0], // hoặc formData.date nếu có field date
+      date: new Date().toISOString().split('T')[0],
       diagnosis: formState.DIAGNOSIS || 'Chưa có chẩn đoán',
       symptoms: formState.SYMPTOMS || 'chưa có triệu chứng',
       notes: formState.NOTES || 'chưa có ghi chú',
-      temperature: formState.TEMPERATURE || 0,
-      bloodPressure: formState.BLOOD_PRESSURE || '',
-      heartRate: formState.HEART_RATE || 0,
-      respiratoryRate: formState.RESPIRATORY_RATE || 0,
-      vitalValues,
-      answers, // vẫn giữ nếu backend dùng chung
+      answers,
+      vitalValues: [null], // backend yêu cầu khi tạo
     };
 
-    console.log('Submitting record payload:', payload);
-
+    // 1️⃣ Tạo record
     const recordRes = await axiosInstance.post('/api/staff/medical-records', payload);
     const recordId = recordRes.data?.data?.id;
-
     if (!recordId) throw new Error('Không lấy được recordId');
+
+    // 2️⃣ Chuẩn bị PATCH vitalValues trực tiếp từ formState
+    const vitalPayload = Object.entries(formState).map(([questionId, answerValue]) => ({
+      vitalIndicatorId: Number(questionId),
+      value: { value: answerValue }, // giữ nguyên số hoặc chữ
+      note: '', // hoặc map note nếu muốn
+    }));
+
+    await axiosInstance.patch(
+      `/api/staff/medical-records/${recordId}/vital-values`,
+      { vitalValues: vitalPayload }
+    );
+
+    console.log('Updated vitalValues:', vitalPayload);
 
     setSelectedRecordAppt(null);
     fetchAppointments();
@@ -404,6 +417,21 @@ const handleSubmitRecord = async () => {
     setIsSubmittingRecord(false);
   }
 };
+
+const checkDoctorAvailability = async (doctorId, appointmentDate) => {
+  try {
+    const res = await axiosInstance.get('/api/v1/staff/appointments/check-availability', {
+      params: { doctorId, appointmentDate },
+    });
+    return res.data?.available ?? false;
+  } catch (err) {
+    console.error('Lỗi khi kiểm tra availability:', err);
+    return false;
+  }
+};
+
+
+
 
 
 
@@ -461,7 +489,7 @@ const handleSubmitRecord = async () => {
                   </Stack>
 
 
-                      <Select
+                      {/* <Select
                         value={appt.status}
                         onChange={(e) => handleStatusChange(appt.id, e.target.value)}
                         size="small"
@@ -470,7 +498,7 @@ const handleSubmitRecord = async () => {
                         <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
                         <MenuItem value="CANCELLED">Đã hủy</MenuItem>
                         <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
-                      </Select>
+                      </Select> */}
 
                       <Button sx={{ ml: 2 }} variant="outlined" onClick={() => openRecordDialog(appt)}>
                         Tạo bệnh án
