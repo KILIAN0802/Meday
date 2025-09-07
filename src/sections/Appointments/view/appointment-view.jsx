@@ -25,6 +25,8 @@ import {
   Alert,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import InputLabel from '@mui/material/InputLabel';
+import FormHelperText from '@mui/material/FormHelperText';
 import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import axiosInstance from 'src/lib/axios';
@@ -39,7 +41,11 @@ import { RecordCreateButtons } from '../../medicalRecordStaff/create/Record-crea
 const renderQuestion = (question, formState, handleInputChange) => {
   const questionCode = question?.code || '';
   const value = formState?.[questionCode] ?? '';
-  const commonProps = { label: question?.name || 'Câu hỏi', fullWidth: true, variant: 'outlined' };
+  const commonProps = {
+    label: question?.name || 'Câu hỏi',
+    fullWidth: true,
+    variant: 'outlined',
+  };
 
   switch (question?.valueType) {
     case 'number':
@@ -53,6 +59,7 @@ const renderQuestion = (question, formState, handleInputChange) => {
           helperText={question?.description}
         />
       );
+
     case 'text':
       return (
         <TextField
@@ -64,43 +71,56 @@ const renderQuestion = (question, formState, handleInputChange) => {
           helperText={question?.description}
         />
       );
+
     case 'selection':
       return (
         <FormControl key={questionCode} fullWidth>
+          <InputLabel>{question?.name}</InputLabel>
           <Select
-            {...commonProps}
             value={value}
             onChange={(e) => handleInputChange(questionCode, e.target.value)}
           >
             {(question?.valueOptions || []).map((option) => (
-              <MenuItem key={option} value={option}>{option}</MenuItem>
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
             ))}
           </Select>
-          {question?.description && <Typography variant="caption">{question.description}</Typography>}
+          {question?.description && (
+            <FormHelperText>{question.description}</FormHelperText>
+          )}
         </FormControl>
       );
+
     case 'multi_selection':
       return (
         <FormControl key={questionCode} fullWidth>
+          <InputLabel>{question?.name}</InputLabel>
           <Select
-            {...commonProps}
             multiple
             value={Array.isArray(value) ? value : []}
             onChange={(e) => handleInputChange(questionCode, e.target.value)}
             input={<OutlinedInput label={question?.name} />}
             renderValue={(selected) => (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {Array.isArray(selected) ? selected.map((val) => <Chip key={val} label={val} />) : null}
+                {Array.isArray(selected)
+                  ? selected.map((val) => <Chip key={val} label={val} />)
+                  : null}
               </Box>
             )}
           >
             {(question?.valueOptions || []).map((option) => (
-              <MenuItem key={option} value={option}>{option}</MenuItem>
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
             ))}
           </Select>
-          {question?.description && <Typography variant="caption">{question.description}</Typography>}
+          {question?.description && (
+            <FormHelperText>{question.description}</FormHelperText>
+          )}
         </FormControl>
       );
+
     default:
       return (
         <TextField
@@ -109,7 +129,9 @@ const renderQuestion = (question, formState, handleInputChange) => {
           type="text"
           value={value}
           onChange={(e) => handleInputChange(questionCode, e.target.value)}
-          helperText={`Kiểu dữ liệu: ${question?.valueType || 'text'}. ${question?.description || ''}`}
+          helperText={`Kiểu dữ liệu: ${
+            question?.valueType || 'text'
+          }. ${question?.description || ''}`}
         />
       );
   }
