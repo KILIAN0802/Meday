@@ -233,40 +233,58 @@ useEffect(() => {
     else setAppointments(allAppointments.filter((r) => r.id?.toString().includes(value)));
   };
 
-  const handleSubmitAppointment = async () => {
-    const payload = {
-      reason: formData.reason,
-      appointmentDate: formData.appointmentDate,
-      status: formData.status,
-      notes: formData.notes,
-      fullName: formData.fullName,
-      phone: formData.phone,
-      customInfo: { emergencyContact: formData.emergencyContact, insurance: formData.insurance },
-      preMedicalResponses: formData.preMedicalResponses,
-    };
-    try {
-      console.log('Submitting record payload:', JSON.stringify(payload, null, 2));
-
-      await axiosInstance.post('/api/v1/staff/appointments', payload);
-      setOpenCreateForm(false);
-      setSnackbar({ open: true, severity: 'success', message: 'Tạo lịch hẹn thành công' });
-      fetchAppointments();
-      setFormData({
-        reason: '',
-        appointmentDate: '',
-        status: 'PENDING',
-        notes: '',
-        fullName: '',
-        phone: '',
-        emergencyContact: '',
-        insurance: '',
-        preMedicalResponses: [{ questionId: 0, answerValue: '' }],
-      });
-    } catch (error) {
-      console.error('Lỗi khi tạo lịch hẹn:', error.response?.data || error.message);
-      setSnackbar({ open: true, severity: 'error', message: 'Tạo lịch hẹn thất bại' });
-    }
+ const handleSubmitAppointment = async () => {
+  const payload = {
+    patientId: formData.patientId, // 🔴 bắt buộc
+    doctorId: formData.doctorId,   // 🔴 bắt buộc
+    reason: formData.reason,
+    appointmentDate: new Date(formData.appointmentDate).toISOString(), // chuẩn ISO
+    status: formData.status || 'PENDING',
+    notes: formData.notes,
+    fullName: formData.fullName,
+    phone: formData.phone,
+    customInfo: {
+      emergencyContact: formData.emergencyContact,
+      insurance: formData.insurance,
+    },
+    preMedicalResponses: formData.preMedicalResponses?.length
+      ? formData.preMedicalResponses
+      : [], // tránh gửi rỗng sai format
   };
+
+  try {
+    console.log("Submitting record payload:", JSON.stringify(payload, null, 2));
+    await axiosInstance.post("/api/v1/staff/appointments", payload);
+    setOpenCreateForm(false);
+    setSnackbar({
+      open: true,
+      severity: "success",
+      message: "Tạo lịch hẹn thành công",
+    });
+    fetchAppointments();
+    setFormData({
+      patientId: "", // reset lại
+      doctorId: "",
+      reason: "",
+      appointmentDate: "",
+      status: "PENDING",
+      notes: "",
+      fullName: "",
+      phone: "",
+      emergencyContact: "",
+      insurance: "",
+      preMedicalResponses: [],
+    });
+  } catch (error) {
+    console.error("Lỗi khi tạo lịch hẹn:", error.response?.data || error.message);
+    setSnackbar({
+      open: true,
+      severity: "error",
+      message: "Tạo lịch hẹn thất bại",
+    });
+  }
+};
+
 
   // --- Open RecordCreateView ---
  const openRecordDialog = (appt) => {
@@ -375,27 +393,41 @@ const handleSubmitRecord = async () => {
       </Stack>
 
       {isLoading ? <CircularProgress /> :
-        appointments.length === 0 ? <Typography>Không có lịch hẹn nào.</Typography> :
-        <Stack spacing={2}>
-          {appointments.map((appt) => (
-            <Card key={appt.id}>
-              <CardContent>
-                <Typography>Lý do: {appt.reason}</Typography>
-                <Typography>Thời gian: {appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleString() : '-'}</Typography>
-                <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullname}</Typography>
-                <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
-                <Select value={appt.status} onChange={(e) => handleStatusChange(appt.id, e.target.value)} size="small">
-                  <MenuItem value="PENDING">Chờ xác nhận</MenuItem>
-                  <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
-                  <MenuItem value="CANCELLED">Đã hủy</MenuItem>
-                  <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
-                </Select>
-                <Button sx={{ ml: 2 }} variant="outlined" onClick={() => openRecordDialog(appt)}>Tạo bệnh án</Button>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      }
+  appointments.length === 0 ? (
+    <Typography>Không có lịch hẹn nào.</Typography>
+  ) : (
+    <Stack spacing={2}>
+      {appointments.map((appt) => (
+        <Card key={appt.id}>
+          <CardContent>
+            <Typography>Lý do: {appt.reason}</Typography>
+            <Typography>
+              Thời gian: {appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleString() : 'Chưa có'}
+            </Typography>
+            <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullName}</Typography>
+            <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
+
+            <Select
+              value={appt.status}
+              onChange={(e) => handleStatusChange(appt.id, e.target.value)}
+              size="small"
+            >
+              <MenuItem value="PENDING">Chờ xác nhận</MenuItem>
+              <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
+              <MenuItem value="CANCELLED">Đã hủy</MenuItem>
+              <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
+            </Select>
+
+            <Button sx={{ ml: 2 }} variant="outlined" onClick={() => openRecordDialog(appt)}>
+              Tạo bệnh án
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </Stack>
+  )
+}
+
 
       {/* Dialog tạo lịch hẹn */}
       <Dialog open={openCreateForm} onClose={() => setOpenCreateForm(false)} fullWidth maxWidth="sm">
@@ -429,9 +461,7 @@ const handleSubmitRecord = async () => {
     {!isRecordLoading && questions.length > 0 && (
       <Stack spacing={3} sx={{ mt: 2 }}>
         {/* Render câu hỏi */}
-        {questions.map(q => renderQuestion(q, formState, handleInputChange))}
-
-        {/* Chọn Vital Group */}
+    {questions.map(q => renderQuestion(q, formState, handleInputChange))}
         
 
         {/* Giá trị sinh tồn */}

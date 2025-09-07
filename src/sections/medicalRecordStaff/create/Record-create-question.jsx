@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getMedicalRecordTemplateById } from 'src/api/medial-record-templates-staff';
+import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff.js';
 import { getVitalGroupById } from 'src/api/vitals';
 
 export function useRecordCreateQuestion(templateId) {

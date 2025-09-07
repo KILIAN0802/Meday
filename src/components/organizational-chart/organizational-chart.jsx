@@ -1,90 +1,84 @@
-import dynamic from 'next/dynamic';
-import { cloneElement } from 'react';
+// src/components/ReusableTablePagination.jsx
 
-import { useTheme } from '@mui/material/styles';
+import React from 'react';
+import PropTypes from 'prop-types';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import { KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 
-// ----------------------------------------------------------------------
+// Đã chuyển sang dạng `export function`
+export function ReusableTablePagination({ count, rowsPerPage, page, onPageChange }) {
+  const totalPages = Math.ceil(count / rowsPerPage);
 
-const Tree = dynamic(() => import('react-organizational-chart').then((mod) => mod.Tree), {
-  ssr: false,
-});
+  const handleBackButtonClick = () => {
+    onPageChange(null, page - 1);
+  };
 
-const TreeNode = dynamic(() => import('react-organizational-chart').then((mod) => mod.TreeNode), {
-  ssr: false,
-});
+  const handleNextButtonClick = () => {
+    onPageChange(null, page + 1);
+  };
 
-// ----------------------------------------------------------------------
+  const handlePageNumberClick = (pageNumber) => {
+    onPageChange(null, pageNumber);
+  };
 
-export function OrganizationalChart({ data, nodeItem, ...other }) {
-  const theme = useTheme();
-
-  const cloneNode = (props) => cloneElement(nodeItem(props));
-
-  const label = cloneNode({
-    ...data,
-  });
-
-  return (
-    <Tree
-      lineWidth="1.5px"
-      nodePadding="4px"
-      lineBorderRadius="24px"
-      lineColor={theme.vars.palette.divider}
-      label={label}
-      {...other}
-    >
-      {data.children.map((list, index) => (
-        <TreeList key={index} depth={1} data={list} nodeItem={nodeItem} />
-      ))}
-    </Tree>
-  );
-}
-
-// ----------------------------------------------------------------------
-
-function TreeList({ data, depth, nodeItem }) {
-  const childs = data.children;
-
-  const cloneNode = (props) => cloneElement(nodeItem(props));
-
-  const totalChildren = childs ? flattenArray(childs)?.length : 0;
-
-  const label = cloneNode({
-    ...data,
-    depth,
-    totalChildren,
-  });
-
-  return (
-    <TreeNode label={label}>
-      {childs && <TreeSubList data={childs} depth={depth} nodeItem={nodeItem} />}
-    </TreeNode>
-  );
-}
-
-// ----------------------------------------------------------------------
-
-function TreeSubList({ data, depth, nodeItem }) {
-  return (
-    <>
-      {data.map((list, index) => (
-        <TreeList key={index} data={list} depth={depth + 1} nodeItem={nodeItem} />
-      ))}
-    </>
-  );
-}
-
-// ----------------------------------------------------------------------
-
-function flattenArray(list, key = 'children') {
-  let children = [];
-
-  const flatten = list.map((item) => {
-    if (Array.isArray(item[key]) && item[key].length) {
-      children = [...children, ...item[key]];
+  const renderPageNumbers = () => {
+    const pageNumbers = [];
+    for (let i = 0; i < totalPages; i++) {
+      pageNumbers.push(
+        <IconButton
+          key={i}
+          onClick={() => handlePageNumberClick(i)}
+          disabled={page === i}
+          sx={{
+            width: 32,
+            height: 32,
+            margin: '0 4px',
+            color: page === i ? 'primary.main' : 'text.secondary',
+            backgroundColor: page === i ? 'primary.lighter' : 'transparent',
+            '&:hover': {
+                backgroundColor: 'action.hover'
+            }
+          }}
+        >
+          {i + 1}
+        </IconButton>
+      );
     }
-    return item;
-  });
+    return pageNumbers;
+  };
+  
+  if (totalPages <= 1) return null;
 
-  return flatten.concat(children.length ? flattenArray(children, key) : []);
-}
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
+      <Tooltip title="Trang trước">
+        <IconButton
+          onClick={handleBackButtonClick}
+          disabled={page === 0}
+          aria-label="previous page"
+        >
+          <KeyboardArrowLeft />
+        </IconButton>
+      </Tooltip>
+      
+      {renderPageNumbers()}
+
+      <Tooltip title="Trang sau">
+        <IconButton
+          onClick={handleNextButtonClick}
+          disabled={page >= totalPages - 1}
+          aria-label="next page"
+        >
+          <KeyboardArrowRight />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+};
+
+ReusableTablePagination.propTypes = {
+  count: PropTypes.number.isRequired,
+  rowsPerPage: PropTypes.number.isRequired,
+  page: PropTypes.number.isRequired,
+  onPageChange: PropTypes.func.isRequired,
+};
