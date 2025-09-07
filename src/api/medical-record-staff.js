@@ -70,12 +70,18 @@ export async function getVitalValuesMedicalRecord(id) {
   }
 }
 
-export async function updateVitalMedicalRecordeById(id) {
+// Thêm tham số 'payload' để chứa dữ liệu cần cập nhật
+export async function updateVitalMedicalRecordeById(id, payload) {
   try {
-    const response = await axiosInstance.patch(endpoints.medical_record_staff.UpdateVitalId(id));
+    // Truyền 'payload' làm đối số thứ hai cho hàm patch
+    const response = await axiosInstance.patch(
+      endpoints.medical_record_staff.UpdateVitalId(id),
+      payload
+    );
     return response.data;
   } catch (error) {
-    console.error(`Lỗi khi lấy mẫu hồ sơ bệnh án với ID ${id}:`, error);
+    // Log cả payload để dễ debug hơn
+    console.error(`Lỗi khi cập nhật hồ sơ bệnh án với ID ${id} và payload:`, payload, error);
     throw error;
   }
 }
