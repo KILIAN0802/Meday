@@ -668,23 +668,6 @@ const handleUpdateAppointment = async () => {
   }
 };
 //========================================================================================
-const loadFormValues = () => {
-  if (!questions) return;
-
-  const initialValues = {};
-  questions.forEach(q => {
-    const saved = vitalValuesState.find(v => v.vitalIndicatorId === q.id);
-    initialValues[q.id] = saved ? (saved.value?.value ?? '') : '';
-  });
-  setFormValues(initialValues);
-};
-
-// Gọi mỗi khi mở dialog record
-useEffect(() => {
-  if (selectedRecordAppt && questions.length > 0) {
-    loadFormValues();
-  }
-}, [selectedRecordAppt, questions]);
 
 
 
@@ -808,14 +791,16 @@ const displayedAppointments = searchAppointmentId
           >
             {appt.medicalRecords?.[0] ? 'Cập nhật hồ sơ' : 'Tạo bệnh án'}
           </Button>
-          {/* <Button
+          
+          <Button
         variant="outlined"
-        color="primary"
+        color="default"
+          style={{ marginLeft: '8px' }}
         onClick={() => fetchAppointment(appt.id)}
         sx={{ mt: 1 }}
       >
         Xem chi tiết
-      </Button> */}
+      </Button>
         </CardContent>
       </Card>
     ))}
@@ -967,6 +952,72 @@ const displayedAppointments = searchAppointmentId
   </DialogContent>
 </Dialog>
 
+<Dialog
+  open={isEditingAppointment}
+  onClose={() => setIsEditingAppointment(false)}
+  fullWidth
+  maxWidth="sm"
+>
+  <DialogTitle>Chi tiết</DialogTitle>
+  <DialogContent>
+    {appointmentForm && (
+      <Stack spacing={2} sx={{ mt: 1 }}>
+        <TextField
+          label="Họ tên"
+          fullWidth
+          value={appointmentForm.fullName}
+          onChange={(e) =>
+            setAppointmentForm({ ...appointmentForm, fullName: e.target.value })
+          }
+        />
+        <TextField
+          label="SĐT"
+          fullWidth
+          value={appointmentForm.phone}
+          onChange={(e) =>
+            setAppointmentForm({ ...appointmentForm, phone: e.target.value })
+          }
+        />
+        <TextField
+          label="Lý do"
+          fullWidth
+          value={appointmentForm.reason}
+          onChange={(e) =>
+            setAppointmentForm({ ...appointmentForm, reason: e.target.value })
+          }
+        />
+        <TextField
+          label="Ngày hẹn"
+          type="datetime-local"
+          fullWidth
+          value={appointmentForm.appointmentDate}
+          onChange={(e) =>
+            setAppointmentForm({ ...appointmentForm, appointmentDate: e.target.value })
+          }
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label="Ghi chú"
+          fullWidth
+          value={appointmentForm.notes}
+          onChange={(e) =>
+            setAppointmentForm({ ...appointmentForm, notes: e.target.value })
+          }
+        />
+      </Stack>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setIsEditingAppointment(false)}>Hủy</Button>
+    <Button
+      variant="contained"
+      onClick={handleUpdateAppointment}
+      disabled={isSubmittingAppointment}
+    >
+      {isSubmittingAppointment ? 'Đang cập nhật...' : 'Cập nhật'}
+    </Button>
+  </DialogActions>
+</Dialog>
 
 
 
