@@ -46,22 +46,18 @@ export function useNavData() {
 
   
   const medicalRecordItems = useMemo(() => [
-    {
-      title: 'Bệnh án',
-      path: paths.dashboard.MedicalRecords.root,
-      children: [
-        ...(user?.role === 1
-          ? [
-            { title: 'Bệnh án', path: paths.dashboard.medicalRecordStaff.create},
-            { title: 'Danh sách tất cả bệnh án', path: paths.dashboard.medicalRecordManager.root},
-            { title: 'Bệnh án chờ tiếp nhận', path: paths.dashboard.medicalRecordManager.pendingView},
-            { title: 'Bệnh án đã tiếp nhận', path: paths.dashboard.medicalRecordManager.processingView},
-            { title: 'Bệnh án đã hoàn thành', path: paths.dashboard.medicalRecordManager.doneView},
-          ]
-          : [{ title: 'Tạo mẫu bệnh án', path: paths.dashboard.MedicalRecords.create }]),
-
-      ],
-    },
+    ...(user?.role === 1
+      ? [ // Các mục hiển thị khi user có role là 1
+        { title: 'Bệnh án', path: paths.dashboard.medicalRecordStaff.create},
+        { title: 'Danh sách tất cả bệnh án', path: paths.dashboard.medicalRecordManager.root},
+        { title: 'Bệnh án chờ tiếp nhận', path: paths.dashboard.medicalRecordManager.pendingView},
+        { title: 'Bệnh án đã tiếp nhận', path: paths.dashboard.medicalRecordManager.processingView},
+        { title: 'Bệnh án đã hoàn thành', path: paths.dashboard.medicalRecordManager.doneView},
+      ]
+      : [ // Mục hiển thị cho các role khác
+        { title: 'Tạo mẫu bệnh án', path: paths.dashboard.MedicalRecords.create }
+      ]
+),
   ], [user?.role]);
   
    const appointment = useMemo(() => [
@@ -89,19 +85,6 @@ export function useNavData() {
     {
       subheader: 'Quản lý lịch hẹn',
       items: appointment,
-    },
-
-    {
-      subheader: 'Misc',
-      items: [
-        {
-          title: 'Các thông tin về bệnh may đay',
-          path: 'https://www.bing.com/search?q=urticaria',
-          icon: ICONS.external,
-          info: <Iconify width={18} icon="eva:external-link-fill" />,
-        },
-        { title: 'Blank', path: paths.dashboard.blank, icon: ICONS.blank },
-      ],
     },
   ];
 }
