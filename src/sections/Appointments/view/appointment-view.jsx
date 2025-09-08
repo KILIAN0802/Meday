@@ -176,6 +176,7 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
 
   // --- Staff hiện tại ---
   const [currentStaff, setCurrentStaff] = useState(null);
+const [formValues, setFormValues] = useState({});
 
   // --- RecordCreate state ---
   const [selectedRecordAppt, setSelectedRecordAppt] = useState(null);
@@ -200,10 +201,10 @@ useEffect(() => {
 }, []);
 
 
-  // const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, templateName = '' } =
-  //   useRecordCreateQuestion(selectedTemplateId);
 
-  const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
+  // const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
+  // useRecordCreateQuestion(selectedTemplateId);
+const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
   useRecordCreateQuestion(selectedTemplateId);
 
   
@@ -275,7 +276,7 @@ const handleSubmitAppointment = async () => {
     currentStaff.id,
     new Date(formData.appointmentDate).toISOString()
   );
-console.log('Doctor availability:', isAvailable);
+  console.log('Doctor availability:', isAvailable);
   if (!isAvailable) {
     setSnackbar({
       open: true,
@@ -285,8 +286,8 @@ console.log('Doctor availability:', isAvailable);
     return;
   }
 
-  // 2️⃣ Nếu rảnh thì tạo appointment như bình thường
-  const payload = {
+  // 2️⃣ Tạo appointment
+  const appointmentPayload = {
     patientId: Number(formData.patientId),
     doctorId: currentStaff.id,
     reason: formData.reason,
@@ -303,12 +304,35 @@ console.log('Doctor availability:', isAvailable);
   };
 
   try {
-    await axiosInstance.post("/api/v1/staff/appointments", payload);
+    const res = await axiosInstance.post("/api/v1/staff/appointments", appointmentPayload);
+    console.log("Tạo lịch hẹn response:", res.data);
+
+    const appointmentId = res.data?.data?.id; // Lấy ID của lịch vừa tạo
+    if (appointmentId) {
+      // 3️⃣ Tạo medical record mới với appointmentId
+      const medicalRecordPayload = {
+        patientId: Number(formData.patientId),
+        doctorId: currentStaff.id,
+        diagnosis: formData.diagnosis || "Chưa có chẩn đoán",
+        symptoms: formData.symptoms || "Chưa có triệu chứng",
+        notes: formData.notes || "Chưa có ghi chú",
+        appointmentId: appointmentId,
+        vitalValues: [null],
+      };
+
+      const medicalRes = await axiosInstance.post(
+        "https://hospital.huyit.lat/api/staff/medical-records",
+        medicalRecordPayload
+      );
+      console.log("Tạo bệnh án mới response:", medicalRes.data);
+    }
+
+    // 4️⃣ Đóng form & reset
     setOpenCreateForm(false);
     setSnackbar({
       open: true,
       severity: "success",
-      message: "Tạo lịch hẹn thành công",
+      message: "Tạo lịch hẹn và bệnh án thành công",
     });
     fetchAppointments();
     setFormData({
@@ -322,13 +346,15 @@ console.log('Doctor availability:', isAvailable);
       emergencyContact: "",
       insurance: "",
       preMedicalResponses: [],
+      diagnosis: "",
+      symptoms: "",
     });
   } catch (error) {
-    console.error("Lỗi khi tạo lịch hẹn:", error.response?.data || error.message);
+    console.error("Lỗi khi tạo lịch hẹn hoặc bệnh án:", error.response?.data || error.message);
     setSnackbar({
       open: true,
       severity: "error",
-      message: "Tạo lịch hẹn thất bại",
+      message: "Tạo lịch hẹn hoặc bệnh án thất bại",
     });
   }
 };
@@ -341,17 +367,17 @@ const openRecordDialog = async (appt) => {
   try {
     const res = await axiosInstance.get(`/api/v1/staff/appointments/${appt.id}`);
     const freshAppt = res.data?.data;
-    if (!freshAppt) throw new Error("Không lấy được appointment mới");
-
     setSelectedRecordAppt(freshAppt);
 
     const defaultTemplateId = freshAppt.medicalRecords?.[0]?.templateId || 16;
     setSelectedTemplateId(defaultTemplateId);
 
-    const defaultVitalGroupId = freshAppt.vitalGroupIds?.[0] || null;
-    setSelectedVitalGroupId(defaultVitalGroupId);
+    // Lấy vital values từ API mới
+    if (freshAppt.medicalRecords?.[0]?.id) {
+      await fetchVitalValues(freshAppt.medicalRecords[0].id);
+    }
 
-    // **Gọi hàm loadRecordToForm tại đây để populate formState và vitalValuesState**
+    // Populate formState
     loadRecordToForm(freshAppt);
 
   } catch (err) {
@@ -362,13 +388,15 @@ const openRecordDialog = async (appt) => {
 
 
   // --- Handle vitalValues ---
-  const handleVitalValueChange = (vitalId, value, note) => {
-    const updated = [...vitalValuesState];
-    const index = updated.findIndex(v => v.vitalIndicatorId === vitalId);
-    if (index >= 0) updated[index] = { vitalIndicatorId: vitalId, value: { value: Number(value) }, note };
-    else updated.push({ vitalIndicatorId: vitalId, value: { value: Number(value) }, note });
-    setVitalValuesState(updated);
-  };
+  const handleVitalValueChange = (vitalId, newValue, note) => {
+  setVitalValuesState(prev =>
+    prev.map(v =>
+      v.vitalIndicatorId === vitalId
+        ? { ...v, value: { value: newValue }, note: note ?? v.note }
+        : v
+    )
+  );
+};
 
   // --- Submit Record ---
 // const handleSubmitRecord = async () => {
@@ -471,7 +499,7 @@ const loadRecordToForm = (appointment) => {
     // Vital values
     setVitalValuesState(record.vitalValues?.map(v => ({
       vitalIndicatorId: v.vitalIndicatorId,
-      value: v.value,
+        value: { value: v.value }, // ép thành object
       note: v.note || ''
     })) || []);
   } else {
@@ -481,6 +509,7 @@ const loadRecordToForm = (appointment) => {
 
 
 // --- Submit / Update record ---
+// --- Submit / Update record ---
 const handleSubmitRecord = async () => {
   if (!selectedRecordAppt || !currentStaff) return;
 
@@ -488,40 +517,50 @@ const handleSubmitRecord = async () => {
   setRecordError(null);
 
   try {
-    // 1️⃣ Lấy record hiện có
-    const record = selectedRecordAppt.medicalRecords?.[0];
+    // 1️⃣ Lấy record hiện có (ưu tiên templateId đã chọn nếu có)
+    const record =
+      selectedRecordAppt.medicalRecords?.find(r => r.templateId === selectedTemplateId) ||
+      selectedRecordAppt.medicalRecords?.[0];
+
     if (!record) {
       setRecordError("Không tìm thấy medical record cho lịch hẹn này");
       setIsSubmittingRecord(false);
       return;
     }
+
     const recordId = record.id;
 
-    // 2️⃣ Chuẩn bị answers
+    // 2️⃣ Chuẩn bị answers từ formState
     const answers = Object.entries(formState).map(([questionId, answerValue]) => ({
       questionId: Number(questionId),
       answerValue
     }));
 
-    // 3️⃣ Chuẩn bị vitalValues
-    const vitalPayload = Object.entries(formState)
-      .filter(([questionId, value]) => value !== '' && value !== null && value !== undefined)
-      .map(([questionId, value]) => ({
-        vitalIndicatorId: Number(questionId),
-        value: { value: value }, // parse số nếu backend yêu cầu number
-        note: ''
-      }));
+    console.log('Answers chuẩn bị gửi:', answers);
+
+    // 3️⃣ Chuẩn bị vitalValues từ vitalValuesState
+    const vitalPayload = vitalValuesState.map(v => ({
+      vitalIndicatorId: Number(v.vitalIndicatorId),
+      value: { value: v.value.value }, // giữ nguyên, backend có thể parse number
+      note: v.note || ''
+    }));
+
+    console.log('VitalValues chuẩn bị gửi:', vitalPayload);
 
     // 4️⃣ Payload PATCH
     const updatePayload = {
       diagnosis: formState.DIAGNOSIS || record.diagnosis,
       symptoms: formState.SYMPTOMS || record.symptoms,
       notes: formState.NOTES || record.notes,
+
       vitalValues: vitalPayload
     };
-console.log('Payload PATCH đang gửi đi:', updatePayload); // <-- thêm dòng này
+
+    console.log('Payload PATCH đang gửi đi:', updatePayload);
+
     // 5️⃣ Gọi API PATCH
-    await axiosInstance.patch(`/api/staff/medical-records/${recordId}`, updatePayload);
+    const res = await axiosInstance.patch(`/api/staff/medical-records/${recordId}`, updatePayload);
+    console.log('Response PATCH:', res.data);
 
     // 6️⃣ Reset / thông báo
     setSelectedRecordAppt(null);
@@ -536,6 +575,7 @@ console.log('Payload PATCH đang gửi đi:', updatePayload); // <-- thêm dòng
     setIsSubmittingRecord(false);
   }
 };
+
 
 
 
@@ -627,172 +667,162 @@ const handleUpdateAppointment = async () => {
     setIsSubmittingAppointment(false);
   }
 };
+//========================================================================================
+const loadFormValues = () => {
+  if (!questions) return;
+
+  const initialValues = {};
+  questions.forEach(q => {
+    const saved = vitalValuesState.find(v => v.vitalIndicatorId === q.id);
+    initialValues[q.id] = saved ? (saved.value?.value ?? '') : '';
+  });
+  setFormValues(initialValues);
+};
+
+// Gọi mỗi khi mở dialog record
+useEffect(() => {
+  if (selectedRecordAppt && questions.length > 0) {
+    loadFormValues();
+  }
+}, [selectedRecordAppt, questions]);
+
+
+
+
+// --- State ---
+const [searchAppointmentId, setSearchAppointmentId] = useState('');
+const [foundAppointment, setFoundAppointment] = useState(null);
+const [isSearchingAppointment, setIsSearchingAppointment] = useState(false);
+
+// --- Function tìm appointment ---
+const fetchAppointmentById = async (id) => {
+  if (!id) {
+    setFoundAppointment(null);
+    return;
+  }
+  setIsSearchingAppointment(true);
+  try {
+    const res = await axiosInstance.get(`/api/v1/staff/appointments/${id}`);
+    const appt = res.data?.data;
+    if (!appt) {
+      setSnackbar({ open: true, severity: 'warning', message: 'Không tìm thấy lịch hẹn' });
+      setFoundAppointment(null);
+    } else {
+      setFoundAppointment(appt);
+      setSnackbar({ open: true, severity: 'success', message: 'Đã tìm thấy lịch hẹn' });
+    }
+    console.log('Appointment tìm thấy:', appt);
+  } catch (err) {
+    console.error('Lỗi khi tìm appointment:', err.response?.data || err.message);
+    setSnackbar({ open: true, severity: 'error', message: 'Tìm thất bại' });
+    setFoundAppointment(null);
+  } finally {
+    setIsSearchingAppointment(false);
+  }
+};
+
+
 
 
 //========================================================================================
 
+const fetchVitalValues = async (recordId) => {
+  try {
+    const res = await axiosInstance.get(`/api/staff/medical-records/${recordId}/vital-values`);
+    const data = res.data?.data || [];
+    console.log('Vital Values raw:', data);
+
+    // Convert về format FE mong muốn
+    const formatted = data.map(v => ({
+      vitalIndicatorId: v.vitalIndicatorId,
+      value: { value: v.value }, // FE cần object { value: … }
+      note: v.note || ''
+    }));
+
+    setVitalValuesState(formatted);
+  } catch (err) {
+    console.error('Lỗi khi fetch vital values:', err.response?.data || err.message);
+    setSnackbar({ open: true, severity: 'error', message: 'Không tải được dữ liệu vital values' });
+  }
+};
+
+
+//========================================================================================
+const displayedAppointments = searchAppointmentId
+  ? foundAppointment ? [foundAppointment] : []
+  : appointments;
+
   return (
     <Box sx={{ p: 4 }}>
+
+
       <Typography variant="h4" gutterBottom>Danh sách lịch hẹn</Typography>
       <Stack spacing={2} direction="row" sx={{ mb: 2 }}>
         <Button variant="contained" onClick={() => { setShowMyAppointments(false); fetchAppointments(); }}>Xem tất cả</Button>
         <Button variant="outlined" onClick={() => { setShowMyAppointments(true); fetchAppointments(); }}>Xem của tôi</Button>
-        <TextField label="Tìm theo ID" value={searchId} onChange={(e) => handleSearch(e.target.value)} size="small" />
+<TextField
+  label="Tìm theo ID"
+  value={searchAppointmentId}
+  size="small"
+  onChange={(e) => {
+    const val = e.target.value;
+    setSearchAppointmentId(val);
+    fetchAppointmentById(val); // tự gọi khi gõ
+  }}
+/>
+
+
         <Button variant="contained" color="info" onClick={() => setOpenCreateForm(true)}>Tạo lịch hẹn</Button>
       </Stack>
 
-              {isLoading ? <CircularProgress /> :
-          appointments.length === 0 ? (
-            <Typography>Không có lịch hẹn nào.</Typography>
-                    ) : (
-                      <Stack spacing={2}>
-                        {appointments.map((appt) => (
-                          <Card key={appt.id}>
-                            <CardContent>
-                              <Stack spacing={1}>
-                    <Typography>Lý do: {appt.reason}</Typography>
+{isLoading || isSearchingAppointment ? (
+  <CircularProgress />
+) : displayedAppointments.length === 0 ? (
+  <Typography>
+    {searchAppointmentId ? 'Không tìm thấy lịch hẹn' : 'Không có lịch hẹn nào.'}
+  </Typography>
+) : (
+  <Stack spacing={2}>
+    {displayedAppointments.map((appt) => (
+      <Card key={appt.id}>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography>Lý do: {appt.reason}</Typography>
+            <Typography>
+              Thời gian: {appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleString('vi-VN') : 'Chưa có'}
+            </Typography>
+            <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullname}</Typography>
+            <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
+            <Typography>Trạng thái: {appt.status}</Typography>
+            {appt.notes && <Typography>Ghi chú: {appt.notes}</Typography>}
+            {appt.customInfo?.emergencyContact && (
+              <Typography>Liên hệ khẩn cấp: {appt.customInfo.emergencyContact}</Typography>
+            )}
+          </Stack>
 
-                    <Typography>
-                      Thời gian:{' '}
-                      {appt.appointmentDate
-                        ? new Date(appt.appointmentDate).toLocaleString('vi-VN')
-                        : 'Chưa có'}
-                    </Typography>
-
-                    <Typography>
-                      Bệnh nhân: {appt.fullName || appt.patient?.fullname}
-                    </Typography>
-
-                    <Typography>
-                      SĐT: {appt.phone || appt.patient?.phone}
-                    </Typography>
-
-                    <Typography>Trạng thái: {appt.status}</Typography>
-
-                    {appt.notes && <Typography>Ghi chú: {appt.notes}</Typography>}
-
-                    {appt.customInfo?.emergencyContact && (
-                      <Typography>Liên hệ khẩn cấp: {appt.customInfo.emergencyContact}</Typography>
-                    )}
-                  </Stack>
-
-
-                      {/* <Select
-                        value={appt.status}
-                        onChange={(e) => handleStatusChange(appt.id, e.target.value)}
-                        size="small"
-                      >
-                        <MenuItem value="PENDING">Chờ xác nhận</MenuItem>
-                        <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
-                        <MenuItem value="CANCELLED">Đã hủy</MenuItem>
-                        <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
-                      </Select> */}
-
-                  <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={() => fetchAppointment(appt.id)}
-                >
-                  Xem chi tiết
-                </Button>
-
-
-                {isEditingAppointment && appointmentForm && (
-  <Dialog open={isEditingAppointment} onClose={() => setIsEditingAppointment(false)}>
-    <DialogTitle>Sửa lịch hẹn</DialogTitle>
-    <DialogContent>
-      <TextField
-        label="Lý do"
-        value={appointmentForm.reason}
-        onChange={(e) => setAppointmentForm(prev => ({ ...prev, reason: e.target.value }))}
-        fullWidth
-        margin="normal"
-      />
-
-      <TextField
-        label="Ngày giờ"
-        type="datetime-local"
-        value={appointmentForm.appointmentDate?.slice(0,16) || ''}
-        onChange={(e) => setAppointmentForm(prev => ({ ...prev, appointmentDate: e.target.value }))}
-        fullWidth
-        margin="normal"
-      />
-
-      <TextField
-        label="Trạng thái"
-        value={appointmentForm.status}
-        onChange={(e) => setAppointmentForm(prev => ({ ...prev, status: e.target.value }))}
-        fullWidth
-        margin="normal"
-        disabled={true}
-      />
-
-      <TextField
-        label="Ghi chú"
-        value={appointmentForm.notes}
-        onChange={(e) => setAppointmentForm(prev => ({ ...prev, notes: e.target.value }))}
-        fullWidth
-        margin="normal"
-      />
-
-      <TextField
-        label="Họ tên"
-        value={appointmentForm.fullName}
-        onChange={(e) => setAppointmentForm(prev => ({ ...prev, fullName: e.target.value }))}
-        fullWidth
-        margin="normal"
-      />
-
-      <TextField
-        label="Số điện thoại"
-        value={appointmentForm.phone}
-        onChange={(e) => setAppointmentForm(prev => ({ ...prev, phone: e.target.value }))}
-        fullWidth
-        margin="normal"
-      />
-
-      <TextField
-        label="Liên hệ khẩn cấp"
-        value={appointmentForm.customInfo?.emergencyContact || ''}
-        onChange={(e) => setAppointmentForm(prev => ({
-          ...prev,
-          customInfo: { ...prev.customInfo, emergencyContact: e.target.value }
-        }))}
-        fullWidth
-        margin="normal"
-      />
-    </DialogContent>
-
-    <DialogActions>
-      <Button onClick={() => setIsEditingAppointment(false)}>Hủy</Button>
-      <Button
-        onClick={handleUpdateAppointment}
-        disabled={isSubmittingAppointment}
-        variant="contained"
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => openRecordDialog(appt)}
+            sx={{ mt: 1 }}
+          >
+            {appt.medicalRecords?.[0] ? 'Cập nhật hồ sơ' : 'Tạo bệnh án'}
+          </Button>
+          {/* <Button
+        variant="outlined"
         color="primary"
+        onClick={() => fetchAppointment(appt.id)}
+        sx={{ mt: 1 }}
       >
-        Lưu
-      </Button>
-    </DialogActions>
-  </Dialog>
+        Xem chi tiết
+      </Button> */}
+        </CardContent>
+      </Card>
+    ))}
+  </Stack>
 )}
 
 
-
-
-                     <Button
-                      sx={{ ml: 2 }}
-                      variant="outlined"
-                      onClick={() => openRecordDialog(appt)}
-                    >
-                      {appt.medicalRecords?.[0] ? 'Cập nhật hồ sơ' : 'Tạo bệnh án'}
-                    </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Stack>
-            )
-}
 
 
       {/* Dialog tạo lịch hẹn */}
@@ -858,72 +888,74 @@ const handleUpdateAppointment = async () => {
 
 
       {/* Dialog cập nhật bệnh án */}
-<Dialog fullWidth maxWidth="md" open={!!selectedRecordAppt} onClose={() => setSelectedRecordAppt(null)}>
+{/* Dialog cập nhật bệnh án */}
+<Dialog
+  fullWidth
+  maxWidth="md"
+  open={!!selectedRecordAppt}
+  onClose={() => setSelectedRecordAppt(null)}
+>
   <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    {`Tạo hồ sơ cho: ${selectedRecordAppt?.fullName || selectedRecordAppt?.patient?.fullname || ''}`}
+    {`Hồ sơ của: ${selectedRecordAppt?.fullName || selectedRecordAppt?.patient?.fullname || ''}`}
     <IconButton onClick={() => setSelectedRecordAppt(null)}><CloseIcon /></IconButton>
   </DialogTitle>
 
   <DialogContent dividers>
-    <RecordCreateButtons onTemplateSelect={(id) => {
-    setSelectedTemplateId(id);
-    console.log('Người dùng chọn template:', id);
-  }} />
+    <RecordCreateButtons
+      onTemplateSelect={(id) => {
+        setSelectedTemplateId(id);
+        console.log('Người dùng chọn template:', id);
+      }}
+    />
     {isRecordLoading && <CircularProgress />}
     {recordError && <Alert severity="error">{recordError}</Alert>}
 
     {!isRecordLoading && questions.length > 0 && (
       <Stack spacing={3} sx={{ mt: 2 }}>
-        {/* Render câu hỏi */}
-    {questions.map(q => renderQuestion(q, formState, handleInputChange))}
-        
+        {questions.map(q => renderQuestion(q, formState, handleInputChange))}
 
-        {/* Giá trị sinh tồn */}
         {selectedVitalGroupId && vitalValuesState.length > 0 && (
           <Box>
             <Typography variant="subtitle1" sx={{ mt: 2 }}>Giá trị sinh tồn</Typography>
-            {vitalValuesState.map((v) => {
-              const indicator = vitalIndicators.find(ind => ind.id === v.vitalIndicatorId);
-              return (
-                <Stack key={v.vitalIndicatorId} direction="row" spacing={2} sx={{ mt: 1 }}>
-                  <TextField
-                    label={indicator?.name || 'Vital'}
-                    type="number"
-                    value={v.value.value}
-                    onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, e.target.value, v.note)}
-                  />
-                  <TextField
-                    label="Ghi chú"
-                    value={v.note}
-                    onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, v.value.value, e.target.value)}
-                  />
-                </Stack>
-              );
-            })}
+           {vitalValuesState.map((v) => {
+  const indicator = vitalIndicators.find(ind => ind.id === v.vitalIndicatorId);
+  return (
+    <Stack key={v.vitalIndicatorId} direction="row" spacing={2} sx={{ mt: 1 }}>
+      <TextField
+        label={indicator?.name || 'Vital'}
+        type="text" // dùng text để không lỗi khi value là string
+        value={v.value.value} // giờ đã có .value
+        onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, e.target.value, v.note)}
+      />
+      <TextField
+        label="Ghi chú"
+        value={v.note}
+        onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, v.value.value, e.target.value)}
+      />
+    </Stack>
+  );
+})}
+
           </Box>
         )}
 
-        {/* Nút tạo hồ sơ */}
-        {/* <Button
+        {/* Nút tạo/cập nhật hồ sơ */}
+        <Button
           variant="contained"
           size="large"
           onClick={handleSubmitRecord}
-          // disabled={isSubmittingRecord || !selectedTemplateId || !selectedVitalGroupId}
+          disabled={
+            isSubmittingRecord ||
+            !selectedTemplateId ||
+            !selectedVitalGroupId
+          }
         >
-          {isSubmittingRecord ? 'Đang tạo...' : 'Tạo hồ sơ'}
-        </Button> */}
-        <Button
-  variant="contained"
-  size="large"
-  onClick={handleSubmitRecord}
->
-  {isSubmittingRecord
-    ? 'Đang tạo...'
-    : selectedRecordAppt?.medicalRecords?.[0]
-      ? 'Cập nhật hồ sơ'
-      : 'Tạo hồ sơ'}
-</Button>
-
+          {isSubmittingRecord
+            ? 'Đang tạo...'
+            : selectedRecordAppt?.medicalRecords?.[0]
+              ? 'Cập nhật hồ sơ'
+              : 'Tạo hồ sơ'}
+        </Button>
       </Stack>
     )}
 
@@ -934,6 +966,9 @@ const handleUpdateAppointment = async () => {
     )}
   </DialogContent>
 </Dialog>
+
+
+
 
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
