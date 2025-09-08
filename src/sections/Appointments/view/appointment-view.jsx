@@ -508,7 +508,7 @@ const handleSubmitRecord = async () => {
       .filter(([questionId, value]) => value !== '' && value !== null && value !== undefined)
       .map(([questionId, value]) => ({
         vitalIndicatorId: Number(questionId),
-        value: { value: Number(value) }, // parse số nếu backend yêu cầu number
+        value: { value: value }, // parse số nếu backend yêu cầu number
         note: ''
       }));
 
@@ -517,10 +517,9 @@ const handleSubmitRecord = async () => {
       diagnosis: formState.DIAGNOSIS || record.diagnosis,
       symptoms: formState.SYMPTOMS || record.symptoms,
       notes: formState.NOTES || record.notes,
-      answers,
       vitalValues: vitalPayload
     };
-
+console.log('Payload PATCH đang gửi đi:', updatePayload); // <-- thêm dòng này
     // 5️⃣ Gọi API PATCH
     await axiosInstance.patch(`/api/staff/medical-records/${recordId}`, updatePayload);
 
