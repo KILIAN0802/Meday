@@ -32,8 +32,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import axiosInstance from 'src/lib/axios';
 
 // --- Custom hooks/components cho RecordCreate ---
-// import { useRecordCreateQuestion } from '../Record-create-question';
-// import { RecordCreateButtons } from '../Record-create-button';
+import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { useRecordCreateQuestion } from '../../medicalRecordStaff/create/Record-create-question';
 import { RecordCreateButtons } from '../../medicalRecordStaff/create/Record-create-button';
 
@@ -155,6 +154,7 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   const [searchId, setSearchId] = useState('');
   const [showMyAppointments, setShowMyAppointments] = useState(false);
 
+
   // --- Create appointment dialog ---
   const [openCreateForm, setOpenCreateForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -185,6 +185,7 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
   const [recordError, setRecordError] = useState(null);
   const [allVitalGroups, setAllVitalGroups] = useState([]);
+  
 
 useEffect(() => {
   const fetchAllVitalGroups = async () => {
@@ -334,20 +335,31 @@ console.log('Doctor availability:', isAvailable);
 
 
   // --- Open RecordCreateView ---
- const openRecordDialog = (appt) => {
+const openRecordDialog = async (appt) => {
   if (!appt || !currentStaff) return;
-  setSelectedRecordAppt(appt);
 
-  const defaultTemplateId = 17; 
-  setSelectedTemplateId(defaultTemplateId);
+  try {
+    const res = await axiosInstance.get(`/api/v1/staff/appointments/${appt.id}`);
+    const freshAppt = res.data?.data;
+    if (!freshAppt) throw new Error("Không lấy được appointment mới");
 
-  // chọn nhóm sinh tồn đầu tiên hợp lệ luôn
-  const defaultVitalGroupId = appt.vitalGroupIds?.[0] || null;
-  setSelectedVitalGroupId(defaultVitalGroupId);
+    setSelectedRecordAppt(freshAppt);
 
-  setVitalValuesState([]);
-  setRecordError(null);
+    const defaultTemplateId = freshAppt.medicalRecords?.[0]?.templateId || 16;
+    setSelectedTemplateId(defaultTemplateId);
+
+    const defaultVitalGroupId = freshAppt.vitalGroupIds?.[0] || null;
+    setSelectedVitalGroupId(defaultVitalGroupId);
+
+    // **Gọi hàm loadRecordToForm tại đây để populate formState và vitalValuesState**
+    loadRecordToForm(freshAppt);
+
+  } catch (err) {
+    console.error('Lỗi khi mở dialog hồ sơ:', err);
+    setSnackbar({ open: true, severity: 'error', message: 'Không mở được hồ sơ, thử lại' });
+  }
 };
+
 
   // --- Handle vitalValues ---
   const handleVitalValueChange = (vitalId, value, note) => {
@@ -359,64 +371,175 @@ console.log('Doctor availability:', isAvailable);
   };
 
   // --- Submit Record ---
+// const handleSubmitRecord = async () => {
+//   if (!selectedRecordAppt || !currentStaff) return;
+//   if (!selectedTemplateId) {
+//     setRecordError('Chưa chọn template hồ sơ.');
+//     return;
+//   }
+
+//   setIsSubmittingRecord(true);
+//   setRecordError(null);
+
+//   try {
+//     // 1️⃣ Map formState thành answers
+//     const answers = Object.entries(formState).map(([questionId, answerValue]) => ({
+//       questionId: Number(questionId),
+//       answerValue,
+//     }));
+
+//     const appointmentId =
+//   selectedRecordAppt?.appointment?.id || // nếu có nested appointment
+//   selectedRecordAppt?.id ||              // nếu chính nó là appointment
+//   null;
+
+
+//     // 2️⃣ Payload để tạo record
+//     const payload = {
+//       patientId: Number(selectedRecordAppt.patient?.id),
+//       date: new Date().toISOString().split('T')[0],
+//       diagnosis: formState.DIAGNOSIS || 'Chưa có chẩn đoán',
+//       symptoms: formState.SYMPTOMS || 'chưa có triệu chứng',
+//       notes: formState.NOTES || 'chưa có ghi chú',
+//       answers,
+//       vitalValues: [null], // backend yêu cầu khi tạo
+//        appointmentId,
+//     };
+
+//     // 3️⃣ Tạo record
+//     const recordRes = await axiosInstance.post('/api/staff/medical-records', payload);
+//     const recordId = recordRes.data?.data?.id;
+ 
+
+
+//     // 4️⃣ Chuẩn bị vitalValues giống handleSaveChanges
+//     const vitalPayload = Object.entries(formState)
+//       .filter(([questionId, value]) => value !== '' && value !== null && value !== undefined)
+//       .map(([questionId, value]) => {
+//         const idAsNumber = Number(questionId);
+//         // const originalIndicator = vitalQuestions.find(q => q.id === idAsNumber);
+//         let finalValue = value;
+
+//         // if (originalIndicator?.valueType === 'number' && !isNaN(value)) {
+//         //   finalValue = parseFloat(value);
+//         // }
+
+//         return {
+//           vitalIndicatorId: idAsNumber,
+//           // value: { value: finalValue },
+//            value: { value }, // giữ nguyên, không parse
+//           note: ''
+//         };
+//       });
+
+//     // 5️⃣ Patch vitalValues qua API chung
+//     if (vitalPayload.length > 0) {
+//       await updateVitalMedicalRecordeById(recordId, { vitalValues: vitalPayload });
+//       console.log('Updated vitalValues:', vitalPayload);
+//     }
+
+//     setSelectedRecordAppt(null);
+//     fetchAppointments();
+//     setSnackbar({ open: true, severity: 'success', message: 'Tạo hồ sơ thành công' });
+
+//   } catch (err) {
+//     console.error('Submit record error:', err.response?.data || err.message);
+//     setRecordError('Tạo hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
+//     setSnackbar({ open: true, severity: 'error', message: 'Tạo hồ sơ thất bại' });
+//   } finally {
+//     setIsSubmittingRecord(false);
+//   }
+// };
+
+
+// --- Load form dữ liệu từ medicalRecord ---
+const loadRecordToForm = (appointment) => {
+  if (!appointment) return;
+  const record = appointment.medicalRecords?.[0];
+
+  if (record) {
+    // Map các câu hỏi từ record.answers
+    record.answers?.forEach(ans => {
+      handleInputChange(ans.questionId, ans.answerValue);
+    });
+
+    // Map diagnosis, symptoms, notes
+    handleInputChange('DIAGNOSIS', record.diagnosis || '');
+    handleInputChange('SYMPTOMS', record.symptoms || '');
+    handleInputChange('NOTES', record.notes || '');
+
+    // Vital values
+    setVitalValuesState(record.vitalValues?.map(v => ({
+      vitalIndicatorId: v.vitalIndicatorId,
+      value: v.value,
+      note: v.note || ''
+    })) || []);
+  } else {
+    setVitalValuesState([]);
+  }
+};
+
+
+// --- Submit / Update record ---
 const handleSubmitRecord = async () => {
   if (!selectedRecordAppt || !currentStaff) return;
-  if (!selectedTemplateId) {
-    setRecordError('Chưa chọn template hồ sơ.');
-    return;
-  }
 
   setIsSubmittingRecord(true);
   setRecordError(null);
 
   try {
-    // Map formState thành answers
+    // 1️⃣ Lấy record hiện có
+    const record = selectedRecordAppt.medicalRecords?.[0];
+    if (!record) {
+      setRecordError("Không tìm thấy medical record cho lịch hẹn này");
+      setIsSubmittingRecord(false);
+      return;
+    }
+    const recordId = record.id;
+
+    // 2️⃣ Chuẩn bị answers
     const answers = Object.entries(formState).map(([questionId, answerValue]) => ({
       questionId: Number(questionId),
-      answerValue,
+      answerValue
     }));
 
-    // Payload để tạo record
-    const payload = {
-      patientId: Number(selectedRecordAppt.patient?.id),
-      date: new Date().toISOString().split('T')[0],
-      diagnosis: formState.DIAGNOSIS || 'Chưa có chẩn đoán',
-      symptoms: formState.SYMPTOMS || 'chưa có triệu chứng',
-      notes: formState.NOTES || 'chưa có ghi chú',
+    // 3️⃣ Chuẩn bị vitalValues
+    const vitalPayload = Object.entries(formState)
+      .filter(([questionId, value]) => value !== '' && value !== null && value !== undefined)
+      .map(([questionId, value]) => ({
+        vitalIndicatorId: Number(questionId),
+        value: { value: Number(value) }, // parse số nếu backend yêu cầu number
+        note: ''
+      }));
+
+    // 4️⃣ Payload PATCH
+    const updatePayload = {
+      diagnosis: formState.DIAGNOSIS || record.diagnosis,
+      symptoms: formState.SYMPTOMS || record.symptoms,
+      notes: formState.NOTES || record.notes,
       answers,
-      vitalValues: [null], // backend yêu cầu khi tạo
+      vitalValues: vitalPayload
     };
 
-    // 1️⃣ Tạo record
-    const recordRes = await axiosInstance.post('/api/staff/medical-records', payload);
-    const recordId = recordRes.data?.data?.id;
-    if (!recordId) throw new Error('Không lấy được recordId');
+    // 5️⃣ Gọi API PATCH
+    await axiosInstance.patch(`/api/staff/medical-records/${recordId}`, updatePayload);
 
-    // 2️⃣ Chuẩn bị PATCH vitalValues trực tiếp từ formState
-    const vitalPayload = Object.entries(formState).map(([questionId, answerValue]) => ({
-      vitalIndicatorId: Number(questionId),
-      value: { value: answerValue }, // giữ nguyên số hoặc chữ
-      note: '', // hoặc map note nếu muốn
-    }));
-
-    await axiosInstance.patch(
-      `/api/staff/medical-records/${recordId}/vital-values`,
-      { vitalValues: vitalPayload }
-    );
-
-    console.log('Updated vitalValues:', vitalPayload);
-
+    // 6️⃣ Reset / thông báo
     setSelectedRecordAppt(null);
     fetchAppointments();
-    setSnackbar({ open: true, severity: 'success', message: 'Tạo hồ sơ thành công' });
+    setSnackbar({ open: true, severity: 'success', message: 'Cập nhật hồ sơ thành công' });
+
   } catch (err) {
-    console.error('Submit record error:', err.response?.data || err.message);
-    setRecordError('Tạo hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
-    setSnackbar({ open: true, severity: 'error', message: 'Tạo hồ sơ thất bại' });
+    console.error('Update record error:', err.response?.data || err.message);
+    setRecordError('Cập nhật hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
+    setSnackbar({ open: true, severity: 'error', message: 'Cập nhật hồ sơ thất bại' });
   } finally {
     setIsSubmittingRecord(false);
   }
 };
+
+
+
 
 const checkDoctorAvailability = async (doctorId, appointmentDate) => {
   try {
@@ -432,9 +555,6 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
 
 
 
-
-
-
   // --- Init vitalValues khi chọn group ---
   useEffect(() => {
     if (selectedVitalGroupId && selectedRecordAppt?.vitalIndicators?.length > 0) {
@@ -442,6 +562,75 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
       setVitalValuesState(initial);
     }
   }, [selectedVitalGroupId, selectedRecordAppt]);
+//========================================================================================
+// Dialog & form state
+const [appointmentForm, setAppointmentForm] = useState(null);
+const [isEditingAppointment, setIsEditingAppointment] = useState(false);
+const [isSubmittingAppointment, setIsSubmittingAppointment] = useState(false);
+
+// Dữ liệu appointment đang edit
+const [editingAppointment, setEditingAppointment] = useState(null);
+
+
+const fetchAppointment = async (appointmentId) => {
+  try {
+    const res = await axiosInstance.get(`/api/v1/staff/appointments/${appointmentId}`);
+    const data = res.data.data; // chú ý: data nằm trong res.data.data
+
+    // set state cho form
+    setAppointmentForm({
+      reason: data.reason || '',
+      appointmentDate: data.appointmentDate || '',
+      status: data.status || 'PENDING',
+      notes: data.notes || '',
+      fullName: data.fullName || data.patient?.fullname || '',
+      phone: data.phone || data.patient?.phone || '',
+      customInfo: data.customInfo || {},
+      medicalRecords: data.medicalRecords || [],
+    });
+
+    setEditingAppointment(data);
+    setIsEditingAppointment(true); // mở dialog sau khi set xong dữ liệu
+  } catch (err) {
+    console.error('Error fetching appointment:', err);
+    setSnackbar({ open: true, severity: 'error', message: 'Không tải được dữ liệu lịch hẹn.' });
+  }
+};
+
+
+const handleUpdateAppointment = async () => {
+  if (!appointmentForm || !editingAppointment) return;
+  setIsSubmittingAppointment(true);
+
+  const payload = {
+    reason: appointmentForm.reason || '',
+    appointmentDate: appointmentForm.appointmentDate
+      ? new Date(appointmentForm.appointmentDate).toISOString()
+      : null,
+    status: appointmentForm.status || 'PENDING',
+    notes: appointmentForm.notes || '',
+    fullName: appointmentForm.fullName || '',
+    phone: appointmentForm.phone || '',
+    customInfo: appointmentForm.customInfo || {},
+  };
+
+  try {
+    const res = await axiosInstance.patch(`/api/v1/staff/appointments/${editingAppointment.id}`, payload);
+    console.log('Update response:', res.data);
+
+    setSnackbar({ open: true, severity: 'success', message: 'Cập nhật lịch hẹn thành công!' });
+    setIsEditingAppointment(false);
+    fetchAppointments(); // refresh danh sách
+  } catch (err) {
+    console.error('Error updating appointment:', err.response?.data || err.message, 'Payload:', payload);
+    setSnackbar({ open: true, severity: 'error', message: 'Cập nhật lịch hẹn thất bại!' });
+  } finally {
+    setIsSubmittingAppointment(false);
+  }
+};
+
+
+//========================================================================================
 
   return (
     <Box sx={{ p: 4 }}>
@@ -500,9 +689,105 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
                         <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
                       </Select> */}
 
-                      <Button sx={{ ml: 2 }} variant="outlined" onClick={() => openRecordDialog(appt)}>
-                        Tạo bệnh án
-                      </Button>
+                  <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => fetchAppointment(appt.id)}
+                >
+                  Xem chi tiết
+                </Button>
+
+
+                {isEditingAppointment && appointmentForm && (
+  <Dialog open={isEditingAppointment} onClose={() => setIsEditingAppointment(false)}>
+    <DialogTitle>Sửa lịch hẹn</DialogTitle>
+    <DialogContent>
+      <TextField
+        label="Lý do"
+        value={appointmentForm.reason}
+        onChange={(e) => setAppointmentForm(prev => ({ ...prev, reason: e.target.value }))}
+        fullWidth
+        margin="normal"
+      />
+
+      <TextField
+        label="Ngày giờ"
+        type="datetime-local"
+        value={appointmentForm.appointmentDate?.slice(0,16) || ''}
+        onChange={(e) => setAppointmentForm(prev => ({ ...prev, appointmentDate: e.target.value }))}
+        fullWidth
+        margin="normal"
+      />
+
+      <TextField
+        label="Trạng thái"
+        value={appointmentForm.status}
+        onChange={(e) => setAppointmentForm(prev => ({ ...prev, status: e.target.value }))}
+        fullWidth
+        margin="normal"
+        disabled={true}
+      />
+
+      <TextField
+        label="Ghi chú"
+        value={appointmentForm.notes}
+        onChange={(e) => setAppointmentForm(prev => ({ ...prev, notes: e.target.value }))}
+        fullWidth
+        margin="normal"
+      />
+
+      <TextField
+        label="Họ tên"
+        value={appointmentForm.fullName}
+        onChange={(e) => setAppointmentForm(prev => ({ ...prev, fullName: e.target.value }))}
+        fullWidth
+        margin="normal"
+      />
+
+      <TextField
+        label="Số điện thoại"
+        value={appointmentForm.phone}
+        onChange={(e) => setAppointmentForm(prev => ({ ...prev, phone: e.target.value }))}
+        fullWidth
+        margin="normal"
+      />
+
+      <TextField
+        label="Liên hệ khẩn cấp"
+        value={appointmentForm.customInfo?.emergencyContact || ''}
+        onChange={(e) => setAppointmentForm(prev => ({
+          ...prev,
+          customInfo: { ...prev.customInfo, emergencyContact: e.target.value }
+        }))}
+        fullWidth
+        margin="normal"
+      />
+    </DialogContent>
+
+    <DialogActions>
+      <Button onClick={() => setIsEditingAppointment(false)}>Hủy</Button>
+      <Button
+        onClick={handleUpdateAppointment}
+        disabled={isSubmittingAppointment}
+        variant="contained"
+        color="primary"
+      >
+        Lưu
+      </Button>
+    </DialogActions>
+  </Dialog>
+)}
+
+
+
+
+                     <Button
+                      sx={{ ml: 2 }}
+                      variant="outlined"
+                      onClick={() => openRecordDialog(appt)}
+                    >
+                      {appt.medicalRecords?.[0] ? 'Cập nhật hồ sơ' : 'Tạo bệnh án'}
+                    </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -573,7 +858,7 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
 </Dialog>
 
 
-      {/* Dialog tạo bệnh án */}
+      {/* Dialog cập nhật bệnh án */}
 <Dialog fullWidth maxWidth="md" open={!!selectedRecordAppt} onClose={() => setSelectedRecordAppt(null)}>
   <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
     {`Tạo hồ sơ cho: ${selectedRecordAppt?.fullName || selectedRecordAppt?.patient?.fullname || ''}`}
@@ -581,7 +866,10 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
   </DialogTitle>
 
   <DialogContent dividers>
-    <RecordCreateButtons onTemplateSelect={setSelectedTemplateId} />
+    <RecordCreateButtons onTemplateSelect={(id) => {
+    setSelectedTemplateId(id);
+    console.log('Người dùng chọn template:', id);
+  }} />
     {isRecordLoading && <CircularProgress />}
     {recordError && <Alert severity="error">{recordError}</Alert>}
 
@@ -617,14 +905,26 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
         )}
 
         {/* Nút tạo hồ sơ */}
-        <Button
+        {/* <Button
           variant="contained"
           size="large"
           onClick={handleSubmitRecord}
           // disabled={isSubmittingRecord || !selectedTemplateId || !selectedVitalGroupId}
         >
           {isSubmittingRecord ? 'Đang tạo...' : 'Tạo hồ sơ'}
-        </Button>
+        </Button> */}
+        <Button
+  variant="contained"
+  size="large"
+  onClick={handleSubmitRecord}
+>
+  {isSubmittingRecord
+    ? 'Đang tạo...'
+    : selectedRecordAppt?.medicalRecords?.[0]
+      ? 'Cập nhật hồ sơ'
+      : 'Tạo hồ sơ'}
+</Button>
+
       </Stack>
     )}
 
