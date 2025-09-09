@@ -82,6 +82,16 @@ const { questions = [], formState = {}, isLoading: isRecordLoading = false, hand
 
 const [modalOpen, setModalOpen] = useState(false);
 const [selectedMedicalRecordId, setSelectedMedicalRecordId] = useState(null);
+const [filters, setFilters] = useState({
+  page: 1,
+  limit: 10,
+  reason: '',
+  status: '',
+  appointmentDateFrom: '',
+  appointmentDateTo: '',
+  orderBy: 'appointmentDate',
+  orderDirection: 'ASC',
+});
 
   
 useEffect(() => {
@@ -93,38 +103,47 @@ useEffect(() => {
 
 
   // --- Fetch appointments ---
-  const fetchAppointments = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const endpoint = showMyAppointments
-        ? '/api/v1/staff/appointments/my-appointments'
-        : '/api/v1/staff/appointments';
-      const response = await axiosInstance.get(endpoint);
-      const data = response.data?.data || [];
-      setAppointments(data);
-      setAllAppointments(data);
-    } catch (error) {
-      console.error('Lỗi khi lấy danh sách lịch hẹn:', error);
-      setSnackbar({ open: true, severity: 'error', message: 'Lấy lịch hẹn thất bại' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showMyAppointments]);
+const fetchAppointments = useCallback(async () => {
+  setIsLoading(true);
+  try {
+    const endpoint = showMyAppointments
+      ? '/api/v1/staff/appointments/my-appointments'
+      : '/api/v1/staff/appointments';
 
-  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
+   const params = {
+        page: filters.page || 1,
+        limit: filters.limit || 10,
+        reason: filters.reason || undefined,
+        status: filters.status || undefined,
+        appointmentDateFrom: filters.appointmentDateFrom
+          ? new Date(filters.appointmentDateFrom + "T00:00:00Z").toISOString()
+          : undefined,
+        appointmentDateTo: filters.appointmentDateTo
+          ? new Date(filters.appointmentDateTo + "T23:59:59Z").toISOString()
+          : undefined,
+        orderBy: filters.orderBy || "appointmentDate",
+        orderDirection: filters.orderDirection || "ASC",
+      };
 
-  // --- Fetch staff hiện tại ---
-  useEffect(() => {
-    const fetchCurrentStaff = async () => {
-      try {
-        const res = await axiosInstance.get('/api/v1/staffs/owner/me');
-        setCurrentStaff(res.data.data);
-      } catch (error) {
-        console.error('Lỗi khi lấy staff hiện tại:', error);
-      }
-    };
-    fetchCurrentStaff();
-  }, []);
+      // bỏ param trống
+      const cleanParams = Object.fromEntries(
+        Object.entries(params).filter(([_, v]) => v !== undefined && v !== "")
+      );
+
+    console.log("➡️ Gửi query params:", cleanParams);
+
+    const response = await axiosInstance.get(endpoint, { params: cleanParams });
+    const data = response.data?.data || [];
+    setAppointments(data);
+    setAllAppointments(data);
+  } catch (error) {
+    console.error('Lỗi khi lấy danh sách lịch hẹn:', error);
+    setSnackbar({ open: true, severity: 'error', message: 'Lấy lịch hẹn thất bại' });
+  } finally {
+    setIsLoading(false);
+  }
+}, [showMyAppointments, filters]);
+
 
  
 
@@ -238,7 +257,7 @@ const handleSubmitAppointment = async () => {
 };
 
 
-  // --- Open RecordCreateView ---
+// --- Open RecordCreateView ---
 
 
 
@@ -257,6 +276,21 @@ const checkDoctorAvailability = async (doctorId, appointmentDate) => {
 };
 
 
+useEffect(() => {
+  const fetchStaff = async () => {
+    try {
+      const res = await axiosInstance.get("/api/v1/staffs/owner/me");
+      setCurrentStaff(res.data?.data);
+      console.log("Current staff:", res.data?.data);
+    } catch (err) {
+      console.error("Không load được staff hiện tại:", err);
+    }
+  };
+  fetchStaff();
+}, []);
+useEffect(() => {
+  fetchAppointments();
+}, [fetchAppointments]);
 
   // --- Init vitalValues khi chọn group ---
   useEffect(() => {
@@ -299,6 +333,8 @@ const fetchAppointment = async (appointmentId) => {
     setSnackbar({ open: true, severity: 'error', message: 'Không tải được dữ liệu lịch hẹn.' });
   }
 };
+
+
 
 
 const handleUpdateAppointment = async () => {
@@ -377,26 +413,89 @@ const displayedAppointments = searchAppointmentId
 
   return (
     <Box sx={{ p: 4 }}>
+<Typography variant="h4" gutterBottom>Danh sách lịch hẹn</Typography>
 
+{/* Bộ lọc */}
+<Box display="flex" gap={2} mb={2} flexWrap="wrap">
+  <TextField
+    label="Reason"
+    size="small"
+    value={filters.reason}
+    onChange={(e) => setFilters({ ...filters, reason: e.target.value })}
+  />
 
-      <Typography variant="h4" gutterBottom>Danh sách lịch hẹn</Typography>
-      <Stack spacing={2} direction="row" sx={{ mb: 2 }}>
-        <Button variant="contained" onClick={() => { setShowMyAppointments(false); fetchAppointments(); }}>Xem tất cả</Button>
-        <Button variant="outlined" onClick={() => { setShowMyAppointments(true); fetchAppointments(); }}>Xem của tôi</Button>
-<TextField
-  label="Tìm theo ID"
-  value={searchAppointmentId}
-  size="small"
-  onChange={(e) => {
-    const val = e.target.value;
-    setSearchAppointmentId(val);
-    fetchAppointmentById(val); // tự gọi khi gõ
-  }}
-/>
+  <FormControl size="small">
+    <Select
+      value={filters.status}
+      displayEmpty
+      onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+    >
+      <MenuItem value="">All</MenuItem>
+      <MenuItem value="PENDING">Pending</MenuItem>
+      <MenuItem value="CONFIRMED">Confirmed</MenuItem>
+      <MenuItem value="CANCELLED">Cancelled</MenuItem>
+      <MenuItem value="COMPLETED">Completed</MenuItem>
+    </Select>
+  </FormControl>
 
+  <TextField
+    type="date"
+    label="From"
+    size="small"
+    InputLabelProps={{ shrink: true }}
+    value={filters.appointmentDateFrom}
+    onChange={(e) => setFilters({ ...filters, appointmentDateFrom: e.target.value })}
+  />
 
-        <Button variant="contained" color="info" onClick={() => setOpenCreateForm(true)}>Tạo lịch hẹn</Button>
-      </Stack>
+  <TextField
+    type="date"
+    label="To"
+    size="small"
+    InputLabelProps={{ shrink: true }}
+    value={filters.appointmentDateTo}
+    onChange={(e) => setFilters({ ...filters, appointmentDateTo: e.target.value })}
+  />
+
+  <FormControl size="small">
+    <Select
+      value={filters.orderDirection}
+      onChange={(e) => setFilters({ ...filters, orderDirection: e.target.value })}
+    >
+      <MenuItem value="ASC">ASC</MenuItem>
+      <MenuItem value="DESC">DESC</MenuItem>
+    </Select>
+  </FormControl>
+
+  <Button variant="contained" onClick={fetchAppointments}>
+    Tìm kiếm
+  </Button>
+</Box>
+
+{/* Toolbar */}
+<Stack spacing={2} direction="row" sx={{ mb: 2 }}>
+  <Button variant="contained" onClick={() => { setShowMyAppointments(false); fetchAppointments(); }}>
+    Xem tất cả
+  </Button>
+  <Button variant="outlined" onClick={() => { setShowMyAppointments(true); fetchAppointments(); }}>
+    Xem của tôi
+  </Button>
+
+  <TextField
+    label="Tìm theo ID"
+    size="small"
+    value={searchAppointmentId}
+    onChange={(e) => {
+      const val = e.target.value;
+      setSearchAppointmentId(val);
+      fetchAppointmentById(val); // gọi API tìm theo ID
+    }}
+  />
+
+  <Button variant="contained" color="info" onClick={() => setOpenCreateForm(true)}>
+    Tạo lịch hẹn
+  </Button>
+</Stack>
+
 
 {isLoading || isSearchingAppointment ? (
   <CircularProgress />
@@ -423,29 +522,25 @@ const displayedAppointments = searchAppointmentId
             )}
           </Stack>
 
-  <Button
-  variant="outlined"
-  color="primary"
-  onClick={() => {
-    const record = appt.medicalRecords?.[0];
+          <Button
+          variant="outlined"
+          color="primary"
+          onClick={() => {
+            const record = appt.medicalRecords?.[0];
 
-    if (!record) {
-      console.warn('Appointment này chưa có medical record!'); 
-      return; // không mở modal nếu không có medicalRecord
-    }
+            if (!record) {
+              console.warn('Appointment này chưa có medical record!'); 
+              return; // không mở modal nếu không có medicalRecord
+            }
 
-    setSelectedMedicalRecordId(record.id); // luôn tồn tại
-    setSelectedTemplateId(appt.templateId ?? 16); // template mặc định nếu null
-    setSelectedRecordAppt(appt); // lưu appointment
-    setModalOpen(true);
-  }}
->
-  Cập nhật bệnh án
-</Button>
-
-
-
-          
+            setSelectedMedicalRecordId(record.id); // luôn tồn tại
+            setSelectedTemplateId(appt.templateId ?? 16); // template mặc định nếu null
+            setSelectedRecordAppt(appt); // lưu appointment
+            setModalOpen(true);
+          }}
+        >
+          Cập nhật bệnh án
+          </Button>
           <Button
         variant="outlined"
         color="default"
@@ -454,7 +549,7 @@ const displayedAppointments = searchAppointmentId
         sx={{ mt: 1 }}
       >
         Xem chi tiết
-      </Button>
+          </Button>
 
             <Button
           variant="outlined"
@@ -477,18 +572,12 @@ const displayedAppointments = searchAppointmentId
           sx={{ mt: 1 }}
         >
           Xóa lịch hẹn
-        </Button>
-
-
-
-        </CardContent>
+            </Button>
+</CardContent>
       </Card>
     ))}
   </Stack>
 )}
-
-
-
 
       {/* Dialog tạo lịch hẹn */}
 <Dialog
@@ -582,9 +671,6 @@ const displayedAppointments = searchAppointmentId
     currentStaff={currentStaff}
 />
 
-
-
-
 <Dialog
   open={isEditingAppointment}
   onClose={() => setIsEditingAppointment(false)}
@@ -651,9 +737,6 @@ const displayedAppointments = searchAppointmentId
     </Button>
   </DialogActions>
 </Dialog>
-
-
-
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>{snackbar.message}</Alert>

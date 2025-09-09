@@ -10,13 +10,18 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff.js';
 import { getVitalValuesMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff.js';
+import {
+  Accordion, AccordionSummary, AccordionDetails
+} from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { RecordCreateButtons } from 'src/sections/medicalRecordStaff/create/Record-create-button.jsx';
 import axiosInstance from 'src/lib/axios.js';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
-
+import { useSnackbar } from 'notistack';
 import { useVitalsTemplate } from './useVitalsTemplate';
 import { useUpdateVitalValues } from './useUpdateVitalValues';
+
 // Render từng trường trong form
 function QuestionRenderer({ indicator, value, onChange }) {
   // --- Parser chung cho các tùy chọn ---
@@ -104,7 +109,12 @@ function VitalsFormModal({
   medicalRecordId, appointment
 }) {
   const [formValues, setFormValues] = useState({});
-
+  const [formData, setFormData] = useState({
+    diagnosis:  'Chưa có chẩn đoán',
+    symptoms:  'Chưa có triệu chứng',
+    notes:  'Chưa có ghi chú',
+  });
+   const { enqueueSnackbar } = useSnackbar();
   useEffect(() => {
     if (questions) {
       const initialValues = {};
@@ -122,51 +132,120 @@ function VitalsFormModal({
     onClose();
   };
 
+  const handleUpdateInfo = async () => {
+  try {
+    await axiosInstance.patch(`/api/v1/medical-records/${medicalRecordId}`, {
+      diagnosis: formData.diagnosis || "Chưa có chẩn đoán",
+      symptoms: formData.symptoms || "Chưa có triệu chứng",
+      notes: formData.notes || "Chưa có ghi chú",
+      appointmentId: appointment.id
+    });
+
+    enqueueSnackbar("Cập nhật thông tin thành công!", { variant: "success" });
+  } catch (err) {
+    console.error(err);
+    enqueueSnackbar("Lỗi khi cập nhật thông tin", { variant: "error" });
+  }
+};
+
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {`Hồ sơ của: ${appointment?.fullName || appointment?.patient?.fullname || ''}`}
-        <IconButton onClick={onClose}><CloseIcon /></IconButton>
-      </DialogTitle>
+   <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+  <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    {`Hồ sơ của: ${appointment?.fullName || appointment?.patient?.fullname || ''}`}
+    <IconButton onClick={onClose}><CloseIcon /></IconButton>
+  </DialogTitle>
 
-      <DialogContent dividers>
-        <RecordCreateButtons onTemplateSelect={() => {}} />
+  <DialogContent dividers>
+    <RecordCreateButtons onTemplateSelect={() => {}} />
 
-        
+    {/* <Accordion sx={{ mt: 3,color: 'primary.main', border: '1px solid', borderColor: 'primary.main' }}>
+  <AccordionSummary
+    expandIcon={<ExpandMoreIcon />}
+    aria-controls="clinical-info-content"
+    id="clinical-info-header"
+  >
+    <Typography variant="subtitle1" fontWeight={600}>
+      Thông tin lâm sàng
+    </Typography>
+  </AccordionSummary>
+  <AccordionDetails>
+    <Stack spacing={2}>
+      <TextField
+        label="Triệu chứng"
+        fullWidth
+        multiline
+        minRows={2}
+        value={formData.symptoms}
+        onChange={(e) => setFormData({ ...formData, symptoms: e.target.value })}
+      />
 
-        {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
-            <CircularProgress />
-          </Box>
-        )}
+      <TextField
+        label="Chẩn đoán"
+        fullWidth
+        multiline
+        minRows={2}
+        value={formData.diagnosis}
+        onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
+      />
 
-        {!loading && questions.length > 0 && (
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            {questions.map(q => (
-              <QuestionRenderer
-                key={q.id}
-                indicator={q}
-                value={formValues[q.id] || ''}
-                onChange={handleValueChange}
-              />
-            ))}
-          </Stack>
-        )}
+      <TextField
+        label="Ghi chú"
+        fullWidth
+        multiline
+        minRows={2}
+        value={formData.notes}
+        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+      />
 
-        {!loading && questions.length === 0 && (
-          <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
-            Chưa chọn template hoặc không có câu hỏi nào.
-          </Typography>
-        )}
-      </DialogContent>
+      <Button
+        variant="outlined"
+        onClick={handleUpdateInfo}
+      >
+        Cập nhật thông tin
+      </Button>
+    </Stack>
+  </AccordionDetails>
+    </Accordion> */}
 
-      <DialogActions>
-        <Button onClick={onClose}>Hủy</Button>
-        <Button variant="contained" onClick={handleSave} disabled={loading || questions.length === 0}>
-          Lưu hồ sơ
-        </Button>
-      </DialogActions>
-    </Dialog>
+    {loading && (
+      <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
+        <CircularProgress />
+      </Box>
+    )}
+
+    {!loading && questions.length > 0 && (
+      <Stack spacing={2} sx={{ mt: 2 }}>
+        {questions.map(q => (
+          <QuestionRenderer
+            key={q.id}
+            indicator={q}
+            value={formValues[q.id] || ''}
+            onChange={handleValueChange}
+          />
+        ))}
+      </Stack>
+    )}
+
+    {!loading && questions.length === 0 && (
+      <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
+        Chưa chọn template hoặc không có câu hỏi nào.
+      </Typography>
+    )}
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={onClose}>Hủy</Button>
+    <Button
+      variant="contained"
+      onClick={handleSave}
+      disabled={loading || questions.length === 0}
+    >
+      Lưu hồ sơ
+    </Button>
+  </DialogActions>
+</Dialog>
+
   );
 }
 
@@ -214,6 +293,7 @@ const handleSave = async (medicalRecordId, values) => {
     setSnackbar?.({ open: true, severity: 'error', message: 'Lỗi khi lưu chỉ số.' });
   }
 };
+
 
 
   return (
