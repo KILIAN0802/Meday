@@ -34,116 +34,7 @@ import axiosInstance from 'src/lib/axios';
 // --- Custom hooks/components cho RecordCreate ---
 import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { useRecordCreateQuestion } from '../../medicalRecordStaff/create/Record-create-question';
-import { RecordCreateButtons } from '../../medicalRecordStaff/create/Record-create-button';
-
-// --- Render question template ---
-const renderQuestion = (question, formState, handleInputChange) => {
-  const questionid = question?.id || '';
-  const value = formState?.[questionid] ?? '';
-  const commonProps = {
-    label: question?.name || 'Câu hỏi',
-    fullWidth: true,
-    variant: 'outlined',
-  };
-
-  switch (question?.valueType) {
-    case 'number':
-      return (
-        <TextField
-          key={questionid}
-          {...commonProps}
-          type="number"
-          value={value}
-          onChange={(e) => handleInputChange(questionid, e.target.value)}
-          helperText={question?.description}
-        />
-      );
-
-    case 'text':
-      return (
-        <TextField
-          key={questionid}
-          {...commonProps}
-          type="text"
-          value={value}
-          onChange={(e) => handleInputChange(questionid, e.target.value)}
-          helperText={question?.description}
-        />
-      );
-
-    case 'selection':
-      return (
-        <FormControl key={questionid} fullWidth>
-          <InputLabel id={`${questionid}-label`}>
-            {question?.name}
-          </InputLabel>
-          <Select
-            labelId={`${questionid}-label`}
-            id={`${questionid}-select`}
-            value={value}
-            label={question?.name}
-            onChange={(e) => handleInputChange(questionid, e.target.value)}
-          >
-            {(question?.valueOptions || []).map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </Select>
-          {question?.description && (
-            <FormHelperText>{question.description}</FormHelperText>
-          )}
-        </FormControl>
-      );
-
-    case 'multi_selection':
-      return (
-        <FormControl key={questionid} fullWidth>
-          <InputLabel id={`${questionid}-multi-label`}>
-            {question?.name}
-          </InputLabel>
-          <Select
-            labelId={`${questionid}-multi-label`}
-            id={`${questionid}-multi-select`}
-            multiple
-            value={Array.isArray(value) ? value : []}
-            onChange={(e) => handleInputChange(questionid, e.target.value)}
-            input={<OutlinedInput label={question?.name} />}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {Array.isArray(selected)
-                  ? selected.map((val) => <Chip key={val} label={val} />)
-                  : null}
-              </Box>
-            )}
-          >
-            {(question?.valueOptions || []).map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </Select>
-          {question?.description && (
-            <FormHelperText>{question.description}</FormHelperText>
-          )}
-        </FormControl>
-      );
-
-    default:
-      return (
-        <TextField
-          key={questionid}
-          {...commonProps}
-          type="text"
-          value={value}
-          onChange={(e) => handleInputChange(questionid, e.target.value)}
-          // helperText={`Kiểu dữ liệu: ${
-          //   question?.valueType || 'text'
-          // }. ${question?.description || ''}`}
-        />
-      );
-  }
-};
+import MedicalRecordFormLoader from './UpdateMedicalRecord.jsx';
 
 // --- Component gộp ---
 export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
@@ -151,7 +42,6 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   const [appointments, setAppointments] = useState([]);
   const [allAppointments, setAllAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchId, setSearchId] = useState('');
   const [showMyAppointments, setShowMyAppointments] = useState(false);
 
 
@@ -182,23 +72,20 @@ const [formValues, setFormValues] = useState({});
   const [selectedRecordAppt, setSelectedRecordAppt] = useState(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [selectedVitalGroupId, setSelectedVitalGroupId] = useState(null);
-  const [vitalValuesState, setVitalValuesState] = useState([]);
-  const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
-  const [recordError, setRecordError] = useState(null);
-  const [allVitalGroups, setAllVitalGroups] = useState([]);
+
   
 
-useEffect(() => {
-  const fetchAllVitalGroups = async () => {
-    try {
-      const res = await axiosInstance.get('/api/v1/vitals/groups');
-      setAllVitalGroups(res.data?.data || []);
-    } catch (err) {
-      console.error('Lỗi khi lấy toàn bộ vital groups:', err);
-    }
-  };
-  fetchAllVitalGroups();
-}, []);
+// useEffect(() => {
+//   const fetchAllVitalGroups = async () => {
+//     try {
+//       const res = await axiosInstance.get('/api/v1/vitals/groups');
+//       setAllVitalGroups(res.data?.data || []);
+//     } catch (err) {
+//       console.error('Lỗi khi lấy toàn bộ vital groups:', err);
+//     }
+//   };
+//   fetchAllVitalGroups();
+// }, []);
 
 
 
@@ -206,6 +93,9 @@ useEffect(() => {
   // useRecordCreateQuestion(selectedTemplateId);
 const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
   useRecordCreateQuestion(selectedTemplateId);
+
+const [modalOpen, setModalOpen] = useState(false);
+const [selectedMedicalRecordId, setSelectedMedicalRecordId] = useState(null);
 
   
 useEffect(() => {
@@ -361,220 +251,6 @@ const handleSubmitAppointment = async () => {
 
 
   // --- Open RecordCreateView ---
-const openRecordDialog = async (appt) => {
-  if (!appt || !currentStaff) return;
-
-  try {
-    const res = await axiosInstance.get(`/api/v1/staff/appointments/${appt.id}`);
-    const freshAppt = res.data?.data;
-    setSelectedRecordAppt(freshAppt);
-
-    const defaultTemplateId = freshAppt.medicalRecords?.[0]?.templateId || 16;
-    setSelectedTemplateId(defaultTemplateId);
-
-    // Lấy vital values từ API mới
-    if (freshAppt.medicalRecords?.[0]?.id) {
-      await fetchVitalValues(freshAppt.medicalRecords[0].id);
-    }
-
-    // Populate formState
-    loadRecordToForm(freshAppt);
-
-  } catch (err) {
-    console.error('Lỗi khi mở dialog hồ sơ:', err);
-    setSnackbar({ open: true, severity: 'error', message: 'Không mở được hồ sơ, thử lại' });
-  }
-};
-
-
-  // --- Handle vitalValues ---
-  const handleVitalValueChange = (vitalId, newValue, note) => {
-  setVitalValuesState(prev =>
-    prev.map(v =>
-      v.vitalIndicatorId === vitalId
-        ? { ...v, value: { value: newValue }, note: note ?? v.note }
-        : v
-    )
-  );
-};
-
-  // --- Submit Record ---
-// const handleSubmitRecord = async () => {
-//   if (!selectedRecordAppt || !currentStaff) return;
-//   if (!selectedTemplateId) {
-//     setRecordError('Chưa chọn template hồ sơ.');
-//     return;
-//   }
-
-//   setIsSubmittingRecord(true);
-//   setRecordError(null);
-
-//   try {
-//     // 1️⃣ Map formState thành answers
-//     const answers = Object.entries(formState).map(([questionId, answerValue]) => ({
-//       questionId: Number(questionId),
-//       answerValue,
-//     }));
-
-//     const appointmentId =
-//   selectedRecordAppt?.appointment?.id || // nếu có nested appointment
-//   selectedRecordAppt?.id ||              // nếu chính nó là appointment
-//   null;
-
-
-//     // 2️⃣ Payload để tạo record
-//     const payload = {
-//       patientId: Number(selectedRecordAppt.patient?.id),
-//       date: new Date().toISOString().split('T')[0],
-//       diagnosis: formState.DIAGNOSIS || 'Chưa có chẩn đoán',
-//       symptoms: formState.SYMPTOMS || 'chưa có triệu chứng',
-//       notes: formState.NOTES || 'chưa có ghi chú',
-//       answers,
-//       vitalValues: [null], // backend yêu cầu khi tạo
-//        appointmentId,
-//     };
-
-//     // 3️⃣ Tạo record
-//     const recordRes = await axiosInstance.post('/api/staff/medical-records', payload);
-//     const recordId = recordRes.data?.data?.id;
- 
-
-
-//     // 4️⃣ Chuẩn bị vitalValues giống handleSaveChanges
-//     const vitalPayload = Object.entries(formState)
-//       .filter(([questionId, value]) => value !== '' && value !== null && value !== undefined)
-//       .map(([questionId, value]) => {
-//         const idAsNumber = Number(questionId);
-//         // const originalIndicator = vitalQuestions.find(q => q.id === idAsNumber);
-//         let finalValue = value;
-
-//         // if (originalIndicator?.valueType === 'number' && !isNaN(value)) {
-//         //   finalValue = parseFloat(value);
-//         // }
-
-//         return {
-//           vitalIndicatorId: idAsNumber,
-//           // value: { value: finalValue },
-//            value: { value }, // giữ nguyên, không parse
-//           note: ''
-//         };
-//       });
-
-//     // 5️⃣ Patch vitalValues qua API chung
-//     if (vitalPayload.length > 0) {
-//       await updateVitalMedicalRecordeById(recordId, { vitalValues: vitalPayload });
-//       console.log('Updated vitalValues:', vitalPayload);
-//     }
-
-//     setSelectedRecordAppt(null);
-//     fetchAppointments();
-//     setSnackbar({ open: true, severity: 'success', message: 'Tạo hồ sơ thành công' });
-
-//   } catch (err) {
-//     console.error('Submit record error:', err.response?.data || err.message);
-//     setRecordError('Tạo hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
-//     setSnackbar({ open: true, severity: 'error', message: 'Tạo hồ sơ thất bại' });
-//   } finally {
-//     setIsSubmittingRecord(false);
-//   }
-// };
-
-
-// --- Load form dữ liệu từ medicalRecord ---
-const loadRecordToForm = (appointment) => {
-  if (!appointment) return;
-  const record = appointment.medicalRecords?.[0];
-
-  if (record) {
-    // Map các câu hỏi từ record.answers
-    record.answers?.forEach(ans => {
-      handleInputChange(ans.questionId, ans.answerValue);
-    });
-
-    // Map diagnosis, symptoms, notes
-    handleInputChange('DIAGNOSIS', record.diagnosis || '');
-    handleInputChange('SYMPTOMS', record.symptoms || '');
-    handleInputChange('NOTES', record.notes || '');
-
-    // Vital values
-    setVitalValuesState(record.vitalValues?.map(v => ({
-      vitalIndicatorId: v.vitalIndicatorId,
-        value: { value: v.value }, // ép thành object
-      note: v.note || ''
-    })) || []);
-  } else {
-    setVitalValuesState([]);
-  }
-};
-
-
-// --- Submit / Update record ---
-// --- Submit / Update record ---
-const handleSubmitRecord = async () => {
-  if (!selectedRecordAppt || !currentStaff) return;
-
-  setIsSubmittingRecord(true);
-  setRecordError(null);
-
-  try {
-    // 1️⃣ Lấy record hiện có (ưu tiên templateId đã chọn nếu có)
-    const record =
-      selectedRecordAppt.medicalRecords?.find(r => r.templateId === selectedTemplateId) ||
-      selectedRecordAppt.medicalRecords?.[0];
-
-    if (!record) {
-      setRecordError("Không tìm thấy medical record cho lịch hẹn này");
-      setIsSubmittingRecord(false);
-      return;
-    }
-
-    const recordId = record.id;
-
-    // 2️⃣ Chuẩn bị answers từ formState
-    const answers = Object.entries(formState).map(([questionId, answerValue]) => ({
-      questionId: Number(questionId),
-      answerValue
-    }));
-
-    console.log('Answers chuẩn bị gửi:', answers);
-
-    // 3️⃣ Chuẩn bị vitalValues từ vitalValuesState
-    const vitalPayload = vitalValuesState.map(v => ({
-      vitalIndicatorId: Number(v.vitalIndicatorId),
-      value: { value: v.value.value }, // giữ nguyên, backend có thể parse number
-      note: v.note || ''
-    }));
-
-    console.log('VitalValues chuẩn bị gửi:', vitalPayload);
-
-    // 4️⃣ Payload PATCH
-    const updatePayload = {
-      diagnosis: formState.DIAGNOSIS || record.diagnosis,
-      symptoms: formState.SYMPTOMS || record.symptoms,
-      notes: formState.NOTES || record.notes,
-
-      vitalValues: vitalPayload
-    };
-
-    console.log('Payload PATCH đang gửi đi:', updatePayload);
-
-    // 5️⃣ Gọi API PATCH
-    const res = await axiosInstance.patch(`/api/staff/medical-records/${recordId}`, updatePayload);
-    console.log('Response PATCH:', res.data);
-
-    // 6️⃣ Reset / thông báo
-    setSelectedRecordAppt(null);
-    fetchAppointments();
-    setSnackbar({ open: true, severity: 'success', message: 'Cập nhật hồ sơ thành công' });
-
-  } catch (err) {
-    console.error('Update record error:', err.response?.data || err.message);
-    setRecordError('Cập nhật hồ sơ thất bại. Kiểm tra console để biết chi tiết.');
-    setSnackbar({ open: true, severity: 'error', message: 'Cập nhật hồ sơ thất bại' });
-  } finally {
-    setIsSubmittingRecord(false);
-  }
-};
 
 
 
@@ -706,30 +382,6 @@ const fetchAppointmentById = async (id) => {
 
 
 
-
-//========================================================================================
-
-const fetchVitalValues = async (recordId) => {
-  try {
-    const res = await axiosInstance.get(`/api/staff/medical-records/${recordId}/vital-values`);
-    const data = res.data?.data || [];
-    console.log('Vital Values raw:', data);
-
-    // Convert về format FE mong muốn
-    const formatted = data.map(v => ({
-      vitalIndicatorId: v.vitalIndicatorId,
-      value: { value: v.value }, // FE cần object { value: … }
-      note: v.note || ''
-    }));
-
-    setVitalValuesState(formatted);
-  } catch (err) {
-    console.error('Lỗi khi fetch vital values:', err.response?.data || err.message);
-    setSnackbar({ open: true, severity: 'error', message: 'Không tải được dữ liệu vital values' });
-  }
-};
-
-
 //========================================================================================
 const displayedAppointments = searchAppointmentId
   ? foundAppointment ? [foundAppointment] : []
@@ -783,14 +435,28 @@ const displayedAppointments = searchAppointmentId
             )}
           </Stack>
 
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => openRecordDialog(appt)}
-            sx={{ mt: 1 }}
-          >
-            {appt.medicalRecords?.[0] ? 'Cập nhật hồ sơ' : 'Tạo bệnh án'}
-          </Button>
+  <Button
+  variant="outlined"
+  color="primary"
+  onClick={() => {
+    const record = appt.medicalRecords?.[0];
+
+    if (!record) {
+      console.warn('Appointment này chưa có medical record!'); 
+      return; // không mở modal nếu không có medicalRecord
+    }
+
+    setSelectedMedicalRecordId(record.id); // luôn tồn tại
+    setSelectedTemplateId(appt.templateId ?? 16); // template mặc định nếu null
+    setSelectedRecordAppt(appt); // lưu appointment
+    setModalOpen(true);
+  }}
+>
+  Cập nhật bệnh án
+</Button>
+
+
+
           
           <Button
         variant="outlined"
@@ -873,84 +539,19 @@ const displayedAppointments = searchAppointmentId
 
 
       {/* Dialog cập nhật bệnh án */}
-{/* Dialog cập nhật bệnh án */}
-<Dialog
-  fullWidth
-  maxWidth="md"
-  open={!!selectedRecordAppt}
-  onClose={() => setSelectedRecordAppt(null)}
->
-  <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    {`Hồ sơ của: ${selectedRecordAppt?.fullName || selectedRecordAppt?.patient?.fullname || ''}`}
-    <IconButton onClick={() => setSelectedRecordAppt(null)}><CloseIcon /></IconButton>
-  </DialogTitle>
 
-  <DialogContent dividers>
-    <RecordCreateButtons
-      onTemplateSelect={(id) => {
-        setSelectedTemplateId(id);
-        console.log('Người dùng chọn template:', id);
-      }}
-    />
-    {isRecordLoading && <CircularProgress />}
-    {recordError && <Alert severity="error">{recordError}</Alert>}
+<MedicalRecordFormLoader
+   templateId={selectedTemplateId}
+   medicalRecordId={selectedMedicalRecordId}
+   appointment={selectedRecordAppt} // <- dùng state đã lưu khi click
+   setSnackbar={setSnackbar}
+   open={modalOpen}
+   onClose={() => setModalOpen(false)}
+    currentStaff={currentStaff}
+/>
 
-    {!isRecordLoading && questions.length > 0 && (
-      <Stack spacing={3} sx={{ mt: 2 }}>
-        {questions.map(q => renderQuestion(q, formState, handleInputChange))}
 
-        {selectedVitalGroupId && vitalValuesState.length > 0 && (
-          <Box>
-            <Typography variant="subtitle1" sx={{ mt: 2 }}>Giá trị sinh tồn</Typography>
-           {vitalValuesState.map((v) => {
-  const indicator = vitalIndicators.find(ind => ind.id === v.vitalIndicatorId);
-  return (
-    <Stack key={v.vitalIndicatorId} direction="row" spacing={2} sx={{ mt: 1 }}>
-      <TextField
-        label={indicator?.name || 'Vital'}
-        type="text" // dùng text để không lỗi khi value là string
-        value={v.value.value} // giờ đã có .value
-        onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, e.target.value, v.note)}
-      />
-      <TextField
-        label="Ghi chú"
-        value={v.note}
-        onChange={(e) => handleVitalValueChange(v.vitalIndicatorId, v.value.value, e.target.value)}
-      />
-    </Stack>
-  );
-})}
 
-          </Box>
-        )}
-
-        {/* Nút tạo/cập nhật hồ sơ */}
-        <Button
-          variant="contained"
-          size="large"
-          onClick={handleSubmitRecord}
-          disabled={
-            isSubmittingRecord ||
-            !selectedTemplateId ||
-            !selectedVitalGroupId
-          }
-        >
-          {isSubmittingRecord
-            ? 'Đang tạo...'
-            : selectedRecordAppt?.medicalRecords?.[0]
-              ? 'Cập nhật hồ sơ'
-              : 'Tạo hồ sơ'}
-        </Button>
-      </Stack>
-    )}
-
-    {!isRecordLoading && questions.length === 0 && (
-      <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
-        Chưa chọn template hoặc không có câu hỏi nào.
-      </Typography>
-    )}
-  </DialogContent>
-</Dialog>
 
 <Dialog
   open={isEditingAppointment}

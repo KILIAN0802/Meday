@@ -78,6 +78,7 @@ export async function updateVitalMedicalRecordeById(id, payload) {
       endpoints.medical_record_staff.UpdateVitalId(id),
       payload
     );
+    console.log('Cập nhật thành công:', response.data);
     return response.data;
   } catch (error) {
     // Log cả payload để dễ debug hơn
