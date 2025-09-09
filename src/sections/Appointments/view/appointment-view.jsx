@@ -257,11 +257,6 @@ const handleSubmitAppointment = async () => {
 };
 
 
-// --- Open RecordCreateView ---
-
-
-
-
 
 const checkDoctorAvailability = async (doctorId, appointmentDate) => {
   try {
@@ -334,9 +329,6 @@ const fetchAppointment = async (appointmentId) => {
   }
 };
 
-
-
-
 const handleUpdateAppointment = async () => {
   if (!appointmentForm || !editingAppointment) return;
   setIsSubmittingAppointment(true);
@@ -368,8 +360,6 @@ const handleUpdateAppointment = async () => {
   }
 };
 //========================================================================================
-
-
 
 
 // --- State ---
@@ -404,7 +394,12 @@ const fetchAppointmentById = async (id) => {
   }
 };
 
-
+const statusMap = {
+  PENDING: "Chờ xử lý",
+  CONFIRMED: "Đã xác nhận",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy"
+};
 
 //========================================================================================
 const displayedAppointments = searchAppointmentId
@@ -418,7 +413,7 @@ const displayedAppointments = searchAppointmentId
 {/* Bộ lọc */}
 <Box display="flex" gap={2} mb={2} flexWrap="wrap">
   <TextField
-    label="Reason"
+    label="Lý do"
     size="small"
     value={filters.reason}
     onChange={(e) => setFilters({ ...filters, reason: e.target.value })}
@@ -430,17 +425,17 @@ const displayedAppointments = searchAppointmentId
       displayEmpty
       onChange={(e) => setFilters({ ...filters, status: e.target.value })}
     >
-      <MenuItem value="">All</MenuItem>
-      <MenuItem value="PENDING">Pending</MenuItem>
-      <MenuItem value="CONFIRMED">Confirmed</MenuItem>
-      <MenuItem value="CANCELLED">Cancelled</MenuItem>
-      <MenuItem value="COMPLETED">Completed</MenuItem>
+      <MenuItem value="">Tất cả</MenuItem>
+      <MenuItem value="PENDING">Chờ xử lý</MenuItem>
+      <MenuItem value="CONFIRMED">Đã xác nhận</MenuItem>
+      <MenuItem value="CANCELLED">Đã hủy bỏ</MenuItem>
+      <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
     </Select>
   </FormControl>
 
   <TextField
     type="date"
-    label="From"
+    label="Từ ngày"
     size="small"
     InputLabelProps={{ shrink: true }}
     value={filters.appointmentDateFrom}
@@ -449,7 +444,7 @@ const displayedAppointments = searchAppointmentId
 
   <TextField
     type="date"
-    label="To"
+    label="Đến ngày"
     size="small"
     InputLabelProps={{ shrink: true }}
     value={filters.appointmentDateTo}
@@ -461,8 +456,8 @@ const displayedAppointments = searchAppointmentId
       value={filters.orderDirection}
       onChange={(e) => setFilters({ ...filters, orderDirection: e.target.value })}
     >
-      <MenuItem value="ASC">ASC</MenuItem>
-      <MenuItem value="DESC">DESC</MenuItem>
+      <MenuItem value="ASC">Thứ tự tăng</MenuItem>
+      <MenuItem value="DESC">Thứ tự giảm</MenuItem>
     </Select>
   </FormControl>
 
@@ -515,7 +510,7 @@ const displayedAppointments = searchAppointmentId
             </Typography>
             <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullname}</Typography>
             <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
-            <Typography >Trạng thái: {appt.status}</Typography>
+            <Typography>  Trạng thái: {statusMap[appt.status] || appt.status}</Typography>
             {appt.notes && <Typography>Ghi chú: {appt.notes}</Typography>}
             {appt.customInfo?.emergencyContact && (
               <Typography>Liên hệ khẩn cấp: {appt.customInfo.emergencyContact}</Typography>
