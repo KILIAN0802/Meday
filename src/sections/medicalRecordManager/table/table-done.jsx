@@ -61,51 +61,95 @@ function PersonDetailsModal({ person, open, onClose }) {
   );
 }
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 2: HIỂN THỊ CHIP TRẠNG THÁI ###
-// (Không thay đổi)
 function StatusChip({ status }) {
   const statusMap = {
-    PENDING: { color: 'warning', text: 'CHỜ XỬ LÝ' },
-    CONFIRMED: { color: 'primary', text: 'ĐANG XỬ LÝ' },
+    PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
+    CONFIRMED: { color: 'primary', text: 'ĐÃ TIẾP NHẬN' },
     COMPLETED: { color: 'success', text: 'HOÀN THÀNH' },
   };
   const { color, text } = statusMap[status] || { color: 'default', text: 'KHÔNG RÕ' };
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
 
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 3: COMPONENT CHỈ XEM CÂU HỎI ###
-// (Không thay đổi)
-function QuestionViewer({ indicator, value }) {
-  let displayValue = value;
-  if (indicator.valueType === 'selection' && value) {
-    const options = (indicator.valueOptions || [])
-      .filter(Boolean)
-      .map(optStr => {
-        let optValue = optStr, optLabel = optStr;
-        if (optStr.includes('.')) {
-          const parts = optStr.split('.');
-          optValue = parts[0];
-          optLabel = parts.slice(1).join('.');
-        }
-        return { value: optValue, label: optLabel };
-      });
-    const selectedOption = options.find(opt => opt.value === String(value));
-    displayValue = selectedOption ? selectedOption.label : value;
+function extractFinalValue(data) {
+  if (Array.isArray(data)) {
+    return data.join(', ');
   }
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
+  const values = Object.values(data);
+  if (values.length === 0) {
+    return null;
+  }
+  return extractFinalValue(values[0]);
+}
+
+function QuestionViewer({ indicator, value }) {
+  const dataObject = (typeof value === 'object' && value !== null && value.value) ? value.value : value;
+
+  if (Array.isArray(dataObject)) {
+    const displayString = dataObject.join(', ');
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+        <Typography variant="body2" sx={{ textAlign: 'right', pl: 2 }}>
+          {displayString || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}
+        </Typography>
+      </Box>
+    );
+  }
+  if (typeof dataObject === 'object' && dataObject !== null) {
+    const entries = Object.entries(dataObject)
+      .map(([key, val]) => {
+        const finalValue = extractFinalValue(val);
+        return { key, value: finalValue };
+      })
+      .filter(item => item.value !== null && item.value !== undefined && item.value !== '');
+
+    if (entries.length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+          <Typography variant="body2"><span style={{ color: '#999' }}>Chưa có dữ liệu</span></Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+        <Box component="ul" sx={{ pl: 2.5, m: 0, mt: 1, listStyleType: 'disc' }}>
+          {entries.map(({ key, value: displayVal }) => {
+            const cleanedKey = key.split('_').pop().trim();
+            return (
+              <Box component="li" key={key} sx={{ typography: 'body2', pl: 1, '&:not(:last-child)': { mb: 0.5 }, '&::marker': { color: '#6c757d' } }}>
+                <Typography component="span" sx={{ fontStyle: 'italic' }}>{cleanedKey}:</Typography>
+                <Typography component="span" sx={{ fontWeight: '500', ml: 0.5 }}>{String(displayVal)}</Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+    );
+  }
+
+  let displayValue = dataObject;
+  if (dataObject === null || dataObject === undefined) {
+    displayValue = '';
+  }
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
-      <Typography variant="body2">{displayValue || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}</Typography>
+      <Typography variant="body2" sx={{ textAlign: 'right', pl: 2 }}>
+        {displayValue || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}
+      </Typography>
     </Box>
   );
 }
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 4: MODAL CHỈ XEM THEO NHÓM ###
-// (Không thay đổi)
+
 function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -299,7 +343,7 @@ export function CompletedMedicalRecords() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
-                    <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>Không tìm thấy bệnh án nào đã hoàn thành.</Typography>
+                    <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>Chưa có bệnh án nào hoàn thành.</Typography>
                   </TableCell>
                 </TableRow>
               )}

@@ -51,8 +51,8 @@ function PersonDetailsModal({ person, open, onClose }) {
 // (Không thay đổi)
 function StatusChip({ status }) {
     const statusMap = {
-        PENDING: { color: 'warning', text: 'CHỜ XỬ LÝ' },
-        CONFIRMED: { color: 'primary', text: 'ĐANG XỬ LÝ' },
+        PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
+        CONFIRMED: { color: 'primary', text: 'ĐÃ TIẾP NHẬN' },
         COMPLETED: { color: 'success', text: 'HOÀN THÀNH' },
     };
     const { color, text } = statusMap[status] || { color: 'default', text: 'KHÔNG RÕ' };
@@ -371,7 +371,7 @@ export function ConfirmedMedicalRecords() {
 
     return (
         <Container maxWidth="xl">
-            <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Đang xử lý</Typography>
+            <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Đã tiếp nhận</Typography>
             <Card>
                 {/* ...Phần render bảng không thay đổi... */}
                 <TableContainer>
@@ -424,7 +424,7 @@ export function ConfirmedMedicalRecords() {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={6} align="center">
-                            <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>Không tìm thấy bệnh án nào đang xử lý.</Typography>
+                            <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>Chưa tiếp nhận bệnh án nào.</Typography>
                           </TableCell>
                         </TableRow>
                       )}
