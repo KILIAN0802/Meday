@@ -6,11 +6,11 @@ import React, { useState, useEffect } from 'react';
 import {
   getAppointment,
   updateAppointmentStatusID,
-  check_Availability,
+  // check_Availability, // Không dùng đến
 } from 'src/api/appointments-staff';
-import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff.js';
+import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
-import { getVitalValuesMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
+import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff';
 import { ReusableTablePagination } from 'src/components/pagination';
 
 // --- Material-UI Imports ---
@@ -34,12 +34,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  FormLabel,
+  // THAY ĐỔI: Loại bỏ các import không còn dùng cho form chỉnh sửa
+  // TextField, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel,
 } from '@mui/material';
 
 // ----------------------------------------------------------------------
@@ -85,112 +81,74 @@ function StatusChip({ status }) {
 }
 
 // ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 3: RENDER CÁC TRƯỜNG TRONG FORM ###
+// ### THAY ĐỔI: COMPONENT PHỤ 3: RENDER THÀNH COMPONENT CHỈ XEM ###
 // ----------------------------------------------------------------------
-function QuestionRenderer({ indicator, value, onChange }) {
-  const handleChange = (event) => {
-    onChange(indicator.id, event.target.value);
-  };
+function QuestionViewer({ indicator, value }) {
+  let displayValue = value;
 
-  switch (indicator.valueType) {
-    case 'selection': {
-      const options = (indicator.valueOptions || [])
-        .filter(Boolean)
-        .map(optStr => {
-          let optValue = optStr, optLabel = optStr;
-          if (optStr.includes('.')) {
-            const parts = optStr.split('.');
-            optValue = parts[0];
-            optLabel = parts.slice(1).join('.');
-          }
-          return { value: optValue, label: optLabel };
-        });
-
-      return (
-        <FormControl component="fieldset" margin="normal" fullWidth>
-          <FormLabel component="legend">{indicator.name}</FormLabel>
-          <RadioGroup row name={indicator.code || `indicator-${indicator.id}`} value={value} onChange={handleChange}>
-            {options.map(optionObj => (
-              <FormControlLabel key={optionObj.value} value={optionObj.value} control={<Radio />} label={optionObj.label} />
-            ))}
-          </RadioGroup>
-        </FormControl>
-      );
-    }
-    default:
-      return (
-        <TextField
-          key={indicator.id}
-          fullWidth
-          margin="normal"
-          type={indicator.valueType === 'number' ? 'number' : indicator.valueType === 'full_date' ? 'date' : 'text'}
-          label={indicator.name || `Chỉ số ${indicator.id}`}
-          variant="outlined"
-          helperText={indicator.unit || ''}
-          value={value}
-          onChange={handleChange}
-          InputLabelProps={indicator.valueType === 'full_date' ? { shrink: true } : {}}
-        />
-      );
-  }
-}
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 4: MODAL HIỂN THỊ FORM CHỈ SỐ SINH TỒN ###
-// ----------------------------------------------------------------------
-function VitalsFormModal({ open, onClose, questions, loading, onSave, medicalRecordId }) {
-  const [formValues, setFormValues] = useState({});
-
-  useEffect(() => {
-    if (questions) {
-      const initialValues = {};
-      questions.forEach(q => {
-        initialValues[q.id] = q.savedValue ?? '';
+  // Xử lý riêng cho câu hỏi dạng lựa chọn để hiển thị label thay vì value
+  if (indicator.valueType === 'selection' && value) {
+    const options = (indicator.valueOptions || [])
+      .filter(Boolean)
+      .map(optStr => {
+        let optValue = optStr, optLabel = optStr;
+        if (optStr.includes('.')) {
+          const parts = optStr.split('.');
+          optValue = parts[0];
+          optLabel = parts.slice(1).join('.');
+        }
+        return { value: optValue, label: optLabel };
       });
-      setFormValues(initialValues);
-    }
-  }, [questions]);
-
-  const handleValueChange = (indicatorId, newValue) => {
-    setFormValues(prev => ({
-      ...prev,
-      [indicatorId]: newValue,
-    }));
-  };
-
-  const handleSave = () => {
-    onSave(medicalRecordId, formValues);
-    onClose();
-  };
+    
+    const selectedOption = options.find(opt => opt.value === String(value));
+    displayValue = selectedOption ? selectedOption.label : value;
+  }
 
   return (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+      <Typography variant="body2">{displayValue || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}</Typography>
+    </Box>
+  );
+}
+
+
+// ----------------------------------------------------------------------
+// ### THAY ĐỔI: COMPONENT PHỤ 4: MODAL ĐÃ TRỞ THÀNH DẠNG CHỈ XEM ###
+// ----------------------------------------------------------------------
+function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
+  return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Form Bệnh án</DialogTitle>
+      <DialogTitle>Chi tiết Bệnh án</DialogTitle>
       <DialogContent dividers>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress /></Box>
-        ) : questions.length > 0 ? (
-          <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
-            {questions.map((indicator) => (
-              <QuestionRenderer 
-                key={indicator.id} 
-                indicator={indicator} 
-                value={formValues[indicator.id] || ''}
-                onChange={handleValueChange}
-              />
-            ))}
-          </Box>
+        ) : questionGroups.length > 0 ? (
+          questionGroups.map((group) => (
+            <Box key={group.id} sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, borderBottom: '2px solid #007bff', pb: 1, color: '#005bab' }}>
+                {group.name}
+              </Typography>
+              {group.indicators.map((indicator) => (
+                <QuestionViewer
+                  key={indicator.id}
+                  indicator={indicator}
+                  value={indicator.savedValue}
+                />
+              ))}
+            </Box>
+          ))
         ) : (
           <Typography sx={{ my: 5, textAlign: 'center' }}>Không tìm thấy chỉ số sinh tồn nào cho mẫu bệnh án này.</Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Hủy</Button>
-        <Button variant="contained" onClick={handleSave} disabled={loading}>Lưu</Button>
+        <Button onClick={onClose}>Đóng</Button>
       </DialogActions>
     </Dialog>
   );
 }
+
 
 // ----------------------------------------------------------------------
 // ### COMPONENT CHÍNH: BẢNG BỆNH ÁN CHỜ XỬ LÝ ###
@@ -207,10 +165,10 @@ export function PendingMedicalRecords() {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // State cho Vitals Form Modal
-  const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
+  // THAY ĐỔI: State cho modal xem bệnh án
+  const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
-  const [vitalQuestions, setVitalQuestions] = useState([]);
+  const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]); // Đổi tên state
   const [activeMedicalRecordId, setActiveMedicalRecordId] = useState(null);
 
   const templateMap = {
@@ -225,23 +183,24 @@ export function PendingMedicalRecords() {
     setPage(0);
   };
 
+  // THAY ĐỔI: Logic fetch dữ liệu để hiển thị theo nhóm
   const handleViewVitalsForm = async (templateId, medicalRecordId) => {
     setActiveMedicalRecordId(medicalRecordId);
     if (!templateId) {
       setNotification({ open: true, message: 'Mẫu bệnh án không có ID hợp lệ.', severity: 'error' });
       return;
     }
-    setIsVitalsModalOpen(true);
+    setIsViewerModalOpen(true);
     setIsLoadingVitals(true);
-    setVitalQuestions([]);
+    setVitalQuestionGroups([]); // Reset state
     try {
       const [templateResponse, savedValuesResponse] = await Promise.all([
         getMedicalRecordTemplateById(templateId),
-        getVitalValuesMedicalRecord(medicalRecordId)
+        getVitalValuesMedicalRecord(medicalRecordId),
       ]);
       const savedValues = savedValuesResponse?.data || [];
       const valuesMap = new Map();
-      savedValues.forEach(val => {
+      savedValues.forEach((val) => {
         let actualValue = val.value;
         if (typeof actualValue === 'object' && actualValue !== null && 'value' in actualValue) {
           actualValue = actualValue.value;
@@ -255,12 +214,23 @@ export function PendingMedicalRecords() {
       }
       const vitalGroupPromises = vitalGroupIds.map((id) => getVitalGroupById(id));
       const vitalGroupResponses = await Promise.all(vitalGroupPromises);
-      const allIndicators = vitalGroupResponses.flatMap((response) => response?.data?.indicators || []);
-      const questionsWithValues = allIndicators.map(indicator => ({
-        ...indicator,
-        savedValue: valuesMap.get(indicator.id) ?? ''
-      }));
-      setVitalQuestions(questionsWithValues);
+
+      // THAY ĐỔI: Giữ nguyên cấu trúc nhóm thay vì làm phẳng
+      const groupsWithIndicators = vitalGroupResponses
+        .map((response) => {
+          if (!response?.data?.indicators) return null;
+          return {
+            id: response.data.id,
+            name: response.data.name,
+            indicators: response.data.indicators.map((indicator) => ({
+              ...indicator,
+              savedValue: valuesMap.get(indicator.id) ?? '',
+            })),
+          };
+        })
+        .filter(Boolean); // Lọc bỏ các group null
+
+      setVitalQuestionGroups(groupsWithIndicators);
     } catch (err) {
       console.error('Lỗi khi lấy dữ liệu form:', err);
       setNotification({ open: true, message: 'Không thể tải dữ liệu form.', severity: 'error' });
@@ -268,112 +238,73 @@ export function PendingMedicalRecords() {
       setIsLoadingVitals(false);
     }
   };
-  
-  const handleSaveChanges = async (medicalRecordId, updatedValues) => {
-    try {
-      const formattedValues = Object.entries(updatedValues)
-        .filter(([indicatorId, value]) => value !== '' && value !== null && value !== undefined)
-        .map(([indicatorId, value]) => {
-          const idAsNumber = parseInt(indicatorId, 10);
-          const originalIndicator = vitalQuestions.find(q => q.id === idAsNumber);
-          
-          let finalValue = value;
-          if (originalIndicator?.valueType === 'number' && value !== '' && !isNaN(value)) {
-            finalValue = parseFloat(value);
-          }
 
-          return {
-            vitalIndicatorId: idAsNumber,
-            value: { value: finalValue },
-            note: ""
-          };
-        });
-      
-      if (formattedValues.length === 0) {
-        setNotification({ open: true, message: 'Không có thay đổi nào để lưu.', severity: 'info' });
-        return; 
-      }
-
-      const requestBody = { vitalValues: formattedValues };
-      await updateVitalMedicalRecordeById(medicalRecordId, requestBody);
-      setNotification({ open: true, message: 'Cập nhật chỉ số thành công!', severity: 'success' });
-    } catch (err) {
-      console.error('Lỗi khi cập nhật chỉ số:', err);
-      if (err.response) {
-        console.error('Data lỗi từ backend:', err.response.data);
-        const backendMessage = err.response.data.message || 'Có lỗi xảy ra từ server.';
-        setNotification({ open: true, message: backendMessage, severity: 'error' });
-      } else {
-        setNotification({ open: true, message: 'Lỗi mạng hoặc server không phản hồi.', severity: 'error' });
-      }
-    }
-  };
+  // THAY ĐỔI: Loại bỏ hàm handleSaveChanges
+  // const handleSaveChanges = async (...) => { ... };
 
   const handleAccept = async (appointmentId) => {
     setIsAcceptingId(appointmentId);
     try {
       await updateAppointmentStatusID(appointmentId, { status: 'CONFIRMED' });
       setNotification({ open: true, message: 'Tiếp nhận bệnh án thành công!', severity: 'success' });
-      setRefetchTrigger(prev => prev + 1);
+      setRefetchTrigger((prev) => prev + 1);
     } catch (err) {
       console.error('Lỗi trong quá trình tiếp nhận bệnh án:', err);
-      setNotification({ open: true, message: err.message || 'Có lỗi xảy ra, vui lòng thử lại.', severity: 'error' });
+      setNotification({
+        open: true,
+        message: err.message || 'Có lỗi xảy ra, vui lòng thử lại.',
+        severity: 'error',
+      });
     } finally {
       setIsAcceptingId(null);
     }
   };
 
-  // LƯU Ý QUAN TRỌNG:
-  // Logic useEffect dưới đây là giải pháp TẠM THỜI để khắc phục lỗi backend trả về 1 dòng/lần.
-  // Khi backend được sửa để tôn trọng tham số 'limit', hãy quay lại phiên bản useEffect đơn giản hơn.
-  useEffect(() => {
+    useEffect(() => {
     const fetchAndAggregateData = async () => {
       setLoading(true);
       setError(null);
       setMedicalRecords([]);
-
       try {
         let aggregatedRecords = [];
-        let currentApiPage = (page * rowsPerPage) + 1;
+        let currentApiPage = page * rowsPerPage + 1;
         let lastKnownTotal = 0;
         let continueFetching = true;
 
         while (aggregatedRecords.length < rowsPerPage && continueFetching) {
           const params = { status: 'PENDING', page: currentApiPage, limit: rowsPerPage };
           const response = await getAppointment(params);
-          
-          const appointments = response?.data || [];
+
+          const rawAppointments = response?.data || []; // Dữ liệu gốc từ API
           lastKnownTotal = response?.total || 0;
 
-          if (appointments.length === 0) {
+          // THAY ĐỔI: Thêm bước lọc để loại bỏ dữ liệu không hợp lệ (dữ liệu rác)
+          const validAppointments = rawAppointments.filter(
+            (app) => app && Array.isArray(app.medicalRecords) && app.medicalRecords.length > 0
+          );
+
+          // Nếu không còn dữ liệu hợp lệ nào, dừng vòng lặp
+          if (validAppointments.length === 0 && rawAppointments.length === 0) {
             continueFetching = false;
             break;
           }
 
-          const newRecords = appointments
-            .flatMap(app => {
-              if (app && Array.isArray(app.medicalRecords)) {
-                return app.medicalRecords.map(record => ({
-                  ...record,
-                  appointment: { id: app.id, status: app.status, reason: app.reason }
-                }));
-              }
-              return [];
-            })
+          // Chỉ xử lý dữ liệu đã được lọc
+          const newRecords = validAppointments
+            .flatMap((app) =>
+              app.medicalRecords.map((record) => ({
+                ...record,
+                appointment: { id: app.id, status: app.status, reason: app.reason },
+              }))
+            )
             .filter(Boolean);
-
+            
           aggregatedRecords.push(...newRecords);
-          
-          // Giả định backend trả về 1 dòng/lần, nên chỉ cần tăng 1
-          // Nếu backend trả về nhiều dòng, logic này cần phức tạp hơn
           currentApiPage++;
         }
-
         const finalRecordsForPage = aggregatedRecords.slice(0, rowsPerPage);
-
         setMedicalRecords(finalRecordsForPage);
         setTotalRecords(lastKnownTotal);
-
       } catch (err) {
         setError('Không thể tải dữ liệu bệnh án.');
         console.error('Lỗi khi fetch và gom dữ liệu bệnh án:', err);
@@ -381,7 +312,6 @@ export function PendingMedicalRecords() {
         setLoading(false);
       }
     };
-
     fetchAndAggregateData();
   }, [page, rowsPerPage, refetchTrigger]);
 
@@ -463,13 +393,12 @@ export function PendingMedicalRecords() {
         open={Boolean(selectedPerson)}
         onClose={() => setSelectedPerson(null)}
       />
-      <VitalsFormModal
-        open={isVitalsModalOpen}
-        onClose={() => setIsVitalsModalOpen(false)}
+      {/* THAY ĐỔI: Sử dụng component modal mới */}
+      <MedicalRecordViewerModal
+        open={isViewerModalOpen}
+        onClose={() => setIsViewerModalOpen(false)}
         loading={isLoadingVitals}
-        questions={vitalQuestions}
-        onSave={handleSaveChanges}
-        medicalRecordId={activeMedicalRecordId}
+        questionGroups={vitalQuestionGroups}
       />
       <Snackbar
         open={notification.open}

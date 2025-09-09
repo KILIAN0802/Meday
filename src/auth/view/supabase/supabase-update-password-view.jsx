@@ -67,7 +67,7 @@ export function SupabaseUpdatePasswordView() {
     try {
       await updatePassword({ password: data.password });
 
-      router.push(paths.dashboard.root);
+      router.push(paths.dashboard.medicalRecordManager.root);
     } catch (error) {
       console.error(error);
       const feedbackMessage = getErrorMessage(error);

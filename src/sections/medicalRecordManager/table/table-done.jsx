@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 
 // --- Import các API cần thiết ---
 import { getAppointment } from 'src/api/appointments-staff';
-import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff.js';
+import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
-import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff';
+import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff'; // <-- Đảm bảo import đúng
 import { ReusableTablePagination } from 'src/components/pagination';
 
 // --- Material-UI Imports ---
@@ -30,17 +30,11 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  FormLabel,
 } from '@mui/material';
 
 // ----------------------------------------------------------------------
 // ### COMPONENT PHỤ 1: HIỂN THỊ CHI TIẾT NGƯỜI DÙNG ###
-// ----------------------------------------------------------------------
+// (Không thay đổi)
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
   const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
@@ -69,7 +63,7 @@ function PersonDetailsModal({ person, open, onClose }) {
 
 // ----------------------------------------------------------------------
 // ### COMPONENT PHỤ 2: HIỂN THỊ CHIP TRẠNG THÁI ###
-// ----------------------------------------------------------------------
+// (Không thay đổi)
 function StatusChip({ status }) {
   const statusMap = {
     PENDING: { color: 'warning', text: 'CHỜ XỬ LÝ' },
@@ -80,81 +74,61 @@ function StatusChip({ status }) {
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 3: RENDER CÁC TRƯỜNG TRONG FORM ###
-// ----------------------------------------------------------------------
-function QuestionRenderer({ indicator, value, isReadOnly }) {
-  switch (indicator.valueType) {
-    case 'selection': {
-      const options = (indicator.valueOptions || [])
-        .filter(Boolean)
-        .map(optStr => {
-          let optValue = optStr, optLabel = optStr;
-          if (optStr.includes('.')) {
-            const parts = optStr.split('.');
-            optValue = parts[0];
-            optLabel = parts.slice(1).join('.');
-          }
-          return { value: optValue, label: optLabel };
-        });
 
-      return (
-        <FormControl component="fieldset" margin="normal" fullWidth disabled={isReadOnly}>
-          <FormLabel component="legend">{indicator.name}</FormLabel>
-          <RadioGroup row name={indicator.code || `indicator-${indicator.id}`} value={value}>
-            {options.map(optionObj => (
-              <FormControlLabel key={optionObj.value} value={optionObj.value} control={<Radio />} label={optionObj.label} />
-            ))}
-          </RadioGroup>
-        </FormControl>
-      );
-    }
-    default:
-      return (
-        <TextField
-          key={indicator.id}
-          fullWidth
-          margin="normal"
-          type={indicator.valueType === 'number' ? 'number' : indicator.valueType === 'full_date' ? 'date' : 'text'}
-          label={indicator.name || `Chỉ số ${indicator.id}`}
-          variant="outlined"
-          helperText={indicator.unit || ''}
-          value={value}
-          InputProps={{ readOnly: isReadOnly }}
-          InputLabelProps={indicator.valueType === 'full_date' ? { shrink: true } : {}}
-        />
-      );
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 3: COMPONENT CHỈ XEM CÂU HỎI ###
+// (Không thay đổi)
+function QuestionViewer({ indicator, value }) {
+  let displayValue = value;
+  if (indicator.valueType === 'selection' && value) {
+    const options = (indicator.valueOptions || [])
+      .filter(Boolean)
+      .map(optStr => {
+        let optValue = optStr, optLabel = optStr;
+        if (optStr.includes('.')) {
+          const parts = optStr.split('.');
+          optValue = parts[0];
+          optLabel = parts.slice(1).join('.');
+        }
+        return { value: optValue, label: optLabel };
+      });
+    const selectedOption = options.find(opt => opt.value === String(value));
+    displayValue = selectedOption ? selectedOption.label : value;
   }
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+      <Typography variant="body2">{displayValue || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}</Typography>
+    </Box>
+  );
 }
 
 // ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 4: MODAL HIỂN THỊ FORM CHỈ SỐ SINH TỒN ###
-// ----------------------------------------------------------------------
-function VitalsFormModal({ open, onClose, questions, loading, isReadOnly }) {
+// ### COMPONENT PHỤ 4: MODAL CHỈ XEM THEO NHÓM ###
+// (Không thay đổi)
+function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Xem lại Form Bệnh án</DialogTitle>
+      <DialogTitle>Chi tiết Bệnh án</DialogTitle>
       <DialogContent dividers>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress /></Box>
-        ) : questions.length > 0 ? (
-          <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
-            {questions.map((indicator) => (
-              <QuestionRenderer 
-                key={indicator.id} 
-                indicator={indicator} 
-                value={indicator.savedValue || ''}
-                isReadOnly={isReadOnly}
-              />
-            ))}
-          </Box>
+        ) : questionGroups.length > 0 ? (
+          questionGroups.map((group) => (
+            <Box key={group.id} sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, borderBottom: '2px solid #007bff', pb: 1, color: '#005bab' }}>
+                {group.name}
+              </Typography>
+              {group.indicators.map((indicator) => (
+                <QuestionViewer key={indicator.id} indicator={indicator} value={indicator.savedValue} />
+              ))}
+            </Box>
+          ))
         ) : (
           <Typography sx={{ my: 5, textAlign: 'center' }}>Không tìm thấy chỉ số sinh tồn nào cho mẫu bệnh án này.</Typography>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Đóng</Button>
-      </DialogActions>
+      <DialogActions><Button onClick={onClose}>Đóng</Button></DialogActions>
     </Dialog>
   );
 }
@@ -168,14 +142,14 @@ export function CompletedMedicalRecords() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
 
-  // State cho Vitals Form Modal
-  const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
+  const rowsPerPage = 10;
+
+  const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
-  const [vitalQuestions, setVitalQuestions] = useState([]);
+  const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]);
 
   const templateMap = {
     16: 'Bệnh án cấp tính',
@@ -184,24 +158,24 @@ export function CompletedMedicalRecords() {
   };
   
   const handleChangePage = (event, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
 
+  // ### THAY ĐỔI 1: Sửa lại hàm handleViewVitalsForm để hiển thị đúng giá trị ###
   const handleViewVitalsForm = async (templateId, medicalRecordId) => {
     if (!templateId) {
       setNotification({ open: true, message: 'Mẫu bệnh án không có ID hợp lệ.', severity: 'error' });
       return;
     }
-    setIsVitalsModalOpen(true);
+    setIsViewerModalOpen(true);
     setIsLoadingVitals(true);
-    setVitalQuestions([]);
+    setVitalQuestionGroups([]);
     try {
+      // Gọi cả 2 API: 1 lấy cấu trúc template, 1 lấy giá trị đã lưu
       const [templateResponse, savedValuesResponse] = await Promise.all([
         getMedicalRecordTemplateById(templateId),
         getVitalValuesMedicalRecord(medicalRecordId)
       ]);
+
+      // Xử lý giá trị đã lưu
       const savedValues = savedValuesResponse?.data || [];
       const valuesMap = new Map();
       savedValues.forEach(val => {
@@ -211,6 +185,8 @@ export function CompletedMedicalRecords() {
         }
         valuesMap.set(val.vitalIndicatorId, actualValue);
       });
+
+      // Xử lý cấu trúc template
       const vitalGroupIds = templateResponse?.data?.vitalGroupIds || [];
       if (vitalGroupIds.length === 0) {
         setIsLoadingVitals(false);
@@ -218,13 +194,25 @@ export function CompletedMedicalRecords() {
       }
       const vitalGroupPromises = vitalGroupIds.map((id) => getVitalGroupById(id));
       const vitalGroupResponses = await Promise.all(vitalGroupPromises);
-      const allIndicators = vitalGroupResponses.flatMap((response) => response?.data?.indicators || []);
-      const questionsWithValues = allIndicators.map(indicator => ({
-        ...indicator,
-        savedValue: valuesMap.get(indicator.id) ?? ''
-      }));
-      setVitalQuestions(questionsWithValues);
-    } catch (err) {
+      
+      const groupsWithValues = vitalGroupResponses
+        .map((response) => {
+          if (!response?.data?.indicators) return null;
+          return {
+            id: response.data.id,
+            name: response.data.name,
+            // Gắn giá trị đã lưu vào từng câu hỏi
+            indicators: response.data.indicators.map((indicator) => ({
+              ...indicator,
+              savedValue: valuesMap.get(indicator.id) ?? '',
+            })),
+          };
+        })
+        .filter(Boolean);
+
+      setVitalQuestionGroups(groupsWithValues);
+    } catch (err)
+ {
       console.error('Lỗi khi lấy dữ liệu form:', err);
       setNotification({ open: true, message: 'Không thể tải dữ liệu form.', severity: 'error' });
     } finally {
@@ -237,7 +225,6 @@ export function CompletedMedicalRecords() {
       setLoading(true);
       setError(null);
       try {
-        // THAY ĐỔI: Lấy các bệnh án có trạng thái 'COMPLETED'
         const params = { status: 'COMPLETED', page: page + 1, limit: rowsPerPage };
         const response = await getAppointment(params);
         
@@ -250,8 +237,10 @@ export function CompletedMedicalRecords() {
               }));
             }
             return [];
-          })
-          .filter(Boolean);
+          });
+          // ### THAY ĐỔI 2: Tạm thời xóa bỏ dòng filter ###
+          // .filter(record => record.hasVitalValues === true); 
+          // Khi nào backend cập nhật, bạn có thể mở lại dòng này.
 
         setMedicalRecords(recordsWithAppointmentInfo);
         setTotalRecords(response?.total || 0);
@@ -265,7 +254,7 @@ export function CompletedMedicalRecords() {
     };
 
     fetchCompletedData();
-  }, [page, rowsPerPage]);
+  }, [page]); // Bỏ rowsPerPage khỏi dependency array vì nó là hằng số
 
   return (
     <Container maxWidth="xl">
@@ -286,7 +275,7 @@ export function CompletedMedicalRecords() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} align="center"><CircularProgress sx={{ my: 4 }}/></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} align="center"><CircularProgress sx={{ my: 4 }}/></TableCell></TableRow>
               ) : (Array.isArray(medicalRecords) && medicalRecords.length > 0) ? (
                 medicalRecords.map((row) => (
                   <TableRow key={row.id} hover>
@@ -297,6 +286,7 @@ export function CompletedMedicalRecords() {
                       </Typography>
                     </TableCell>
                     <TableCell 
+                      // ### THAY ĐỔI 3: Truyền thêm medicalRecordId (row.id) ###
                       onClick={() => handleViewVitalsForm(row.templateId, row.id)}
                       sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
                     >
@@ -304,14 +294,11 @@ export function CompletedMedicalRecords() {
                     </TableCell>
                     <TableCell>{row.appointment?.reason || 'N/A'}</TableCell>
                     <TableCell align="center"><StatusChip status={row.appointment?.status || 'UNKNOWN'} /></TableCell>
-                    <TableCell align="right">
-                      {/* Bỏ trống cột chức năng vì bệnh án đã hoàn thành, không có hành động */}
-                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={5} align="center">
                     <Typography variant="body1" sx={{ my: 4, color: 'text.secondary' }}>Không tìm thấy bệnh án nào đã hoàn thành.</Typography>
                   </TableCell>
                 </TableRow>
@@ -325,7 +312,6 @@ export function CompletedMedicalRecords() {
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
 
@@ -335,13 +321,11 @@ export function CompletedMedicalRecords() {
         onClose={() => setSelectedPerson(null)}
       />
 
-      <VitalsFormModal
-        open={isVitalsModalOpen}
-        onClose={() => setIsVitalsModalOpen(false)}
+      <MedicalRecordViewerModal
+        open={isViewerModalOpen}
+        onClose={() => setIsViewerModalOpen(false)}
         loading={isLoadingVitals}
-        questions={vitalQuestions}
-        isReadOnly={true} // <-- Đặt form ở chế độ chỉ đọc
-        // onSave không cần thiết ở đây
+        questionGroups={vitalQuestionGroups}
       />
       
       <Snackbar
