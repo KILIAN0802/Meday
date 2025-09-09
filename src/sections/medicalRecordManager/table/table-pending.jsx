@@ -305,51 +305,62 @@ export function PendingMedicalRecords() {
     }
   };
 
-    useEffect(() => {
+useEffect(() => {
     const fetchAndAggregateData = async () => {
       setLoading(true);
       setError(null);
-      setMedicalRecords([]);
+      // Không reset medicalRecords ở đây để tạo cảm giác mượt mà hơn khi chuyển trang
+      
       try {
         let aggregatedRecords = [];
-        let currentApiPage = page * rowsPerPage + 1;
+        // LUÔN BẮT ĐẦU TỪ TRANG 1 CỦA API VÌ TA LẤY TÍCH LŨY
+        let currentApiPage = 1; 
         let lastKnownTotal = 0;
         let continueFetching = true;
 
-        while (aggregatedRecords.length < rowsPerPage && continueFetching) {
+        // 1. TÍNH TOÁN SỐ BẢN GHI TỔNG CỘNG CẦN LẤY
+        // Ví dụ: trang 2 (page=1) cần lấy đủ (1+1)*10 = 20 bản ghi
+        const recordsNeeded = (page + 1) * rowsPerPage;
+
+        // 2. SỬA ĐIỀU KIỆN VÒNG LẶP
+        // Chạy cho đến khi lấy đủ số bản ghi cần thiết
+        while (aggregatedRecords.length < recordsNeeded && continueFetching) {
           const params = { status: 'PENDING', page: currentApiPage, limit: rowsPerPage };
           const response = await getAppointment(params);
 
-          const rawAppointments = response?.data || []; // Dữ liệu gốc từ API
-          lastKnownTotal = response?.total || 0;
+          const rawAppointments = response?.data || [];
+          if (response?.total) {
+            lastKnownTotal = response.total;
+          }
 
-          // THAY ĐỔI: Thêm bước lọc để loại bỏ dữ liệu không hợp lệ (dữ liệu rác)
+          if (rawAppointments.length === 0) {
+            continueFetching = false; // Dừng lại nếu API hết dữ liệu
+            break;
+          }
+          
           const validAppointments = rawAppointments.filter(
             (app) => app && Array.isArray(app.medicalRecords) && app.medicalRecords.length > 0
           );
 
-          // Nếu không còn dữ liệu hợp lệ nào, dừng vòng lặp
-          if (validAppointments.length === 0 && rawAppointments.length === 0) {
-            continueFetching = false;
-            break;
-          }
-
-          // Chỉ xử lý dữ liệu đã được lọc
-          const newRecords = validAppointments
-            .flatMap((app) =>
-              app.medicalRecords.map((record) => ({
-                ...record,
-                appointment: { id: app.id, status: app.status, reason: app.reason },
-              }))
-            )
-            .filter(Boolean);
+          const newRecords = validAppointments.flatMap((app) =>
+            app.medicalRecords.map((record) => ({
+              ...record,
+              appointment: { id: app.id, status: app.status, reason: app.reason },
+            }))
+          );
             
           aggregatedRecords.push(...newRecords);
           currentApiPage++;
         }
-        const finalRecordsForPage = aggregatedRecords.slice(0, rowsPerPage);
+        
+        // 3. CẮT RA ĐÚNG PHẦN DỮ LIỆU CHO TRANG HIỆN TẠI
+        const startIndex = page * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        const finalRecordsForPage = aggregatedRecords.slice(startIndex, endIndex);
+
         setMedicalRecords(finalRecordsForPage);
         setTotalRecords(lastKnownTotal);
+
       } catch (err) {
         setError('Không thể tải dữ liệu bệnh án.');
         console.error('Lỗi khi fetch và gom dữ liệu bệnh án:', err);

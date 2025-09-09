@@ -188,7 +188,7 @@ export function CompletedMedicalRecords() {
   const [page, setPage] = useState(0);
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
-
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
   const rowsPerPage = 10;
 
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
@@ -264,16 +264,37 @@ export function CompletedMedicalRecords() {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     const fetchCompletedData = async () => {
       setLoading(true);
       setError(null);
+      
       try {
-        const params = { status: 'COMPLETED', page: page + 1, limit: rowsPerPage };
-        const response = await getAppointment(params);
-        
-        const recordsWithAppointmentInfo = (response?.data || [])
-          .flatMap(app => {
+        let aggregatedRecords = [];
+        let currentApiPage = 1; 
+        let lastKnownTotal = 0;
+        let continueFetching = true;
+
+        // Tính toán tổng số bản ghi cần có để hiển thị trang hiện tại
+        const recordsNeeded = (page + 1) * rowsPerPage;
+
+        // Vòng lặp sẽ chạy cho đến khi lấy đủ số bản ghi cần thiết
+        while (aggregatedRecords.length < recordsNeeded && continueFetching) {
+          // Sử dụng status: 'COMPLETED'
+          const params = { status: 'COMPLETED', page: currentApiPage, limit: rowsPerPage };
+          const response = await getAppointment(params);
+
+          const rawAppointments = response?.data || [];
+          if (response?.total) {
+            lastKnownTotal = response.total;
+          }
+
+          if (rawAppointments.length === 0) {
+            continueFetching = false;
+            break;
+          }
+          
+          const newRecords = rawAppointments.flatMap(app => {
             if (app && Array.isArray(app.medicalRecords)) {
               return app.medicalRecords.map(record => ({
                 ...record,
@@ -282,12 +303,18 @@ export function CompletedMedicalRecords() {
             }
             return [];
           });
-          // ### THAY ĐỔI 2: Tạm thời xóa bỏ dòng filter ###
-          // .filter(record => record.hasVitalValues === true); 
-          // Khi nào backend cập nhật, bạn có thể mở lại dòng này.
+            
+          aggregatedRecords.push(...newRecords);
+          currentApiPage++;
+        }
+        
+        // Cắt ra đúng phần dữ liệu cho trang đang xem
+        const startIndex = page * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        const finalRecordsForPage = aggregatedRecords.slice(startIndex, endIndex);
 
-        setMedicalRecords(recordsWithAppointmentInfo);
-        setTotalRecords(response?.total || 0);
+        setMedicalRecords(finalRecordsForPage);
+        setTotalRecords(lastKnownTotal);
 
       } catch (err) {
         setError('Không thể tải danh sách bệnh án. Vui lòng thử lại.');
@@ -298,7 +325,7 @@ export function CompletedMedicalRecords() {
     };
 
     fetchCompletedData();
-  }, [page]); // Bỏ rowsPerPage khỏi dependency array vì nó là hằng số
+  }, [page, rowsPerPage, refetchTrigger]);
 
   return (
     <Container maxWidth="xl">
