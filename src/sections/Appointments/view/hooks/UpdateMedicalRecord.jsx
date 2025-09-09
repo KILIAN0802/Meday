@@ -157,7 +157,7 @@ function VitalsFormModal({
   </DialogTitle>
 
   <DialogContent dividers>
-    <RecordCreateButtons onTemplateSelect={() => {}} />
+    {/* <RecordCreateButtons onTemplateSelect={() => {}} /> */}
 
     {/* <Accordion sx={{ mt: 3,color: 'primary.main', border: '1px solid', borderColor: 'primary.main' }}>
   <AccordionSummary

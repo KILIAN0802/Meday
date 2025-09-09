@@ -91,7 +91,7 @@ export function RecordCreateView() {
   
   return (
     <>
-      <RecordCreateButtons onTemplateSelect={handleTemplateSelect} />
+      {/* <RecordCreateButtons onTemplateSelect={handleTemplateSelect} /> */}
       <TableManager/>
       <Dialog
         fullWidth

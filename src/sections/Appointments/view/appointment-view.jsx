@@ -515,7 +515,7 @@ const displayedAppointments = searchAppointmentId
             </Typography>
             <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullname}</Typography>
             <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
-            <Typography>Trạng thái: {appt.status}</Typography>
+            <Typography >Trạng thái: {appt.status}</Typography>
             {appt.notes && <Typography>Ghi chú: {appt.notes}</Typography>}
             {appt.customInfo?.emergencyContact && (
               <Typography>Liên hệ khẩn cấp: {appt.customInfo.emergencyContact}</Typography>

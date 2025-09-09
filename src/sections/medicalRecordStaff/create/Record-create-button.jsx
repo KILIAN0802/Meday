@@ -11,9 +11,9 @@ import Stack from '@mui/material/Stack';
 // ----------------------------------------------------------------------
 
 const COLORS = {
-  "Bệnh án cấp tính": "#FFDAB9",
-  "Bệnh án mạn tính lần 1": "#FFFACD",
-  "Bệnh án mạn tính tái khám": "#98FB98",
+  "Bệnh án cấp tính": "#FFB380",        // Cam pastel đậm hơn
+  "Bệnh án mạn tính lần 1": "#FFE680",  // Vàng pastel đậm hơn
+  "Bệnh án mạn tính tái khám": "#80E580",// Xanh lá pastel đậm hơn
 };
 
 const buttonStyles = {
