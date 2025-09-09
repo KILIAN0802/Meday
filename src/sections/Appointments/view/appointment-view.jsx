@@ -34,8 +34,8 @@ import axiosInstance from 'src/lib/axios';
 // --- Custom hooks/components cho RecordCreate ---
 import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { useRecordCreateQuestion } from '../../medicalRecordStaff/create/Record-create-question';
-import MedicalRecordFormLoader from './UpdateMedicalRecord.jsx';
-
+import {MedicalRecordFormLoader} from './hooks/UpdateMedicalRecord.jsx';
+import {deleteAppointmentIDs } from 'src/api/appointments-staff.js';
 // --- Component gộp ---
 export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   // --- Appointments state ---
@@ -59,6 +59,7 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
     emergencyContact: '',
     insurance: '',
     preMedicalResponses: [{ questionId: 0, answerValue: '' }],
+    medicalRecordType: "",
   });
 
   // --- Snackbar ---
@@ -66,7 +67,7 @@ export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
 
   // --- Staff hiện tại ---
   const [currentStaff, setCurrentStaff] = useState(null);
-const [formValues, setFormValues] = useState({});
+
 
   // --- RecordCreate state ---
   const [selectedRecordAppt, setSelectedRecordAppt] = useState(null);
@@ -75,22 +76,7 @@ const [formValues, setFormValues] = useState({});
 
   
 
-// useEffect(() => {
-//   const fetchAllVitalGroups = async () => {
-//     try {
-//       const res = await axiosInstance.get('/api/v1/vitals/groups');
-//       setAllVitalGroups(res.data?.data || []);
-//     } catch (err) {
-//       console.error('Lỗi khi lấy toàn bộ vital groups:', err);
-//     }
-//   };
-//   fetchAllVitalGroups();
-// }, []);
 
-
-
-  // const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
-  // useRecordCreateQuestion(selectedTemplateId);
 const { questions = [], formState = {}, isLoading: isRecordLoading = false, handleInputChange = () => {}, vitalGroupIds = [] } =
   useRecordCreateQuestion(selectedTemplateId);
 
@@ -140,23 +126,7 @@ useEffect(() => {
     fetchCurrentStaff();
   }, []);
 
-  // --- Handle appointment status ---
-  const handleStatusChange = async (id, newStatus) => {
-    try {
-      await axiosInstance.patch(`/api/v1/staff/appointments/${id}/status`, { status: newStatus });
-      setSnackbar({ open: true, severity: 'success', message: 'Cập nhật trạng thái thành công' });
-      fetchAppointments();
-    } catch (error) {
-      console.error('Lỗi khi cập nhật trạng thái:', error);
-      setSnackbar({ open: true, severity: 'error', message: 'Cập nhật trạng thái thất bại' });
-    }
-  };
-
-  const handleSearch = (value) => {
-    setSearchId(value);
-    if (value === '') setAppointments(allAppointments);
-    else setAppointments(allAppointments.filter((r) => r.id?.toString().includes(value)));
-  };
+ 
 
 const handleSubmitAppointment = async () => {
   if (!currentStaff) return;
@@ -200,15 +170,32 @@ const handleSubmitAppointment = async () => {
     const appointmentId = res.data?.data?.id; // Lấy ID của lịch vừa tạo
     if (appointmentId) {
       // 3️⃣ Tạo medical record mới với appointmentId
-      const medicalRecordPayload = {
-        patientId: Number(formData.patientId),
-        doctorId: currentStaff.id,
-        diagnosis: formData.diagnosis || "Chưa có chẩn đoán",
-        symptoms: formData.symptoms || "Chưa có triệu chứng",
-        notes: formData.notes || "Chưa có ghi chú",
-        appointmentId: appointmentId,
-        vitalValues: [null],
-      };
+     let templateId;
+
+        switch (formData.medicalRecordType) {
+          case "cap_tinh":
+            templateId = 16;
+            break;
+          case "man_tinh_lan_1":
+            templateId = 17;
+            break;
+          case "man_tinh_tai_kham":
+            templateId = 18;
+            break;
+          default:
+            templateId = null; // hoặc giá trị mặc định nếu cần
+        }
+
+        const medicalRecordPayload = {
+          patientId: Number(formData.patientId),
+          doctorId: currentStaff.id,
+          diagnosis: formData.diagnosis || "Chưa có chẩn đoán",
+          symptoms: formData.symptoms || "Chưa có triệu chứng",
+          notes: formData.notes || "Chưa có ghi chú",
+          appointmentId: appointmentId,
+          vitalValues: [null],
+          templateId: templateId,
+        };
 
       const medicalRes = await axiosInstance.post(
         "https://hospital.huyit.lat/api/staff/medical-records",
@@ -238,6 +225,7 @@ const handleSubmitAppointment = async () => {
       preMedicalResponses: [],
       diagnosis: "",
       symptoms: "",
+       medicalRecordType: "", // 👈 thêm lại
     });
   } catch (error) {
     console.error("Lỗi khi tạo lịch hẹn hoặc bệnh án:", error.response?.data || error.message);
@@ -467,6 +455,32 @@ const displayedAppointments = searchAppointmentId
       >
         Xem chi tiết
       </Button>
+
+            <Button
+          variant="outlined"
+          color="error"
+          style={{ marginLeft: '8px' }}
+          onClick={async () => {
+            if (window.confirm("Bạn có chắc muốn xóa lịch hẹn này không?")) {
+              try {
+                await deleteAppointmentIDs(appt.id);
+                setSnackbar({ open: true, severity: "success", message: "Xóa thành công!" });
+
+                // ✅ Load lại danh sách
+                fetchAppointments();
+              } catch (err) {
+                console.error("Lỗi xóa:", err);
+                setSnackbar({ open: true, severity: "error", message: "Xóa thất bại!" });
+              }
+            }
+          }}
+          sx={{ mt: 1 }}
+        >
+          Xóa lịch hẹn
+        </Button>
+
+
+
         </CardContent>
       </Card>
     ))}
@@ -486,6 +500,24 @@ const displayedAppointments = searchAppointmentId
   <DialogTitle>Tạo lịch hẹn mới</DialogTitle>
   <DialogContent>
     <Stack spacing={2}>
+      {/* Chọn mẫu bệnh án */}
+      <FormControl fullWidth>
+        <InputLabel id="medical-record-label">Chọn mẫu bệnh án</InputLabel>
+       <Select
+        labelId="medical-record-label"
+        value={formData.medicalRecordType}
+        label="Chọn mẫu bệnh án"
+        onChange={(e) =>
+          setFormData({ ...formData, medicalRecordType: e.target.value })
+        }
+      >
+        <MenuItem value="cap_tinh">Bệnh án cấp tính</MenuItem>
+        <MenuItem value="man_tinh_lan_1">Bệnh án mạn tính lần 1</MenuItem>
+        <MenuItem value="man_tinh_tai_kham">Bệnh án mạn tính tái khám</MenuItem>
+      </Select>
+
+      </FormControl>
+
       {/* chọn bệnh nhân */}
       <TextField
         label="Patient ID"

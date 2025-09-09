@@ -102,3 +102,15 @@ export async function updateGroupMedicalRecordeById(id) {
     throw error;
   }
 }
+
+
+
+export const deleteAppointmentIDs = async (id) => {
+  try {
+    const res = await axiosInstance.delete(`/api/v1/staff/appointments/${id}`);
+    return res.data;
+  } catch (error) {
+    console.error("❌ Lỗi xoá appointment:", error);
+    throw error;
+  }
+};
