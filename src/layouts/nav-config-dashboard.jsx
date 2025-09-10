@@ -1,12 +1,11 @@
-
-
 import { paths } from 'src/routes/paths';
 import { CONFIG } from 'src/global-config';
-import { Iconify } from 'src/components/iconify';
 import { SvgColor } from 'src/components/svg-color';
 import { useMockedUser } from 'src/auth/hooks';
 import { useMemo } from 'react';
+
 // ----------------------------------------------------------------------
+
 const icon = (name) => (
   <SvgColor src={`${CONFIG.assetsDir}/assets/icons/navbar/${name}.svg`} />
 );
@@ -40,51 +39,60 @@ const ICONS = {
   parameter: icon('ic-parameter'),
 };
 
-// ⚡ Thay export const navData = [...] bằng function
+// ----------------------------------------------------------------------
+
 export function useNavData() {
   const { user } = useMockedUser();
 
-  
-  const medicalRecordItems = useMemo(() => [
-    ...(user?.role === 1
-      ? [ // Các mục hiển thị khi user có role là 1
-        { title: 'Bệnh án', path: paths.dashboard.medicalRecordStaff.create},
-        { title: 'Danh sách tất cả bệnh án', path: paths.dashboard.medicalRecordManager.root},
-        { title: 'Bệnh án chờ tiếp nhận', path: paths.dashboard.medicalRecordManager.pendingView},
-        { title: 'Bệnh án đã tiếp nhận', path: paths.dashboard.medicalRecordManager.processingView},
-        { title: 'Bệnh án đã hoàn thành', path: paths.dashboard.medicalRecordManager.doneView},
-      ]
-      : [ // Mục hiển thị cho các role khác
-        { title: 'Tạo mẫu bệnh án', path: paths.dashboard.MedicalRecords.create }
-      ]
-),
-  ], [user?.role]);
-  
-   const appointment = useMemo(() => [
-    {
-      title: 'Lịch hẹn',
-      path: paths.dashboard.appointment.root,
-     
-    },
-  ], [user?.role]);
+  // Bệnh án
+  const medicalRecordItems = useMemo(() => {
+    if (user?.role === 1) {
+      return [
+        { title: 'Bệnh án', path: paths.dashboard.medicalRecordStaff.create },
+        { title: 'Danh sách tất cả bệnh án', path: paths.dashboard.medicalRecordManager.root },
+        { title: 'Bệnh án chờ tiếp nhận', path: paths.dashboard.medicalRecordManager.pendingView },
+        { title: 'Bệnh án đã tiếp nhận', path: paths.dashboard.medicalRecordManager.processingView },
+        { title: 'Bệnh án đã hoàn thành', path: paths.dashboard.medicalRecordManager.doneView },
+      ];
+    }
+    return [
+      { title: 'Tạo mẫu bệnh án', path: paths.dashboard.MedicalRecords.create },
+    ];
+  }, [user?.role]);
+
+  // Lịch hẹn
+  const appointmentItems = useMemo(
+    () => [
+      {
+        title: 'Lịch hẹn',
+        path: paths.dashboard.appointment.root,
+      },
+    ],
+    []
+  );
 
   return [
-      ...(user?.accountType === 'admin'
+    ...(user?.accountType === 'admin'
       ? [
-        { title: 'Trang chủ', path: paths.dashboard.root, icon: ICONS.dashboard },
-        { title: 'Danh sách nhân viên', path: paths.dashboard.general.EmployeeUserList, icon: ICONS.dashboard },
-        { title: 'Thêm nhân viên', path: paths.dashboard.general.CreateEmployeeUser, icon: ICONS.ecommerce },
-      ]
+          {
+            subheader: 'Quản lý nhân sự',
+            items: [
+              { title: 'Trang chủ', path: paths.dashboard.root, icon: ICONS.dashboard },
+              { title: 'Danh sách nhân viên', path: paths.dashboard.general.EmployeeUserList, icon: ICONS.dashboard },
+              { title: 'Thêm nhân viên', path: paths.dashboard.general.CreateEmployeeUser, icon: ICONS.ecommerce },
+            ],
+          },
+        ]
       : []),
 
-     {
+    {
       subheader: 'Quản lý bệnh án',
       items: medicalRecordItems,
     },
 
     {
       subheader: 'Quản lý lịch hẹn',
-      items: appointment,
+      items: appointmentItems,
     },
   ];
 }
