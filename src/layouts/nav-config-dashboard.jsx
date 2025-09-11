@@ -50,9 +50,9 @@ export function useNavData() {
       return [
         { title: 'Bệnh án', path: paths.dashboard.medicalRecordStaff.create },
         { title: 'Danh sách tất cả bệnh án', path: paths.dashboard.medicalRecordManager.root },
-        { title: 'Bệnh án chờ tiếp nhận', path: paths.dashboard.medicalRecordManager.pendingView },
-        { title: 'Bệnh án đã tiếp nhận', path: paths.dashboard.medicalRecordManager.processingView },
-        { title: 'Bệnh án đã hoàn thành', path: paths.dashboard.medicalRecordManager.doneView },
+        { title: 'Danh sách bệnh án chờ xử lý', path: paths.dashboard.medicalRecordManager.pendingView },
+        { title: 'Danh sách bệnh án đang xử lý', path: paths.dashboard.medicalRecordManager.processingView },
+        { title: 'Danh sách bệnh án đã xử lý', path: paths.dashboard.medicalRecordManager.doneView },
       ];
     }
     return [
