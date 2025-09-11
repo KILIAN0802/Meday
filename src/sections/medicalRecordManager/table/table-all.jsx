@@ -117,7 +117,7 @@ export function AllMedicalRecords() {
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Tất cả Bệnh án</Typography>
+      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách tất cả bệnh án</Typography>
       <Card>
         {error && (<Typography color="error" sx={{ px: 3, py: 2 }}>Lỗi: {error}</Typography>)}
         <TableContainer>

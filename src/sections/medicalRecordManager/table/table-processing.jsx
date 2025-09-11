@@ -414,7 +414,7 @@ export function ConfirmedMedicalRecords() {
 
     return (
         <Container maxWidth="xl">
-            <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Đã tiếp nhận</Typography>
+            <Typography variant="h4" sx={{ mb: 5 }}>Danh sách bệnh án đang xử lý</Typography>
             <Card>
                 {/* ...Phần render bảng không thay đổi... */}
                 <TableContainer>
