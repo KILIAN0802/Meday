@@ -48,7 +48,7 @@ export function useNavData() {
   const medicalRecordItems = useMemo(() => {
     if (user?.role === 1) {
       return [
-        { title: 'Bệnh án', path: paths.dashboard.medicalRecordStaff.create },
+        { title: 'Thống kê nhanh', path: paths.dashboard.medicalRecordStaff.create },
         { title: 'Danh sách tất cả bệnh án', path: paths.dashboard.medicalRecordManager.root },
         { title: 'Danh sách bệnh án chờ xử lý', path: paths.dashboard.medicalRecordManager.pendingView },
         { title: 'Danh sách bệnh án đang xử lý', path: paths.dashboard.medicalRecordManager.processingView },
