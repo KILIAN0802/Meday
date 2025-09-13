@@ -114,3 +114,27 @@ export const deleteAppointmentIDs = async (id) => {
     throw error;
   }
 };
+
+
+export const deleteAppointmentWithRecords = async (appointment) => {
+  try {
+    // 1. Xóa medical records trước
+    if (appointment.medicalRecords?.length > 0) {
+      for (const record of appointment.medicalRecords) {
+        await axiosInstance.delete(
+          `https://hospital.huyit.lat/api/staff/medical-records/${record.id}`
+        );
+        console.log("Đã xóa bệnh án:", record.id);
+      }
+    }
+
+    // 2. Xóa appointment
+    await axiosInstance.delete(
+      `https://hospital.huyit.lat/api/v1/staff/appointments/${appointment.id}`
+    );
+    console.log("Đã xóa lịch hẹn:", appointment.id);
+  } catch (error) {
+    console.error("Lỗi khi xóa:", error);
+    throw error;
+  }
+};

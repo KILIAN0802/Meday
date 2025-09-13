@@ -35,7 +35,7 @@ import axiosInstance from 'src/lib/axios';
 import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { useRecordCreateQuestion } from '../../medicalRecordStaff/create/Record-create-question';
 import {MedicalRecordFormLoader} from './hooks/UpdateMedicalRecord.jsx';
-import {deleteAppointmentIDs } from 'src/api/appointments-staff.js';
+import {deleteAppointmentWithRecords } from 'src/api/appointments-staff.js';
 // --- Component gộp ---
 export function StaffAppointment({ vitalGroups = [], vitalIndicators = [] }) {
   // --- Appointments state ---
@@ -522,6 +522,8 @@ const displayedAppointments = searchAppointmentId
           color="primary"
           onClick={() => {
             const record = appt.medicalRecords?.[0];
+             console.log("Appointment ID:", appt.id);
+            console.log("Medical Record ID:", record?.id || "Chưa có bệnh án");
 
             if (!record) {
               console.warn('Appointment này chưa có medical record!'); 
@@ -546,28 +548,28 @@ const displayedAppointments = searchAppointmentId
         Xem chi tiết
           </Button>
 
-            <Button
-          variant="outlined"
-          color="error"
-          style={{ marginLeft: '8px' }}
-          onClick={async () => {
-            if (window.confirm("Bạn có chắc muốn xóa lịch hẹn này không?")) {
-              try {
-                await deleteAppointmentIDs(appt.id);
-                setSnackbar({ open: true, severity: "success", message: "Xóa thành công!" });
+           <Button
+  variant="outlined"
+  color="error"
+  style={{ marginLeft: '8px' }}
+  onClick={async () => {
+    if (window.confirm("Bạn có chắc muốn xóa lịch hẹn này không?")) {
+      try {
+        await deleteAppointmentWithRecords(appt); // ✅ truyền nguyên appt
+        setSnackbar({ open: true, severity: "success", message: "Xóa thành công!" });
 
-                // ✅ Load lại danh sách
-                fetchAppointments();
-              } catch (err) {
-                console.error("Lỗi xóa:", err);
-                setSnackbar({ open: true, severity: "error", message: "Xóa thất bại!" });
-              }
-            }
-          }}
-          sx={{ mt: 1 }}
-        >
-          Xóa lịch hẹn
-            </Button>
+        fetchAppointments(); // load lại danh sách
+      } catch (err) {
+        console.error("Lỗi xóa:", err);
+        setSnackbar({ open: true, severity: "error", message: "Xóa thất bại!" });
+      }
+    }
+  }}
+  sx={{ mt: 1 }}
+>
+  Xóa lịch hẹn
+</Button>
+
 </CardContent>
       </Card>
     ))}
