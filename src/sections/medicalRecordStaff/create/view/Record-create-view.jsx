@@ -1,130 +1,50 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import React from 'react'; // Thêm import React để dùng Fragment <>
+import React from 'react';
 
 // --- MUI Components ---
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardHeader from '@mui/material/CardHeader';
-import CircularProgress from '@mui/material/CircularProgress';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import TextField from '@mui/material/TextField';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
-import Chip from '@mui/material/Chip';
-import OutlinedInput from '@mui/material/OutlinedInput';
-import FormHelperText from '@mui/material/FormHelperText';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import IconButton from '@mui/material/IconButton';
-import CloseIcon from '@mui/icons-material/Close';
+import Button from '@mui/material/Button'; // Quay lại dùng Button
+import AddIcon from '@mui/icons-material/Add'; 
 
-// --- Custom Hook & Components ---
-import { useRecordCreateQuestion } from '../Record-create-question';
-import { RecordCreateButtons } from '../Record-create-button';
-import { TableManager} from '../Record-create-tableManager'
+// --- Custom Components ---
+import { TableManager } from '../Record-create-tableManager';
+
 // ----------------------------------------------------------------------
 
-const renderQuestion = (question, formState, handleInputChange) => {
-  const questionCode = question.code;
-  const value = formState[questionCode];
-  const commonProps = {
-    label: question.name,
-    fullWidth: true,
-    variant: 'outlined',
-  };
-
-
-  switch (question.valueType) {
-    case 'number':
-      return <TextField key={questionCode} {...commonProps} type="number" value={value || ''} onChange={(e) => handleInputChange(questionCode, e.target.value)} helperText={question.description} />;
-    case 'text':
-      return <TextField key={questionCode} {...commonProps} type="text" value={value || ''} onChange={(e) => handleInputChange(questionCode, e.target.value)} helperText={question.description} />;
-    case 'selection':
-      return (
-        <FormControl key={questionCode} fullWidth>
-          <InputLabel>{question.name}</InputLabel>
-          <Select {...commonProps} value={value || ''} onChange={(e) => handleInputChange(questionCode, e.target.value)}>
-            {(question.valueOptions || []).map((option) => (<MenuItem key={option} value={option}>{option}</MenuItem>))}
-          </Select>
-          {question.description && <FormHelperText>{question.description}</FormHelperText>}
-        </FormControl>
-      );
-    case 'multi_selection':
-      return (
-        <FormControl key={questionCode} fullWidth>
-          <InputLabel>{question.name}</InputLabel>
-          <Select {...commonProps} multiple value={value || []} onChange={(e) => handleInputChange(questionCode, e.target.value)} input={<OutlinedInput label={question.name} />} renderValue={(selected) => (<Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{selected.map((val) => <Chip key={val} label={val} />)}</Box>)}>
-            {(question.valueOptions || []).map((option) => (<MenuItem key={option} value={option}>{option}</MenuItem>))}
-          </Select>
-          {question.description && <FormHelperText>{question.description}</FormHelperText>}
-        </FormControl>
-      );
-    default:
-      return <TextField key={questionCode} {...commonProps} type="text" value={value || ''} onChange={(e) => handleInputChange(questionCode, e.target.value)} helperText={`Kiểu dữ liệu: ${question.valueType}. ${question.description || ''}`} />;
-  }
-};
-
 export function RecordCreateView() {
-  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-  const { questions, formState, isLoading, error, templateName, handleInputChange } = useRecordCreateQuestion(selectedTemplateId);
-
-  const handleSubmit = () => {
-    console.log('Dữ liệu form đã gửi:', { templateId: selectedTemplateId, answers: formState });
+  const handleCreateAppointment = () => {
+    // TODO: Thêm logic điều hướng tới trang tạo lịch hẹn ở đây
+    console.log('Chuyển đến trang tạo lịch hẹn...');
   };
 
-  const handleTemplateSelect = (id) => {
-    setSelectedTemplateId(id);
-  };
-
-  const handleCloseDialog = () => {
-    setSelectedTemplateId(null);
-  };
-  
   return (
     <>
-      <RecordCreateButtons onTemplateSelect={handleTemplateSelect} />
-      <TableManager/>
-      <Dialog
-        fullWidth
-        maxWidth="md"
-        open={!!selectedTemplateId}
-        onClose={handleCloseDialog}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          my: 4 
+        }}
       >
-        <DialogTitle sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {`Tạo hồ sơ theo mẫu: "${templateName}"`}
-          <IconButton onClick={handleCloseDialog}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        
-        <DialogContent dividers>
-          {isLoading && (<Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress /></Box>)}
-          {error && <Alert severity="error">{error}</Alert>}
-          {!isLoading && !error && (
-            questions.length > 0 ? (
-              <Stack spacing={3} sx={{ mt: 2 }}>
-                {questions.map((q) => renderQuestion(q, formState, handleInputChange))}
-                <Button variant="contained" size="large" onClick={handleSubmit}>
-                  Tạo hồ sơ
-                </Button>
-              </Stack>
-            ) : (
-              <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
-                Không có câu hỏi nào trong mẫu này.
-              </Typography>
-            )
-          )}
-        </DialogContent>
-      </Dialog>
+        <Button
+          variant="contained"
+          onClick={handleCreateAppointment}
+          sx={{
+            width: '70%',
+            height: 120,
+            fontSize: '1.25rem',
+            flexDirection: 'column',
+            borderRadius: 4,
+            boxShadow: 3,
+          }}
+        >
+          <AddIcon sx={{ fontSize: 40, mb: 1 }} />
+          Tạo lịch hẹn
+        </Button>
+      </Box>
+      
+      <TableManager />
     </>
   );
 }
