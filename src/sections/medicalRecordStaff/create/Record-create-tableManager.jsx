@@ -83,7 +83,7 @@ export function TableManager() {
   }, []);
 
  return (
-    <Box sx={{ mt: 4 }}>
+    <Box sx={{ mt: 4, alignItems:'center'}}>
       <Typography variant="h6" gutterBottom>
         Thống kê bệnh án
       </Typography>

@@ -32,7 +32,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import axiosInstance from 'src/lib/axios';
 
 // --- Custom hooks/components cho RecordCreate ---
-import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
+
 import { useRecordCreateQuestion } from '../../medicalRecordStaff/create/Record-create-question';
 import {MedicalRecordFormLoader} from './hooks/UpdateMedicalRecord.jsx';
 import {deleteAppointmentWithRecords } from 'src/api/appointments-staff.js';
@@ -145,7 +145,6 @@ const fetchAppointments = useCallback(async () => {
 }, [showMyAppointments, filters]);
 
 
- 
 
 const handleSubmitAppointment = async () => {
   if (!currentStaff) return;
@@ -302,7 +301,6 @@ const [isSubmittingAppointment, setIsSubmittingAppointment] = useState(false);
 
 // Dữ liệu appointment đang edit
 const [editingAppointment, setEditingAppointment] = useState(null);
-
 
 const fetchAppointment = async (appointmentId) => {
   try {

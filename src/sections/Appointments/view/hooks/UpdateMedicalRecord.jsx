@@ -250,7 +250,7 @@ function VitalsFormModal({
 }
 
 // Component chính load + save form
-// Component chính load + save form
+
 export function MedicalRecordFormLoader({
   templateId,
   medicalRecordId,
@@ -284,15 +284,65 @@ export function MedicalRecordFormLoader({
   }, [templateId, medicalRecordId]);
 
   // Save dữ liệu (chỉ gọi hook)
-const handleSave = async (medicalRecordId, values) => {
+const handleSave = async (medicalRecordId, updatedValues) => {
+  
+  if (!medicalRecordId) return;
+
   try {
-    await updateVitals(medicalRecordId, values, questions, currentStaff.id);
-    setSnackbar?.({ open: true, severity: 'success', message: 'Lưu thành công!' });
+    // --- Format dữ liệu để gửi backend ---
+    const formattedValues = Object.entries(updatedValues)
+      .filter(([, value]) => {
+        if (Array.isArray(value)) return value.length > 0; // giữ array không rỗng
+        return value !== '' && value !== null && value !== undefined;
+      })
+      .map(([indicatorId, value]) => {
+        const idAsNumber = parseInt(indicatorId, 10);
+        let finalValue = value;
+
+        const originalIndicator = questions.find(q => q.id === idAsNumber);
+
+        if (originalIndicator) {
+          // chuyển số string -> number
+          if (originalIndicator.valueType === 'number' && typeof value === 'string') {
+            finalValue = parseFloat(value);
+          }
+
+          // multi_selection thì giữ nguyên array
+          if (originalIndicator.valueType === 'multi_selection' && !Array.isArray(value)) {
+            finalValue = [String(value)];
+          }
+
+          // radio/selection thì ép kiểu string
+          if (originalIndicator.valueType === 'selection' && typeof value !== 'string') {
+            finalValue = String(value);
+          }
+        }
+
+        return {
+          vitalIndicatorId: idAsNumber,
+          value: { value: finalValue },
+          note: ""
+        };
+      });
+
+    if (formattedValues.length === 0) {
+      setSnackbar?.({ open: true, severity: 'info', message: 'Không có thay đổi nào để lưu.' });
+      return;
+    }
+
+    // --- Gửi dữ liệu lên backend ---
+    await updateVitalMedicalRecordeById(medicalRecordId, { vitalValues: formattedValues });
+
+    setSnackbar?.({ open: true, severity: 'success', message: 'Cập nhật chỉ số thành công!' });
   } catch (err) {
-    console.error('Lỗi save form:', err.response?.data || err.message || err);
-    setSnackbar?.({ open: true, severity: 'error', message: 'Lỗi khi lưu chỉ số.' });
+    console.error('Lỗi khi lưu chỉ số:', err);
+    const backendMessage = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+    setSnackbar?.({ open: true, severity: 'error', message: backendMessage });
   }
+
 };
+
+ 
 
 
 
