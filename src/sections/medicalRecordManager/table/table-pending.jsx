@@ -6,7 +6,6 @@ import React, { useState, useEffect } from 'react';
 import {
   getAppointment,
   updateAppointmentStatusID,
-  // check_Availability, // Không dùng đến
 } from 'src/api/appointments-staff';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
@@ -34,12 +33,12 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  // THAY ĐỔI: Loại bỏ các import không còn dùng cho form chỉnh sửa
-  // TextField, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel,
+  IconButton,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 // ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 1: HIỂN THỊ CHI TIẾT NGƯỜI DÙNG ###
+// ### COMPONENT PHỤ 1: MODAL CHI TIẾT NGƯỜI DÙNG ###
 // ----------------------------------------------------------------------
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
@@ -67,7 +66,42 @@ function PersonDetailsModal({ person, open, onClose }) {
   );
 }
 
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 2: MODAL XEM ẢNH ###
+// ----------------------------------------------------------------------
+function ImageViewerModal({ images, open, onClose }) {
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        Hình ảnh chi tiết
+        <IconButton onClick={onClose}><CloseIcon /></IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+          {(images || []).map((url, index) => (
+            <Box
+              key={index}
+              component="img"
+              src={url}
+              alt={`Hình ảnh chi tiết ${index + 1}`}
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                height: 'auto',
+                borderRadius: 2,
+                boxShadow: 3,
+              }}
+            />
+          ))}
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 3: CHIP TRẠNG THÁI ###
+// ----------------------------------------------------------------------
 function StatusChip({ status }) {
   const statusMap = {
     PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
@@ -78,7 +112,7 @@ function StatusChip({ status }) {
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
 
-
+// Hàm phụ trợ
 function extractFinalValue(data) {
   if (Array.isArray(data)) {
     return data.join(', ');
@@ -92,8 +126,70 @@ function extractFinalValue(data) {
   }
   return extractFinalValue(values[0]);
 }
+function findImageUrls(data) {
+  let urls = [];
+  if (typeof data === 'string' && data.startsWith('http')) {
+    return [data];
+  }
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      urls = urls.concat(findImageUrls(item));
+    }
+  }
+  else if (typeof data === 'object' && data !== null) {
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        urls = urls.concat(findImageUrls(data[key]));
+      }
+    }
+  }
 
-function QuestionViewer({ indicator, value }) {
+  return urls;
+}
+
+function QuestionViewer({ indicator, value, onImageClick }) {
+  console.log('Đang kiểm tra Indicator:', indicator); 
+  if (indicator.valueType === 'image' || indicator.valueType === 'custom') {
+    const imageUrls = findImageUrls(value);
+
+    if (imageUrls.length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+          <Typography variant="body2"><span style={{ color: '#999' }}>Chưa có dữ liệu</span></Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+          {imageUrls.map((url, index) => (
+            <Box
+              key={index}
+              component="img"
+              src={url}
+              alt={`${indicator.name} ${index + 1}`}
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: 1.5,
+                objectFit: 'cover',
+                cursor: 'pointer',
+                border: '1px solid #ddd',
+                transition: 'transform 0.2s',
+                '&:hover': { transform: 'scale(1.05)' },
+              }}
+              onClick={() => onImageClick(imageUrls)}
+            />
+          ))}
+        </Box>
+      </Box>
+    );
+  }
+
+
   const dataObject = (typeof value === 'object' && value !== null && value.value) ? value.value : value;
 
   if (Array.isArray(dataObject)) {
@@ -157,11 +253,10 @@ function QuestionViewer({ indicator, value }) {
   );
 }
 
-
 // ----------------------------------------------------------------------
-// ### THAY ĐỔI: COMPONENT PHỤ 4: MODAL ĐÃ TRỞ THÀNH DẠNG CHỈ XEM ###
+// ### COMPONENT PHỤ 5: MODAL XEM CHI TIẾT BỆNH ÁN ###
 // ----------------------------------------------------------------------
-function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
+function MedicalRecordViewerModal({ open, onClose, questionGroups, loading, onImageClick }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Chi tiết Bệnh án</DialogTitle>
@@ -179,6 +274,7 @@ function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
                   key={indicator.id}
                   indicator={indicator}
                   value={indicator.savedValue}
+                  onImageClick={onImageClick}
                 />
               ))}
             </Box>
@@ -210,11 +306,23 @@ export function PendingMedicalRecords() {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // THAY ĐỔI: State cho modal xem bệnh án
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
-  const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]); // Đổi tên state
+  const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]);
   const [activeMedicalRecordId, setActiveMedicalRecordId] = useState(null);
+
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
+
+  const handleOpenImageViewer = (images) => {
+    setSelectedImages(images);
+    setIsImageViewerOpen(true);
+  };
+
+  const handleCloseImageViewer = () => {
+    setIsImageViewerOpen(false);
+    setSelectedImages([]);
+  };
 
   const templateMap = {
     16: 'Bệnh án cấp tính',
@@ -228,7 +336,6 @@ export function PendingMedicalRecords() {
     setPage(0);
   };
 
-  // THAY ĐỔI: Logic fetch dữ liệu để hiển thị theo nhóm
   const handleViewVitalsForm = async (templateId, medicalRecordId) => {
     setActiveMedicalRecordId(medicalRecordId);
     if (!templateId) {
@@ -237,7 +344,7 @@ export function PendingMedicalRecords() {
     }
     setIsViewerModalOpen(true);
     setIsLoadingVitals(true);
-    setVitalQuestionGroups([]); // Reset state
+    setVitalQuestionGroups([]);
     try {
       const [templateResponse, savedValuesResponse] = await Promise.all([
         getMedicalRecordTemplateById(templateId),
@@ -260,7 +367,6 @@ export function PendingMedicalRecords() {
       const vitalGroupPromises = vitalGroupIds.map((id) => getVitalGroupById(id));
       const vitalGroupResponses = await Promise.all(vitalGroupPromises);
 
-      // THAY ĐỔI: Giữ nguyên cấu trúc nhóm thay vì làm phẳng
       const groupsWithIndicators = vitalGroupResponses
         .map((response) => {
           if (!response?.data?.indicators) return null;
@@ -273,7 +379,7 @@ export function PendingMedicalRecords() {
             })),
           };
         })
-        .filter(Boolean); // Lọc bỏ các group null
+        .filter(Boolean);
 
       setVitalQuestionGroups(groupsWithIndicators);
     } catch (err) {
@@ -283,9 +389,6 @@ export function PendingMedicalRecords() {
       setIsLoadingVitals(false);
     }
   };
-
-  // THAY ĐỔI: Loại bỏ hàm handleSaveChanges
-  // const handleSaveChanges = async (...) => { ... };
 
   const handleAccept = async (appointmentId) => {
     setIsAcceptingId(appointmentId);
@@ -305,25 +408,19 @@ export function PendingMedicalRecords() {
     }
   };
 
-useEffect(() => {
+  useEffect(() => {
     const fetchAndAggregateData = async () => {
       setLoading(true);
       setError(null);
-      // Không reset medicalRecords ở đây để tạo cảm giác mượt mà hơn khi chuyển trang
       
       try {
         let aggregatedRecords = [];
-        // LUÔN BẮT ĐẦU TỪ TRANG 1 CỦA API VÌ TA LẤY TÍCH LŨY
         let currentApiPage = 1; 
         let lastKnownTotal = 0;
         let continueFetching = true;
 
-        // 1. TÍNH TOÁN SỐ BẢN GHI TỔNG CỘNG CẦN LẤY
-        // Ví dụ: trang 2 (page=1) cần lấy đủ (1+1)*10 = 20 bản ghi
         const recordsNeeded = (page + 1) * rowsPerPage;
 
-        // 2. SỬA ĐIỀU KIỆN VÒNG LẶP
-        // Chạy cho đến khi lấy đủ số bản ghi cần thiết
         while (aggregatedRecords.length < recordsNeeded && continueFetching) {
           const params = { status: 'PENDING', page: currentApiPage, limit: rowsPerPage };
           const response = await getAppointment(params);
@@ -334,7 +431,7 @@ useEffect(() => {
           }
 
           if (rawAppointments.length === 0) {
-            continueFetching = false; // Dừng lại nếu API hết dữ liệu
+            continueFetching = false;
             break;
           }
           
@@ -353,7 +450,6 @@ useEffect(() => {
           currentApiPage++;
         }
         
-        // 3. CẮT RA ĐÚNG PHẦN DỮ LIỆU CHO TRANG HIỆN TẠI
         const startIndex = page * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
         const finalRecordsForPage = aggregatedRecords.slice(startIndex, endIndex);
@@ -373,7 +469,7 @@ useEffect(() => {
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách bệnh án chờ xử lý</Typography>
+      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Chờ tiếp nhận</Typography>
       <Card>
         {error && <Typography color="error" sx={{ px: 3, py: 1 }}>Lỗi: {error}</Typography>}
         <TableContainer>
@@ -449,12 +545,17 @@ useEffect(() => {
         open={Boolean(selectedPerson)}
         onClose={() => setSelectedPerson(null)}
       />
-      {/* THAY ĐỔI: Sử dụng component modal mới */}
       <MedicalRecordViewerModal
         open={isViewerModalOpen}
         onClose={() => setIsViewerModalOpen(false)}
         loading={isLoadingVitals}
         questionGroups={vitalQuestionGroups}
+        onImageClick={handleOpenImageViewer}
+      />
+      <ImageViewerModal
+        open={isImageViewerOpen}
+        onClose={handleCloseImageViewer}
+        images={selectedImages}
       />
       <Snackbar
         open={notification.open}

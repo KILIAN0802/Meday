@@ -3,10 +3,13 @@
 import React, { useState, useEffect } from 'react';
 
 // --- Import các API cần thiết ---
-import { getAppointment } from 'src/api/appointments-staff';
+import {
+  getAppointment,
+  updateAppointmentStatusID,
+} from 'src/api/appointments-staff';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
-import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff'; // <-- Đảm bảo import đúng
+import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff';
 import { ReusableTablePagination } from 'src/components/pagination';
 
 // --- Material-UI Imports ---
@@ -30,11 +33,13 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  IconButton,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 // ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 1: HIỂN THỊ CHI TIẾT NGƯỜI DÙNG ###
-// (Không thay đổi)
+// ### COMPONENT PHỤ 1: MODAL CHI TIẾT NGƯỜI DÙNG ###
+// ----------------------------------------------------------------------
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
   const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
@@ -61,6 +66,42 @@ function PersonDetailsModal({ person, open, onClose }) {
   );
 }
 
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 2: MODAL XEM ẢNH ###
+// ----------------------------------------------------------------------
+function ImageViewerModal({ images, open, onClose }) {
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        Hình ảnh chi tiết
+        <IconButton onClick={onClose}><CloseIcon /></IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+          {(images || []).map((url, index) => (
+            <Box
+              key={index}
+              component="img"
+              src={url}
+              alt={`Hình ảnh chi tiết ${index + 1}`}
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                height: 'auto',
+                borderRadius: 2,
+                boxShadow: 3,
+              }}
+            />
+          ))}
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 3: CHIP TRẠNG THÁI ###
+// ----------------------------------------------------------------------
 function StatusChip({ status }) {
   const statusMap = {
     PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
@@ -71,6 +112,7 @@ function StatusChip({ status }) {
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
 
+// --- CÁC HÀM TRỢ GIÚP ---
 function extractFinalValue(data) {
   if (Array.isArray(data)) {
     return data.join(', ');
@@ -85,7 +127,61 @@ function extractFinalValue(data) {
   return extractFinalValue(values[0]);
 }
 
-function QuestionViewer({ indicator, value }) {
+function findImageUrls(data) {
+  let urls = [];
+  if (typeof data === 'string' && data.startsWith('http')) {
+    return [data];
+  }
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      urls = urls.concat(findImageUrls(item));
+    }
+  } else if (typeof data === 'object' && data !== null) {
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        urls = urls.concat(findImageUrls(data[key]));
+      }
+    }
+  }
+  return urls;
+}
+
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 4: HIỂN THỊ TỪNG CÂU HỎI ###
+// ----------------------------------------------------------------------
+function QuestionViewer({ indicator, value, onImageClick }) {
+  if (indicator.valueType === 'image' || indicator.valueType === 'custom') {
+    const imageUrls = findImageUrls(value);
+    if (imageUrls.length > 0) {
+      return (
+        <Box sx={{ py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+            {imageUrls.map((url, index) => (
+              <Box
+                key={index}
+                component="img"
+                src={url}
+                alt={`${indicator.name} ${index + 1}`}
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 1.5,
+                  objectFit: 'cover',
+                  cursor: 'pointer',
+                  border: '1px solid #ddd',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'scale(1.05)' },
+                }}
+                onClick={() => onImageClick(imageUrls)}
+              />
+            ))}
+          </Box>
+        </Box>
+      );
+    }
+  }
+
   const dataObject = (typeof value === 'object' && value !== null && value.value) ? value.value : value;
 
   if (Array.isArray(dataObject)) {
@@ -99,58 +195,33 @@ function QuestionViewer({ indicator, value }) {
       </Box>
     );
   }
+
   if (typeof dataObject === 'object' && dataObject !== null) {
-    const entries = Object.entries(dataObject)
-      .map(([key, val]) => {
-        const finalValue = extractFinalValue(val);
-        return { key, value: finalValue };
-      })
-      .filter(item => item.value !== null && item.value !== undefined && item.value !== '');
-
-    if (entries.length === 0) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
-          <Typography variant="body2"><span style={{ color: '#999' }}>Chưa có dữ liệu</span></Typography>
-        </Box>
-      );
-    }
-
+    const finalValue = extractFinalValue(dataObject);
     return (
-      <Box sx={{ py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
-        <Box component="ul" sx={{ pl: 2.5, m: 0, mt: 1, listStyleType: 'disc' }}>
-          {entries.map(({ key, value: displayVal }) => {
-            const cleanedKey = key.split('_').pop().trim();
-            return (
-              <Box component="li" key={key} sx={{ typography: 'body2', pl: 1, '&:not(:last-child)': { mb: 0.5 }, '&::marker': { color: '#6c757d' } }}>
-                <Typography component="span" sx={{ fontStyle: 'italic' }}>{cleanedKey}:</Typography>
-                <Typography component="span" sx={{ fontWeight: '500', ml: 0.5 }}>{String(displayVal)}</Typography>
-              </Box>
-            );
-          })}
-        </Box>
+        <Typography variant="body2" sx={{ textAlign: 'right', pl: 2 }}>
+          {String(finalValue) || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}
+        </Typography>
       </Box>
     );
   }
-
-  let displayValue = dataObject;
-  if (dataObject === null || dataObject === undefined) {
-    displayValue = '';
-  }
-
+  
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{indicator.name}:</Typography>
       <Typography variant="body2" sx={{ textAlign: 'right', pl: 2 }}>
-        {displayValue || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}
+        {dataObject || <span style={{ color: '#999' }}>Chưa có dữ liệu</span>}
       </Typography>
     </Box>
   );
 }
 
-
-function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
+// ----------------------------------------------------------------------
+// ### COMPONENT PHỤ 5: MODAL XEM CHI TIẾT BỆNH ÁN ###
+// ----------------------------------------------------------------------
+function MedicalRecordViewerModal({ open, onClose, questionGroups, loading, onImageClick }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Chi tiết Bệnh án</DialogTitle>
@@ -164,7 +235,12 @@ function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
                 {group.name}
               </Typography>
               {group.indicators.map((indicator) => (
-                <QuestionViewer key={indicator.id} indicator={indicator} value={indicator.savedValue} />
+                <QuestionViewer
+                  key={indicator.id}
+                  indicator={indicator}
+                  value={indicator.savedValue}
+                  onImageClick={onImageClick}
+                />
               ))}
             </Box>
           ))
@@ -176,6 +252,7 @@ function MedicalRecordViewerModal({ open, onClose, questionGroups, loading }) {
     </Dialog>
   );
 }
+
 
 // ----------------------------------------------------------------------
 // ### COMPONENT CHÍNH: BẢNG BỆNH ÁN ĐÃ HOÀN THÀNH ###
@@ -189,11 +266,25 @@ export function CompletedMedicalRecords() {
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
-  const rowsPerPage = 10;
+  const [rowsPerPage, setRowsPerPage] = useState(10); // Thêm state rowsPerPage
 
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
   const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]);
+
+  // ### SỬA LỖI: Thêm state và hàm xử lý cho modal xem ảnh ###
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
+
+  const handleOpenImageViewer = (images) => {
+    setSelectedImages(images);
+    setIsImageViewerOpen(true);
+  };
+
+  const handleCloseImageViewer = () => {
+    setIsImageViewerOpen(false);
+    setSelectedImages([]);
+  };
 
   const templateMap = {
     16: 'Bệnh án cấp tính',
@@ -203,7 +294,11 @@ export function CompletedMedicalRecords() {
   
   const handleChangePage = (event, newPage) => setPage(newPage);
 
-  // ### THAY ĐỔI 1: Sửa lại hàm handleViewVitalsForm để hiển thị đúng giá trị ###
+  const handleChangeRowsPerPage = (event) => { // Thêm hàm handleChangeRowsPerPage
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const handleViewVitalsForm = async (templateId, medicalRecordId) => {
     if (!templateId) {
       setNotification({ open: true, message: 'Mẫu bệnh án không có ID hợp lệ.', severity: 'error' });
@@ -213,24 +308,17 @@ export function CompletedMedicalRecords() {
     setIsLoadingVitals(true);
     setVitalQuestionGroups([]);
     try {
-      // Gọi cả 2 API: 1 lấy cấu trúc template, 1 lấy giá trị đã lưu
       const [templateResponse, savedValuesResponse] = await Promise.all([
         getMedicalRecordTemplateById(templateId),
         getVitalValuesMedicalRecord(medicalRecordId)
       ]);
 
-      // Xử lý giá trị đã lưu
       const savedValues = savedValuesResponse?.data || [];
       const valuesMap = new Map();
       savedValues.forEach(val => {
-        let actualValue = val.value;
-        if (typeof actualValue === 'object' && actualValue !== null && 'value' in actualValue) {
-          actualValue = actualValue.value;
-        }
-        valuesMap.set(val.vitalIndicatorId, actualValue);
+        valuesMap.set(val.vitalIndicatorId, val.value);
       });
 
-      // Xử lý cấu trúc template
       const vitalGroupIds = templateResponse?.data?.vitalGroupIds || [];
       if (vitalGroupIds.length === 0) {
         setIsLoadingVitals(false);
@@ -245,18 +333,16 @@ export function CompletedMedicalRecords() {
           return {
             id: response.data.id,
             name: response.data.name,
-            // Gắn giá trị đã lưu vào từng câu hỏi
             indicators: response.data.indicators.map((indicator) => ({
               ...indicator,
-              savedValue: valuesMap.get(indicator.id) ?? '',
+              savedValue: valuesMap.get(indicator.id),
             })),
           };
         })
         .filter(Boolean);
 
       setVitalQuestionGroups(groupsWithValues);
-    } catch (err)
- {
+    } catch (err) {
       console.error('Lỗi khi lấy dữ liệu form:', err);
       setNotification({ open: true, message: 'Không thể tải dữ liệu form.', severity: 'error' });
     } finally {
@@ -275,12 +361,9 @@ useEffect(() => {
         let lastKnownTotal = 0;
         let continueFetching = true;
 
-        // Tính toán tổng số bản ghi cần có để hiển thị trang hiện tại
         const recordsNeeded = (page + 1) * rowsPerPage;
 
-        // Vòng lặp sẽ chạy cho đến khi lấy đủ số bản ghi cần thiết
         while (aggregatedRecords.length < recordsNeeded && continueFetching) {
-          // Sử dụng status: 'COMPLETED'
           const params = { status: 'COMPLETED', page: currentApiPage, limit: rowsPerPage };
           const response = await getAppointment(params);
 
@@ -308,7 +391,6 @@ useEffect(() => {
           currentApiPage++;
         }
         
-        // Cắt ra đúng phần dữ liệu cho trang đang xem
         const startIndex = page * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
         const finalRecordsForPage = aggregatedRecords.slice(startIndex, endIndex);
@@ -329,7 +411,7 @@ useEffect(() => {
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách bệnh án đã xử lý</Typography>
+      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Đã hoàn thành</Typography>
       <Card>
         {error && <Typography color="error" sx={{ p: 2 }}>Lỗi: {error}</Typography>}
         
@@ -357,7 +439,6 @@ useEffect(() => {
                       </Typography>
                     </TableCell>
                     <TableCell 
-                      // ### THAY ĐỔI 3: Truyền thêm medicalRecordId (row.id) ###
                       onClick={() => handleViewVitalsForm(row.templateId, row.id)}
                       sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
                     >
@@ -383,6 +464,7 @@ useEffect(() => {
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage} // Thêm prop onRowsPerPageChange
         />
       </Card>
 
@@ -392,11 +474,20 @@ useEffect(() => {
         onClose={() => setSelectedPerson(null)}
       />
 
+      {/* ### SỬA LỖI: Truyền prop onImageClick ### */}
       <MedicalRecordViewerModal
         open={isViewerModalOpen}
         onClose={() => setIsViewerModalOpen(false)}
         loading={isLoadingVitals}
         questionGroups={vitalQuestionGroups}
+        onImageClick={handleOpenImageViewer}
+      />
+      
+      {/* Thêm ImageViewerModal vào cây render */}
+      <ImageViewerModal
+        open={isImageViewerOpen}
+        onClose={handleCloseImageViewer}
+        images={selectedImages}
       />
       
       <Snackbar
