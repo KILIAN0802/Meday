@@ -255,8 +255,6 @@ const handleSubmitAppointment = async () => {
   }
 };
 
-
-
 const checkDoctorAvailability = async (doctorId, appointmentDate) => {
   try {
     const res = await axiosInstance.get('/api/v1/staff/appointments/check-availability', {
@@ -313,7 +311,8 @@ const fetchAppointment = async (appointmentId) => {
       appointmentDate: data.appointmentDate || '',
       status: data.status || 'PENDING',
       notes: data.notes || '',
-      fullName: data.fullName || data.patient?.fullname || '',
+      // fullName:  data.patient?.fullname ||'',
+      fullName:   data.patient?.fullname|| data.fullName || '',
       phone: data.phone || data.patient?.phone || '',
       customInfo: data.customInfo || {},
       medicalRecords: data.medicalRecords || [],
@@ -506,7 +505,7 @@ const displayedAppointments = searchAppointmentId
             <Typography>
               Thời gian: {appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleString('vi-VN') : 'Chưa có'}
             </Typography>
-            <Typography>Bệnh nhân: {appt.fullName || appt.patient?.fullname}</Typography>
+            <Typography>Bệnh nhân: {appt.patient?.fullname || appt.fullName}</Typography>
             <Typography>SĐT: {appt.phone || appt.patient?.phone}</Typography>
             <Typography>  Trạng thái: {statusMap[appt.status] || appt.status}</Typography>
             {appt.notes && <Typography>Ghi chú: {appt.notes}</Typography>}
@@ -604,7 +603,7 @@ const displayedAppointments = searchAppointmentId
 
       {/* chọn bệnh nhân */}
       <TextField
-        label="Patient ID"
+        label="Mã bệnh nhân"
         fullWidth
         type="number"
         value={formData.patientId}
@@ -683,6 +682,7 @@ const displayedAppointments = searchAppointmentId
           onChange={(e) =>
             setAppointmentForm({ ...appointmentForm, fullName: e.target.value })
           }
+          disabled={!Boolean(formData.patientId)} 
         />
         <TextField
           label="SĐT"

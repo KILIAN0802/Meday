@@ -25,21 +25,23 @@ import { useUpdateVitalValues } from './useUpdateVitalValues';
 // Render từng trường trong form
 function QuestionRenderer({ indicator, value, onChange }) {
   // --- Parser chung cho các tùy chọn ---
-  const parseOptions = (optionsArray) => (optionsArray || [])
-    .filter(Boolean)
-    .map(optStr => {
-      let optValue = optStr, optLabel = optStr;
-      if (optStr.includes('.')) {
-        const parts = optStr.split('.');
-        optValue = parts[0];
-        optLabel = parts.slice(1).join('.');
-      }
-      return { value: optValue, label: optLabel };
-    });
+  const parseOptions = (optionsArray) =>
+    (optionsArray || [])
+      .filter(Boolean)
+      .map((optStr) => {
+        let optValue = optStr,
+          optLabel = optStr;
+        if (optStr.includes(".")) {
+          const parts = optStr.split(".");
+          optValue = parts[0];
+          optLabel = parts.slice(1).join(".");
+        }
+        return { value: optValue, label: optLabel };
+      });
 
   switch (indicator.valueType) {
-    // --- Case mới cho Multiple Choice (Checkbox) ---
-    case 'multi_selection': {
+    // --- Multiple Choice (Checkbox) ---
+    case "multi_selection": {
       const options = parseOptions(indicator.valueOptions);
       const selectedValues = Array.isArray(value) ? value : [];
 
@@ -47,7 +49,7 @@ function QuestionRenderer({ indicator, value, onChange }) {
         const { value: checkboxValue, checked } = event.target;
         const newSelectedValues = checked
           ? [...selectedValues, checkboxValue]
-          : selectedValues.filter(v => v !== checkboxValue);
+          : selectedValues.filter((v) => v !== checkboxValue);
         onChange(indicator.id, newSelectedValues);
       };
 
@@ -55,9 +57,9 @@ function QuestionRenderer({ indicator, value, onChange }) {
         <FormControl component="fieldset" margin="normal" fullWidth>
           <FormLabel component="legend">{indicator.name}</FormLabel>
           <FormGroup row>
-            {options.map(optionObj => (
+            {options.map((optionObj) => (
               <FormControlLabel
-                key={`${optionObj.value}-${optionObj.label}`} 
+                key={`${optionObj.value}-${optionObj.label}`}
                 control={
                   <Checkbox
                     checked={selectedValues.includes(optionObj.value)}
@@ -72,36 +74,130 @@ function QuestionRenderer({ indicator, value, onChange }) {
         </FormControl>
       );
     }
-    // --- Case cho Single Choice (Radio) ---
-    case 'selection': {
+
+    // --- Single Choice (Radio) ---
+    case "selection": {
       const options = parseOptions(indicator.valueOptions);
-      const handleChange = (event) => onChange(indicator.id, event.target.value);
+      const handleChange = (event) =>
+        onChange(indicator.id, event.target.value);
       return (
         <FormControl component="fieldset" margin="normal" fullWidth>
           <FormLabel component="legend">{indicator.name}</FormLabel>
-          <RadioGroup row name={indicator.code || `indicator-${indicator.id}`} value={value || ''} onChange={handleChange}>
-            {options.map(optionObj => (
-              <FormControlLabel key={`${optionObj.value}-${optionObj.label}`} value={optionObj.value} control={<Radio />} label={optionObj.label} />
+          <RadioGroup
+            row
+            name={indicator.code || `indicator-${indicator.id}`}
+            value={value || ""}
+            onChange={handleChange}
+          >
+            {options.map((optionObj) => (
+              <FormControlLabel
+                key={`${optionObj.value}-${optionObj.label}`}
+                value={optionObj.value}
+                control={<Radio />}
+                label={optionObj.label}
+              />
             ))}
           </RadioGroup>
         </FormControl>
       );
     }
-    // --- Case mặc định cho các loại input khác ---
-    default: {
+
+    // --- Boolean (true/false) ---
+    case "bool": {
+      const handleChange = (event) =>
+        onChange(indicator.id, event.target.checked);
+      return (
+        <FormControlLabel
+          control={<Checkbox checked={!!value} onChange={handleChange} />}
+          label={indicator.name}
+        />
+      );
+    }
+
+    // --- Dropdown (Select) ---
+    case "dropdown": {
+      const options = parseOptions(indicator.valueOptions);
+      const handleChange = (event) => onChange(indicator.id, event.target.value);
+      return (
+        <FormControl fullWidth margin="normal">
+          <FormLabel>{indicator.name}</FormLabel>
+          <Select
+            value={value || ""}
+            onChange={handleChange}
+            displayEmpty
+          >
+            {options.map((optionObj) => (
+              <MenuItem key={optionObj.value} value={optionObj.value}>
+                {optionObj.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    }
+
+    // --- Date (full_date) ---
+    case "full_date": {
       const handleChange = (event) => onChange(indicator.id, event.target.value);
       return (
         <TextField
-          key={indicator.id} fullWidth margin="normal"
-          type={indicator.valueType === 'number' ? 'number' : indicator.valueType === 'full_date' ? 'date' : 'text'}
+          key={indicator.id}
+          fullWidth
+          margin="normal"
+          type="date"
+          label={indicator.name}
+          value={value || ""}
+          onChange={handleChange}
+          InputLabelProps={{ shrink: true }}
+        />
+      );
+    }
+
+    // --- Number ---
+    case "number": {
+      const handleChange = (event) => onChange(indicator.id, event.target.value);
+      return (
+        <TextField
+          key={indicator.id}
+          fullWidth
+          margin="normal"
+          type="number"
+          label={indicator.name}
+          value={value || ""}
+          onChange={handleChange}
+          helperText={indicator.unit || ""}
+        />
+      );
+    }
+
+    // --- Default text ---
+    default: {
+      const handleChange = (event) =>
+        onChange(indicator.id, event.target.value);
+
+      // fix [object Object]
+      let displayValue = value;
+      if (typeof displayValue === "object" && displayValue !== null) {
+        displayValue = ""; // hoặc JSON.stringify(displayValue) nếu debug
+      }
+
+      return (
+        <TextField
+          key={indicator.id}
+          fullWidth
+          margin="normal"
+          type="text"
           label={indicator.name || `Chỉ số ${indicator.id}`}
-          variant="outlined" helperText={indicator.unit || ''} value={value || ''} onChange={handleChange}
-          InputLabelProps={indicator.valueType === 'full_date' ? { shrink: true } : {}}
+          variant="outlined"
+          helperText={indicator.unit || ""}
+          value={displayValue || ""}
+          onChange={handleChange}
         />
       );
     }
   }
 }
+
 
 // Modal hiển thị form bệnh án
 function VitalsFormModal({
@@ -152,7 +248,7 @@ function VitalsFormModal({
   return (
    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
   <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    {`Hồ sơ của: ${appointment?.fullName || appointment?.patient?.fullname || ''}`}
+    {`Hồ sơ của: ${ appointment?.patient?.fullname || ''}`}
     <IconButton onClick={onClose}><CloseIcon /></IconButton>
   </DialogTitle>
 
@@ -341,9 +437,6 @@ const handleSave = async (medicalRecordId, updatedValues) => {
   }
 
 };
-
- 
-
 
 
   return (

@@ -411,7 +411,7 @@ useEffect(() => {
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách Bệnh án Đã hoàn thành</Typography>
+      <Typography variant="h4" sx={{ mb: 5 }}>Danh sách bệnh án đã xử lý</Typography>
       <Card>
         {error && <Typography color="error" sx={{ p: 2 }}>Lỗi: {error}</Typography>}
         
