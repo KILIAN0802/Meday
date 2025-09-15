@@ -26,16 +26,21 @@ export function useVitalsTemplate() {
     const groups = await Promise.all(
       vitalGroupIds.map(async id => {
         const res = await getVitalGroupById(id);
-        return res?.data?.indicators || [];
+        const indicators = res?.data?.indicators || [];
+        const groupName = res?.data?.name || 'Không rõ nhóm';
+        return {
+          id,
+          name: groupName,
+          indicators: indicators.map(ind => ({
+            ...ind,
+            savedValue: savedValuesMap.get(ind.id) ?? ''
+          }))
+        };
       })
     );
-    const vitalIndicators = groups.flat();
 
-    // 4️⃣ Gán giá trị đã lưu vào indicators
-    return vitalIndicators.map(ind => ({
-      ...ind,
-      savedValue: savedValuesMap.get(ind.id) ?? ''
-    }));
+    // 4️⃣ Return mảng nhóm có indicators
+    return groups;
   };
 
   return { fetchVitalsForm };

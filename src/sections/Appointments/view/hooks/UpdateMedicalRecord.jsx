@@ -201,9 +201,10 @@ function QuestionRenderer({ indicator, value, onChange }) {
 
 // Modal hiển thị form bệnh án
 function VitalsFormModal({
-  open, onClose, questions, loading, onSave,
+  open, onClose,  questionGroups , loading, onSave,
   medicalRecordId, appointment
 }) {
+  console.log('questionGroup:', questionGroups)
   const [formValues, setFormValues] = useState({});
   const [formData, setFormData] = useState({
     diagnosis:  'Chưa có chẩn đoán',
@@ -211,13 +212,22 @@ function VitalsFormModal({
     notes:  'Chưa có ghi chú',
   });
    const { enqueueSnackbar } = useSnackbar();
-  useEffect(() => {
-    if (questions) {
-      const initialValues = {};
-      questions.forEach(q => initialValues[q.id] = q.savedValue ?? '');
-      setFormValues(initialValues);
-    }
-  }, [questions]);
+useEffect(() => {
+  if (questionGroups) {
+    const initialValues = {};
+    questionGroups.forEach(group => {
+      group.indicators.forEach(q => {
+        if (q.valueType === 'multiple_selection') {
+          initialValues[q.id] = Array.isArray(q.savedValue) ? q.savedValue : [];
+        } else {
+          initialValues[q.id] = q.savedValue ?? '';
+        }
+      });
+    });
+    setFormValues(initialValues);
+  }
+}, [questionGroups]);
+
 
   const handleValueChange = (id, val) => {
     setFormValues(prev => ({ ...prev, [id]: val }));
@@ -228,21 +238,7 @@ function VitalsFormModal({
     onClose();
   };
 
-  const handleUpdateInfo = async () => {
-  try {
-    await axiosInstance.patch(`/api/v1/medical-records/${medicalRecordId}`, {
-      diagnosis: formData.diagnosis || "Chưa có chẩn đoán",
-      symptoms: formData.symptoms || "Chưa có triệu chứng",
-      notes: formData.notes || "Chưa có ghi chú",
-      appointmentId: appointment.id
-    });
-
-    enqueueSnackbar("Cập nhật thông tin thành công!", { variant: "success" });
-  } catch (err) {
-    console.error(err);
-    enqueueSnackbar("Lỗi khi cập nhật thông tin", { variant: "error" });
-  }
-};
+ 
 
 
   return (
@@ -310,20 +306,33 @@ function VitalsFormModal({
       </Box>
     )}
 
-    {!loading && questions.length > 0 && (
-      <Stack spacing={2} sx={{ mt: 2 }}>
-        {questions.map(q => (
-          <QuestionRenderer
-            key={q.id}
-            indicator={q}
-            value={formValues[q.id] || ''}
-            onChange={handleValueChange}
-          />
-        ))}
-      </Stack>
-    )}
+   {!loading && questionGroups.length > 0 && (
+  <Box sx={{ mt: 2 }}>
+    {questionGroups.map(group => (
+      <Box key={group.id} sx={{ mb: 4 }}>
+        {/* tiêu đề nhóm */}
+        <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>
+          {group.name}
+        </Typography>
 
-    {!loading && questions.length === 0 && (
+        {/* danh sách indicators trong nhóm */}
+        <Stack spacing={2}>
+          {group.indicators.map(indicator => (
+            <QuestionRenderer
+              key={indicator.id}
+              indicator={indicator}
+              value={formValues[indicator.id] || ''}
+              onChange={handleValueChange}
+            />
+          ))}
+        </Stack>
+      </Box>
+    ))}
+  </Box>
+)}
+
+
+    {!loading && questionGroups.length === 0 && (
       <Typography color="text.secondary" sx={{ py: 5, textAlign: 'center' }}>
         Chưa chọn template hoặc không có câu hỏi nào.
       </Typography>
@@ -335,7 +344,7 @@ function VitalsFormModal({
     <Button
       variant="contained"
       onClick={handleSave}
-      disabled={loading || questions.length === 0}
+      disabled={loading || questionGroups.length === 0}
     >
       Lưu hồ sơ
     </Button>
@@ -357,7 +366,8 @@ export function MedicalRecordFormLoader({
   onClose
 }) {
   const [loading, setLoading] = useState(false);
-  const [questions, setQuestions] = useState([]);
+  const [questionGroups, setQuestions] = useState([]);
+
 
   const { fetchVitalsForm } = useVitalsTemplate();
   const { updateVitals } = useUpdateVitalValues();
@@ -369,6 +379,7 @@ export function MedicalRecordFormLoader({
       setLoading(true);
       try {
         const groups = await fetchVitalsForm(templateId, medicalRecordId);
+        // console.log("questionGroups in VitalsFormModal:", questionGroups);
         setQuestions(groups);
       } catch (err) {
         setSnackbar?.({ open: true, severity: 'error', message: 'Lỗi khi load form bệnh án' });
@@ -395,7 +406,7 @@ const handleSave = async (medicalRecordId, updatedValues) => {
         const idAsNumber = parseInt(indicatorId, 10);
         let finalValue = value;
 
-        const originalIndicator = questions.find(q => q.id === idAsNumber);
+        const originalIndicator = questionGroups.find(q => q.id === idAsNumber);
 
         if (originalIndicator) {
           // chuyển số string -> number
@@ -440,15 +451,16 @@ const handleSave = async (medicalRecordId, updatedValues) => {
 
 
   return (
-    <VitalsFormModal
-      open={open}
-      onClose={onClose}
-      loading={loading}
-      questions={questions}
-      onSave={handleSave}
-      medicalRecordId={medicalRecordId}
-      appointment={appointment}
-    />
+   <VitalsFormModal
+  open={open}
+  onClose={onClose}
+  loading={loading}
+  questionGroups={questionGroups} // 👈 đổi tên prop cho đúng
+  onSave={handleSave}
+  medicalRecordId={medicalRecordId}
+  appointment={appointment}
+/>
+
   );
 }
 
