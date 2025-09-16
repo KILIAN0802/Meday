@@ -42,6 +42,19 @@ function QuestionRenderer({ indicator, value, onChange }) {
   switch (indicator.valueType) {
     // --- Multiple Choice (Checkbox) ---
     case "multi_selection": {
+      const parseOptions = (optionsArray) =>
+        (optionsArray || [])
+          .filter(Boolean)
+          .map((optStr) => {
+            // Tách theo khoảng trắng đầu tiên
+            const [first, ...rest] = optStr.trim().split(/\s+/);
+            if (!isNaN(first)) {
+              return { value: first, label: rest.join(" ") };
+            }
+            return { value: optStr, label: optStr };
+          });
+
+
       const options = parseOptions(indicator.valueOptions);
       const selectedValues = Array.isArray(value) ? value : [];
 
@@ -206,11 +219,11 @@ function VitalsFormModal({
 }) {
   console.log('questionGroup:', questionGroups)
   const [formValues, setFormValues] = useState({});
-  const [formData, setFormData] = useState({
-    diagnosis:  'Chưa có chẩn đoán',
-    symptoms:  'Chưa có triệu chứng',
-    notes:  'Chưa có ghi chú',
-  });
+  // const [formData, setFormData] = useState({
+  //   diagnosis:  'Chưa có chẩn đoán',
+  //   symptoms:  'Chưa có triệu chứng',
+  //   notes:  'Chưa có ghi chú',
+  // });
    const { enqueueSnackbar } = useSnackbar();
 useEffect(() => {
   if (questionGroups) {
@@ -370,7 +383,7 @@ export function MedicalRecordFormLoader({
 
 
   const { fetchVitalsForm } = useVitalsTemplate();
-  const { updateVitals } = useUpdateVitalValues();
+ 
 
   // Load dữ liệu
   useEffect(() => {
@@ -379,7 +392,6 @@ export function MedicalRecordFormLoader({
       setLoading(true);
       try {
         const groups = await fetchVitalsForm(templateId, medicalRecordId);
-        // console.log("questionGroups in VitalsFormModal:", questionGroups);
         setQuestions(groups);
       } catch (err) {
         setSnackbar?.({ open: true, severity: 'error', message: 'Lỗi khi load form bệnh án' });
