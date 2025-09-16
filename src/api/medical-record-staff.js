@@ -90,6 +90,8 @@ export async function updateVitalMedicalRecordeById(id, payload) {
 export async function updateGroupMedicalRecordeById(id) {
   try {
     const response = await axiosInstance.patch(endpoints.medical_record_staff.UpdateGroupID(id));
+    console.log('response:', response.data);
+    
     return response.data;
   } catch (error) {
     console.error(`Lỗi khi lấy mẫu hồ sơ bệnh án với ID ${id}:`, error);

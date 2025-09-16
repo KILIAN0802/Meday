@@ -20,7 +20,7 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import { useSnackbar } from 'notistack';
 import { useVitalsTemplate } from './useVitalsTemplate';
-import { useUpdateVitalValues } from './useUpdateVitalValues';
+
 
 // Render từng trường trong form
 function QuestionRenderer({ indicator, value, onChange }) {

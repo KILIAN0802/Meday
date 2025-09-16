@@ -211,7 +211,7 @@ const handleSubmitAppointment = async () => {
           symptoms: formData.symptoms || "Chưa có triệu chứng",
           notes: formData.notes || "Chưa có ghi chú",
           appointmentId: appointmentId,
-          vitalValues: [null],
+          vitalValues: [],
           templateId: templateId,
         };
 
