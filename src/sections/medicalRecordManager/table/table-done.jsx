@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 
-// --- Import các API cần thiết ---
 import {
   getAppointment,
   updateAppointmentStatusID,
@@ -12,7 +11,6 @@ import { getVitalGroupById } from 'src/api/vitals';
 import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff';
 import { ReusableTablePagination } from 'src/components/pagination';
 
-// --- Material-UI Imports ---
 import {
   Snackbar,
   Alert,
@@ -37,9 +35,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 1: MODAL CHI TIẾT NGƯỜI DÙNG ###
-// ----------------------------------------------------------------------
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
   const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
@@ -65,10 +60,6 @@ function PersonDetailsModal({ person, open, onClose }) {
     </Dialog>
   );
 }
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 2: MODAL XEM ẢNH ###
-// ----------------------------------------------------------------------
 function ImageViewerModal({ images, open, onClose }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -98,10 +89,6 @@ function ImageViewerModal({ images, open, onClose }) {
     </Dialog>
   );
 }
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 3: CHIP TRẠNG THÁI ###
-// ----------------------------------------------------------------------
 function StatusChip({ status }) {
   const statusMap = {
     PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
@@ -111,8 +98,6 @@ function StatusChip({ status }) {
   const { color, text } = statusMap[status] || { color: 'default', text: 'KHÔNG RÕ' };
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
-
-// --- CÁC HÀM TRỢ GIÚP ---
 function extractFinalValue(data) {
   if (Array.isArray(data)) {
     return data.join(', ');
@@ -145,10 +130,6 @@ function findImageUrls(data) {
   }
   return urls;
 }
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 4: HIỂN THỊ TỪNG CÂU HỎI ###
-// ----------------------------------------------------------------------
 function QuestionViewer({ indicator, value, onImageClick }) {
   if (indicator.valueType === 'image' || indicator.valueType === 'custom') {
     const imageUrls = findImageUrls(value);
@@ -217,10 +198,6 @@ function QuestionViewer({ indicator, value, onImageClick }) {
     </Box>
   );
 }
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 5: MODAL XEM CHI TIẾT BỆNH ÁN ###
-// ----------------------------------------------------------------------
 function MedicalRecordViewerModal({ open, onClose, questionGroups, loading, onImageClick }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -252,11 +229,6 @@ function MedicalRecordViewerModal({ open, onClose, questionGroups, loading, onIm
     </Dialog>
   );
 }
-
-
-// ----------------------------------------------------------------------
-// ### COMPONENT CHÍNH: BẢNG BỆNH ÁN ĐÃ HOÀN THÀNH ###
-// ----------------------------------------------------------------------
 export function CompletedMedicalRecords() {
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -266,13 +238,10 @@ export function CompletedMedicalRecords() {
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10); // Thêm state rowsPerPage
-
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
   const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]);
-
-  // ### SỬA LỖI: Thêm state và hàm xử lý cho modal xem ảnh ###
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
 
@@ -294,7 +263,7 @@ export function CompletedMedicalRecords() {
   
   const handleChangePage = (event, newPage) => setPage(newPage);
 
-  const handleChangeRowsPerPage = (event) => { // Thêm hàm handleChangeRowsPerPage
+  const handleChangeRowsPerPage = (event) => { 
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
@@ -419,7 +388,7 @@ useEffect(() => {
           <Table>
             <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Mã HS</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Bệnh nhân</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Mẫu bệnh án</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Lý do khám</TableCell>
@@ -464,7 +433,7 @@ useEffect(() => {
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage} // Thêm prop onRowsPerPageChange
+          onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Card>
 
@@ -473,8 +442,6 @@ useEffect(() => {
         open={Boolean(selectedPerson)}
         onClose={() => setSelectedPerson(null)}
       />
-
-      {/* ### SỬA LỖI: Truyền prop onImageClick ### */}
       <MedicalRecordViewerModal
         open={isViewerModalOpen}
         onClose={() => setIsViewerModalOpen(false)}
@@ -482,14 +449,11 @@ useEffect(() => {
         questionGroups={vitalQuestionGroups}
         onImageClick={handleOpenImageViewer}
       />
-      
-      {/* Thêm ImageViewerModal vào cây render */}
       <ImageViewerModal
         open={isImageViewerOpen}
         onClose={handleCloseImageViewer}
         images={selectedImages}
       />
-      
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}

@@ -1,31 +1,36 @@
 'use client';
 
-import axios, { endpoints } from 'src/lib/axios';
+import axios from 'src/lib/axios';
 import { setSession } from './utils';
 import { JWT_STORAGE_KEY, ACCOUNT_TYPE_KEY, AccountType } from './constant';
+import { loginAdmin, loginStaff, getAdminProfile, getStaffProfile } from 'src/api/auth'; 
+import { endpoints } from 'src/lib/axios';
 
-/** **************************************
- * Keys
- *************************************** */
-const AUTH_USER_KEY = 'AUTH_USER'; // cache user info sau login
+const AUTH_USER_KEY = 'AUTH_USER';
 
-/** **************************************
- * Helpers
- *************************************** */
 function pickAccessToken(res) {
   return (
-    res?.data?.data?.accessToken ??
     res?.data?.accessToken ??
-    res?.data?.token ??
-    res?.data?.access_token ??
+    res?.accessToken ??
+    res?.token ??
+    res?.access_token ??
     null
   );
 }
 
 async function fetchMeByRole(role) {
-  const url = role === AccountType.STAFF ? endpoints.staff.me : endpoints.auth.me;
-  const res = await axios.get(url);
-  return res?.data?.data ?? res?.data?.user ?? res?.data ?? null;
+  try {
+    let res;
+    if (role === AccountType.STAFF) {
+      res = await getStaffProfile();
+    } else {
+      res = await getAdminProfile();
+    }
+    return res?.data ?? res?.user ?? res ?? null;
+  } catch (error) {
+    console.error(`Lỗi khi fetch thông tin người dùng cho vai trò ${role}:`, error);
+    return null;
+  }
 }
 
 function cacheUser(me) {
@@ -34,82 +39,62 @@ function cacheUser(me) {
   } catch {}
 }
 
-/** **************************************
- * Sign in (ADMIN)
- *************************************** */
-export const signInWithPassword = async ({ username, password }) => {
-  const res = await axios.post(endpoints.auth.signIn, { username, password });
-  const accessToken = pickAccessToken(res);
-  if (!accessToken) throw new Error('Access token not found in response');
-
-  await setSession(accessToken);
-  sessionStorage.setItem(ACCOUNT_TYPE_KEY, AccountType.ADMIN);
-
-  // Prefetch /me (không chặn luồng nếu lỗi)
+export const signInWithCredentials = async ({ username, password }) => {
   try {
-    const me = await fetchMeByRole(AccountType.ADMIN);
-    cacheUser(me);
-  } catch {}
+    const res = await loginStaff({ username, password });
+    const accessToken = pickAccessToken(res);
+    if (accessToken) {
+      await setSession(accessToken);
+      sessionStorage.setItem(ACCOUNT_TYPE_KEY, AccountType.STAFF);
+      try {
+        const me = await fetchMeByRole(AccountType.STAFF);
+        cacheUser(me);
+      } catch {}
+      return true;
+    }
+  } catch (error) {
+    console.log("Đăng nhập tài khoản nhân viên thất bại, thử vai trò tiếp theo...");
+  }
+  try {
+    const res = await loginAdmin({ username, password });
+    const accessToken = pickAccessToken(res);
 
-  return true;
+    if (accessToken) {
+      await setSession(accessToken);
+      sessionStorage.setItem(ACCOUNT_TYPE_KEY, AccountType.ADMIN);
+      try {
+        const me = await fetchMeByRole(AccountType.ADMIN);
+        cacheUser(me);
+      } catch {}
+      return true;
+    }
+  } catch (error) {
+    console.log("Đăng nhập tài khoản ADMIN thất bại.");
+  }
+  throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác.');
 };
 
-/** **************************************
- * Sign in (STAFF)
- *************************************** */
-export const signInStaffWithPassword = async ({ username, password }) => {
-  const res = await axios.post(endpoints.staff.signIn, { username, password });
-  const accessToken = pickAccessToken(res);
-  if (!accessToken) throw new Error('Access token not found in response');
 
-  await setSession(accessToken);
-  sessionStorage.setItem(ACCOUNT_TYPE_KEY, AccountType.STAFF);
-
-  // Prefetch /me (không chặn luồng nếu lỗi)
-  try {
-    const me = await fetchMeByRole(AccountType.STAFF);
-    cacheUser(me);
-  } catch {}
-
-  return true;
-};
-
-/** **************************************
- * Sign up
- *************************************** */
 export const signUp = async ({ email, password, firstName, lastName }) => {
   const params = { email, password, firstName, lastName };
   const res = await axios.post(endpoints.auth.signUp, params);
 
   const accessToken = pickAccessToken(res);
   if (!accessToken) throw new Error('Access token not found in response');
-
-  // Đăng ký xong: set session để user vào app ngay
-  await setSession(accessToken);
-
-  // Không đoán role ở đây (tuỳ backend). Nếu muốn, bạn có thể nhận thêm param role.
-  // sessionStorage.setItem(ACCOUNT_TYPE_KEY, AccountType.ADMIN | AccountType.STAFF);
-
-  // Lưu thẳng token (setSession đã làm rồi, dòng dưới không bắt buộc)
+    await setSession(accessToken);
   try {
     sessionStorage.setItem(JWT_STORAGE_KEY, accessToken);
   } catch {}
-
   return true;
 };
 
-/** **************************************
- * Sign out
- *************************************** */
 export const signOut = async () => {
   try {
-    // Xoá token + header (utils đã lo)
     await setSession(null);
   } finally {
-    // Chủ động dọn thêm cache/role để chắc chắn
-    try {
-      sessionStorage.removeItem(ACCOUNT_TYPE_KEY);
-      sessionStorage.removeItem(AUTH_USER_KEY);
+  try {
+    sessionStorage.removeItem(ACCOUNT_TYPE_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
     } catch {}
   }
   return true;

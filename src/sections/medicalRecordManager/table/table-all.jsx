@@ -27,8 +27,6 @@ import {
   Button,
 } from '@mui/material';
 
-// --- COMPONENT PHỤ 1: MODAL THÔNG TIN CHI TIẾT ---
-// (Không thay đổi)
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
   const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
@@ -87,17 +85,13 @@ export function AllMedicalRecords() {
     setPage(0);
   };
 
-  // ### USEEFFECT ĐÃ ĐƯỢC ĐƠN GIẢN HÓA VÀ SỬA LỖI ###
   useEffect(() => {
     const fetchMedicalRecords = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Chỉ cần gọi API getMedicalRecord vì nó đã chứa đủ thông tin
         const params = { page: page + 1, limit: rowsPerPage };
         const response = await getMedicalRecord(params);
-
-        // Lấy dữ liệu trực tiếp từ phản hồi của API
         const records = response.data || [];
         const total = response.total || 0;
 
@@ -113,7 +107,7 @@ export function AllMedicalRecords() {
     };
 
     fetchMedicalRecords();
-  }, [page, rowsPerPage]); // Chạy lại mỗi khi trang hoặc số dòng thay đổi
+  }, [page, rowsPerPage]);
 
   return (
     <Container maxWidth="xl">
@@ -124,7 +118,7 @@ export function AllMedicalRecords() {
           <Table>
             <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Mã HS</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Bệnh nhân</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Mẫu bệnh án</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Lý do khám</TableCell>

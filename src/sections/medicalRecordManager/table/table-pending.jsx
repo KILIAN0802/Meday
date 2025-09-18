@@ -12,7 +12,6 @@ import { getVitalGroupById } from 'src/api/vitals';
 import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff';
 import { ReusableTablePagination } from 'src/components/pagination';
 
-// --- Material-UI Imports ---
 import {
   Snackbar,
   Alert,
@@ -37,9 +36,6 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 1: MODAL CHI TIẾT NGƯỜI DÙNG ###
-// ----------------------------------------------------------------------
 function PersonDetailsModal({ person, open, onClose }) {
   if (!person) return null;
   const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
@@ -66,9 +62,6 @@ function PersonDetailsModal({ person, open, onClose }) {
   );
 }
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 2: MODAL XEM ẢNH ###
-// ----------------------------------------------------------------------
 function ImageViewerModal({ images, open, onClose }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -98,10 +91,6 @@ function ImageViewerModal({ images, open, onClose }) {
     </Dialog>
   );
 }
-
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 3: CHIP TRẠNG THÁI ###
-// ----------------------------------------------------------------------
 function StatusChip({ status }) {
   const statusMap = {
     PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
@@ -289,11 +278,6 @@ function MedicalRecordViewerModal({ open, onClose, questionGroups, loading, onIm
     </Dialog>
   );
 }
-
-
-// ----------------------------------------------------------------------
-// ### COMPONENT CHÍNH: BẢNG BỆNH ÁN CHỜ XỬ LÝ ###
-// ----------------------------------------------------------------------
 export function PendingMedicalRecords() {
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -476,7 +460,7 @@ export function PendingMedicalRecords() {
           <Table>
             <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Mã HS</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Bệnh nhân</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Mẫu bệnh án</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Lý do khám</TableCell>

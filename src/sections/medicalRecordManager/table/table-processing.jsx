@@ -2,24 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 
-// --- Import các API cần thiết ---
 import { getAppointment, updateAppointmentStatusID } from 'src/api/appointments-staff';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
 import { getVitalValuesMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { ReusableTablePagination } from 'src/components/pagination';
 
-// --- Material-UI Imports ---
 import {
   Snackbar, Alert, Box, Card, Table, Container, TableBody, TableCell, TableHead, TableRow, Typography,
   TableContainer, CircularProgress, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel,
-  Checkbox, FormGroup // THAY ĐỔI: Thêm Checkbox và FormGroup cho multiple choice
+  Checkbox, FormGroup 
 } from '@mui/material';
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 1: HIỂN THỊ CHI TIẾT NGƯỜI DÙNG ###
-// (Không thay đổi)
+
 function PersonDetailsModal({ person, open, onClose }) {
     if (!person) return null;
     const KEY_LABELS = { id: 'Mã số', fullname: 'Họ và tên', phone: 'Số điện thoại', email: 'Email', role: 'Vai trò' };
@@ -46,9 +42,6 @@ function PersonDetailsModal({ person, open, onClose }) {
     );
 }
 
-// ----------------------------------------------------------------------
-// ### COMPONENT PHỤ 2: HIỂN THỊ CHIP TRẠNG THÁI ###
-// (Không thay đổi)
 function StatusChip({ status }) {
     const statusMap = {
         PENDING: { color: 'warning', text: 'CHỜ TIẾP NHẬN' },
@@ -59,11 +52,7 @@ function StatusChip({ status }) {
     return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
 
-// ----------------------------------------------------------------------
-// ### THAY ĐỔI: COMPONENT PHỤ 3: NÂNG CẤP ĐỂ HỖ TRỢ MULTIPLE CHOICE ###
-// ----------------------------------------------------------------------
 function QuestionRenderer({ indicator, value, onChange }) {
-  // --- Parser chung cho các tùy chọn ---
   const parseOptions = (optionsArray) => (optionsArray || [])
     .filter(Boolean)
     .map(optStr => {
@@ -77,7 +66,6 @@ function QuestionRenderer({ indicator, value, onChange }) {
     });
 
   switch (indicator.valueType) {
-    // --- Case mới cho Multiple Choice (Checkbox) ---
     case 'multi_selection': {
       const options = parseOptions(indicator.valueOptions);
       const selectedValues = Array.isArray(value) ? value : [];
@@ -111,7 +99,6 @@ function QuestionRenderer({ indicator, value, onChange }) {
         </FormControl>
       );
     }
-    // --- Case cho Single Choice (Radio) ---
     case 'selection': {
       const options = parseOptions(indicator.valueOptions);
       const handleChange = (event) => onChange(indicator.id, event.target.value);
@@ -126,7 +113,6 @@ function QuestionRenderer({ indicator, value, onChange }) {
         </FormControl>
       );
     }
-    // --- Case mặc định cho các loại input khác ---
     default: {
       const handleChange = (event) => onChange(indicator.id, event.target.value);
       return (
@@ -142,20 +128,14 @@ function QuestionRenderer({ indicator, value, onChange }) {
   }
 }
 
-
-// ----------------------------------------------------------------------
-// ### THAY ĐỔI: COMPONENT PHỤ 4: MODAL HIỂN THỊ FORM THEO NHÓM ###
-// ----------------------------------------------------------------------
 function VitalsFormModal({ open, onClose, questionGroups, loading, onSave, medicalRecordId }) {
     const [formValues, setFormValues] = useState({});
 
     useEffect(() => {
       if (questionGroups) {
         const initialValues = {};
-        // Duyệt qua cấu trúc nhóm để khởi tạo giá trị
         questionGroups.forEach(group => {
           group.indicators.forEach(q => {
-            // Đối với multiple choice, đảm bảo giá trị khởi tạo là một mảng
             if (q.valueType === 'multiple_selection') {
                 initialValues[q.id] = Array.isArray(q.savedValue) ? q.savedValue : [];
             } else {
@@ -211,10 +191,6 @@ function VitalsFormModal({ open, onClose, questionGroups, loading, onSave, medic
       </Dialog>
     );
 }
-
-// ----------------------------------------------------------------------
-// ### COMPONENT CHÍNH: BẢNG BỆNH ÁN ĐANG XỬ LÝ ###
-// ----------------------------------------------------------------------
 export function ConfirmedMedicalRecords() {
     const [medicalRecords, setMedicalRecords] = useState([]);
     const [totalRecords, setTotalRecords] = useState(0);
@@ -226,8 +202,6 @@ export function ConfirmedMedicalRecords() {
     const [isCompletingId, setIsCompletingId] = useState(null);
     const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
     const [refetchTrigger, setRefetchTrigger] = useState(0);
-
-    // THAY ĐỔI: State cho form theo nhóm
     const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
     const [isLoadingVitals, setIsLoadingVitals] = useState(false);
     const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]);
@@ -244,8 +218,6 @@ export function ConfirmedMedicalRecords() {
         setRowsPerPage(parseInt(event.target.value, 10));
         setPage(0);
     };
-
-    // THAY ĐỔI: Hàm fetch dữ liệu form theo nhóm
     const handleViewVitalsForm = async (templateId, medicalRecordId) => {
         setActiveMedicalRecordId(medicalRecordId);
         if (!templateId) {
@@ -304,7 +276,7 @@ export function ConfirmedMedicalRecords() {
         try {
             const formattedValues = Object.entries(updatedValues)
                 .filter(([, value]) => {
-                    if (Array.isArray(value)) return value.length > 0; // Giữ lại mảng không rỗng
+                    if (Array.isArray(value)) return value.length > 0;
                     return value !== '' && value !== null && value !== undefined;
                 })
                 .map(([indicatorId, value]) => {
@@ -354,16 +326,10 @@ export function ConfirmedMedicalRecords() {
       
       try {
         let aggregatedRecords = [];
-        // Luôn bắt đầu từ trang 1 của API vì chúng ta lấy dữ liệu tích lũy
         let currentApiPage = 1; 
         let lastKnownTotal = 0;
         let continueFetching = true;
-
-        // Tính toán tổng số bản ghi cần có để hiển thị được trang hiện tại
-        // Ví dụ: Ở trang 2 (page=1), cần lấy đủ (1+1)*10 = 20 bản ghi
         const recordsNeeded = (page + 1) * rowsPerPage;
-
-        // Vòng lặp sẽ chạy cho đến khi lấy đủ số bản ghi cần thiết
         while (aggregatedRecords.length < recordsNeeded && continueFetching) {
           // Giữ nguyên status: 'CONFIRMED'
           const params = { status: 'CONFIRMED', page: currentApiPage, limit: rowsPerPage };
@@ -373,8 +339,6 @@ export function ConfirmedMedicalRecords() {
           if (response?.total) {
             lastKnownTotal = response.total;
           }
-
-          // Dừng lại nếu API trả về một trang rỗng (hết dữ liệu)
           if (rawAppointments.length === 0) {
             continueFetching = false;
             break;
@@ -392,8 +356,6 @@ export function ConfirmedMedicalRecords() {
           aggregatedRecords.push(...newRecords);
           currentApiPage++;
         }
-        
-        // Sau khi có đủ dữ liệu, cắt ra đúng phần cho trang hiện tại
         const startIndex = page * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
         const finalRecordsForPage = aggregatedRecords.slice(startIndex, endIndex);
@@ -416,12 +378,11 @@ export function ConfirmedMedicalRecords() {
         <Container maxWidth="xl">
             <Typography variant="h4" sx={{ mb: 5 }}>Danh sách bệnh án đang xử lý</Typography>
             <Card>
-                {/* ...Phần render bảng không thay đổi... */}
                 <TableContainer>
                   <Table>
                     <TableHead sx={{ bgcolor: 'action.hover' }}>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Mã HS</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
                         <TableCell sx={{ fontWeight: 'bold' }}>Bệnh nhân</TableCell>
                         <TableCell sx={{ fontWeight: 'bold' }}>Mẫu bệnh án</TableCell>
                         <TableCell sx={{ fontWeight: 'bold' }}>Lý do khám</TableCell>
