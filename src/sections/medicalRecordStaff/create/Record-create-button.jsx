@@ -11,8 +11,8 @@ import Stack from '@mui/material/Stack';
 // ----------------------------------------------------------------------
 
 const COLORS = {
-  "Bệnh án cấp tính": "#FFB380",        // Cam pastel đậm hơn
-  "Bệnh án mạn tính lần 1": "#FFE680",  // Vàng pastel đậm hơn
+  "Bệnh án cấp tính": "#FFB380",
+  "Bệnh án mạn tính lần 1": "#FFE680",
   "Bệnh án mạn tính tái khám": "#80E580",// Xanh lá pastel đậm hơn
 };
 
@@ -32,8 +32,8 @@ export function RecordCreateButtons({ onTemplateSelect }) {
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, severity: "info", message: "" });
-  const [selectedVersion, setSelectedVersion] = useState("Version 1.0.0"); // mặc định chọn 1.0.0
-  const [versions, setVersions] = useState([]); // danh sách version duy nhất
+  const [selectedVersion, setSelectedVersion] = useState("Version 1.0.0");
+  const [versions, setVersions] = useState([]);
 
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
@@ -42,11 +42,6 @@ export function RecordCreateButtons({ onTemplateSelect }) {
       const response = await axiosInstance.get(endpoint);
       const apiData = response.data?.data || [];
 
-      // // Lấy danh sách version duy nhất từ notes
-      // const uniqueVersions = [...new Set(apiData.map((item) => item.notes))];
-      // setVersions(uniqueVersions);
-
-      // Lọc theo version đang chọn
       const filtered = apiData.filter((item) => item.notes === selectedVersion);
 
       const mapped = filtered.map((item) => ({

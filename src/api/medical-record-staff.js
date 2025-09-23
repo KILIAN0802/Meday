@@ -70,10 +70,8 @@ export async function getVitalValuesMedicalRecord(id) {
   }
 }
 
-// Thêm tham số 'payload' để chứa dữ liệu cần cập nhật
 export async function updateVitalMedicalRecordeById(id, payload) {
   try {
-    // Truyền 'payload' làm đối số thứ hai cho hàm patch
     const response = await axiosInstance.patch(
       endpoints.medical_record_staff.UpdateVitalId(id),
       payload
@@ -81,7 +79,6 @@ export async function updateVitalMedicalRecordeById(id, payload) {
     console.log('Cập nhật thành công:', response.data);
     return response.data;
   } catch (error) {
-    // Log cả payload để dễ debug hơn
     console.error(`Lỗi khi cập nhật hồ sơ bệnh án với ID ${id} và payload:`, payload, error);
     throw error;
   }
