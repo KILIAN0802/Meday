@@ -1,106 +1,105 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-// import axiosInstance from 'src/utils/axios';
-import axiosInstance from 'src/lib/axios'; 
+import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
+import { getVitalGroupById } from 'src/api/vitals'
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // ----------------------------------------------------------------------
 
 const COLORS = {
   "Bệnh án cấp tính": "#FFB380",
   "Bệnh án mạn tính lần 1": "#FFE680",
-  "Bệnh án mạn tính tái khám": "#80E580",// Xanh lá pastel đậm hơn
+  "Bệnh án mạn tính tái khám": "#80E580",
 };
 
 const buttonStyles = {
-  minWidth: 200,
+  minWidth: 240,
   minHeight: 60,
   fontSize: '16px',
   fontWeight: 'bold',
   borderRadius: '12px',
-  boxShadow: 3,
+  color: '#212B36',
+  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
   '&:hover': {
-    boxShadow: 6,
+    boxShadow: '0 6px 12px rgba(0,0,0,0.15)',
+    transform: 'translateY(-2px)',
   },
 };
 
 export function RecordCreateButtons({ onTemplateSelect }) {
   const [templates, setTemplates] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, severity: "info", message: "" });
-  const [selectedVersion, setSelectedVersion] = useState("Version 1.0.0");
-  const [versions, setVersions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const fetchTemplates = useCallback(async () => {
+  const fetchTemplatesByIds = useCallback(async () => {
     setIsLoading(true);
+    const templateIds = [16, 17, 18];
+
     try {
-      const endpoint = "/api/staff/medical-record-templates";
-      const response = await axiosInstance.get(endpoint);
-      const apiData = response.data?.data || [];
+      const promises = templateIds.map(id => getMedicalRecordTemplateById(id));
+      const responses = await Promise.all(promises);
 
-      const filtered = apiData.filter((item) => item.notes === selectedVersion);
+      const mappedTemplates = responses.map(response => {
+        const templateData = response.data;
+        if (!templateData) return null;
 
-      const mapped = filtered.map((item) => ({
-        id: item.id,
-        label: item.name,
-        color: COLORS[item.name] || "#D3D3D3",
-      }));
+        return {
+          id: templateData.id,
+          label: templateData.name,
+          color: COLORS[templateData.name] || "#D3D3D3",
+        };
+      }).filter(Boolean);
 
-      setTemplates(mapped);
+      setTemplates(mappedTemplates);
     } catch (error) {
-      console.error("Lỗi khi lấy danh sách template:", error);
-      setSnackbar({ open: true, severity: "error", message: "Lấy template thất bại" });
+      console.error("Lỗi khi fetch templates:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedVersion]);
+  }, []);
 
   useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+    fetchTemplatesByIds();
+  }, [fetchTemplatesByIds]);
 
   return (
-    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <Typography variant="h4" sx={{ mb: 4 }}>
+    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+      <Typography variant="h4" sx={{ mb: 5 }}>
         Tạo bệnh án
       </Typography>
 
-      {/* Nút chọn version */}
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-        {versions.map((ver) => (
-          <Button
-            key={ver}
-            variant={selectedVersion === ver ? "contained" : "outlined"}
-            onClick={() => setSelectedVersion(ver)}
-          >
-            {ver}
-          </Button>
-        ))}
-      </Stack>
-
-      {/* Nút chọn template */}
-      <Stack direction="row" spacing={4} justifyContent="center">
-        {templates.map((template) => (
-          <Button
-            key={template.id}
-            variant="contained"
-            onClick={() => onTemplateSelect(template.id)}
-            sx={{
-              ...buttonStyles,
-              backgroundColor: template.color,
-              '&:hover': {
-                ...buttonStyles['&:hover'],
+      <Stack direction="row" spacing={4} justifyContent="center" sx={{ minHeight: 60 }}>
+        {isLoading ? (
+          <CircularProgress />
+        ) : templates.length > 0 ? (
+          templates.map((template) => (
+            <Button
+              key={template.id}
+              variant="contained"
+              onClick={() => onTemplateSelect(template.id)}
+              sx={{
+                ...buttonStyles,
                 backgroundColor: template.color,
-              },
-            }}
-          >
-            {template.label}
-          </Button>
-        ))}
+                '&:hover': {
+                  ...buttonStyles['&:hover'],
+                  backgroundColor: template.color,
+                  filter: 'brightness(0.95)',
+                },
+              }}
+            >
+              {template.label}
+            </Button>
+          ))
+        ) : (
+          <Typography sx={{ color: 'text.secondary' }}>
+            Không tìm thấy mẫu bệnh án nào.
+          </Typography>
+        )}
       </Stack>
     </Box>
   );

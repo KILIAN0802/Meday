@@ -651,10 +651,6 @@ const displayedAppointments = searchAppointmentId
     </Button>
   </DialogActions>
 </Dialog>
-
-
-      {/* Dialog cập nhật bệnh án */}
-
 <MedicalRecordFormLoader
    templateId={selectedTemplateId}
    medicalRecordId={selectedMedicalRecordId}

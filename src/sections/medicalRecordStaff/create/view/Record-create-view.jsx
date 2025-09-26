@@ -1,32 +1,48 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
-// --- MUI Components ---
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button'; // Quay lại dùng Button
+import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add'; 
 import { useRouter } from 'next/navigation';
-// --- Custom Components ---
 import { TableManager } from '../Record-create-tableManager';
 import { paths } from 'src/routes/paths'; 
+import { MedicalRecordFormModal } from '../components/MedicalRecordFormModal';
+import { RecordCreateButtons } from '../Record-create-button'
+
 // ----------------------------------------------------------------------
 
 export function RecordCreateView() {
- const router = useRouter()
+  const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+
   const handleCreateAppointment = () => {
-    // TODO: Thêm logic điều hướng tới trang tạo lịch hẹn ở đây
-    router.push(paths.dashboard.appointment.root)
-    console.log('Chuyển đến trang tạo lịch hẹn...');
+    router.push(paths.dashboard.appointment.root);
+  };
+
+  const handleTemplateSelect = (templateId) => {
+    setSelectedTemplateId(templateId);
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setSelectedTemplateId(null);
   };
 
   return (
     <>
-      <Box 
-        sx={{ 
-          display: 'flex', 
+      <RecordCreateButtons onTemplateSelect={handleTemplateSelect} />
+
+      <TableManager />
+
+      <Box
+        sx={{
+          display: 'flex',
           justifyContent: 'center',
-          my: 4 
+          my: 4,
         }}
       >
         <Button
@@ -45,8 +61,13 @@ export function RecordCreateView() {
           Tạo lịch hẹn
         </Button>
       </Box>
-      
-      <TableManager />
+      {selectedTemplateId && (
+        <MedicalRecordFormModal
+          open={modalOpen}
+          onClose={handleCloseModal}
+          templateId={selectedTemplateId}
+        />
+      )}
     </>
   );
 }
