@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev -p 3032 --turbopack",
+    "dev": "next dev -p 3090 --turbopack",
     "start": "next start -p 3032",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
