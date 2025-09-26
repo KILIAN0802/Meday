@@ -90,22 +90,23 @@ export function useMedicalRecordForm(templateId, open) {
             }
 
             const response = await createMedicalRecord(payload);
-            const createdRecordId = response.data.id;
-            
-            if (!createdRecordId) throw new Error("API không trả về ID bệnh án");
+        const createdRecordId = response.data.id;
+        
+        if (!createdRecordId) throw new Error("API không trả về ID bệnh án");
 
-            setNewRecordId(createdRecordId);
-            setActiveStep(prev => prev + 1);
-        } catch (err) {
-            console.error("Lỗi khi tạo bệnh án:", err);
-            setError(err.message || "Tạo bệnh án thất bại. Vui lòng kiểm tra lại thông tin.");
-        } finally {
-            setIsCreating(false);
-        }
-        } else {
+        setNewRecordId(createdRecordId);
         setActiveStep(prev => prev + 1);
-        }
-    };
+      } catch (err) {
+        console.error("Lỗi khi tạo bệnh án:", err);
+        const apiErrorMessage = err.response?.data?.message;
+        setError(apiErrorMessage || err.message || "Tạo bệnh án thất bại. Vui lòng kiểm tra lại thông tin.");
+      } finally {
+        setIsCreating(false);
+      }
+    } else {
+      setActiveStep(prev => prev + 1);
+    }
+  };
   
   const handleBack = () => setActiveStep(prev => prev - 1);
   const handleSubmit = async (onCloseCallback) => {

@@ -71,7 +71,7 @@ export function MedicalRecordFormModal({ open, onClose, templateId, templateName
                 <Stack spacing={2} sx={{ mt: 2 }}>
                   <Typography variant="h6">Thông tin chung</Typography>
                   <TextField label="Loại bệnh án" variant="filled" disabled value={templateName || ''} />
-                  <TextField label="Bác sĩ phụ trách" variant="filled" disabled value={doctorProfile?.id || ''} />
+                  <TextField label="Bác sĩ phụ trách" variant="filled" disabled value={doctorProfile?.fullname || ''} />
                   <TextField label="ID bệnh nhân" type="number" value={initialFormData.patientId} onChange={(e) => handleInitialFormChange('patientId', e.target.value)} />
                   <TextField label="ID cuộc hẹn" type="number" value={initialFormData.appointmentId} onChange={(e) => handleInitialFormChange('appointmentId', e.target.value)} />
                   <TextField label="Chẩn đoán" value={initialFormData.diagnosis} onChange={(e) => handleInitialFormChange('diagnosis', e.target.value)} />
