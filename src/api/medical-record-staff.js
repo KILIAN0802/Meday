@@ -2,7 +2,7 @@ import axiosInstance, { endpoints } from 'src/lib/axios';
 
 export async function createMedicalRecord(params) {
   try {
-    const response = await axiosInstance.post(endpoints.medical_record_staff.create, { params });
+    const response = await axiosInstance.post(endpoints.medical_record_staff.create, params);
     return response.data;
   } catch (error) {
     console.error('Lỗi khi lấy danh sách bệnh án:', error);

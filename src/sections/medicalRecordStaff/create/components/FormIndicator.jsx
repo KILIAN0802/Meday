@@ -29,10 +29,10 @@ export function FormIndicator({ indicator, formData, onInputChange }) {
                   <Stack key={index} spacing={1}>
                     {item.label && <Typography fontWeight="medium">{item.label}</Typography>}
                     {fields.map((fieldItem) => {
-                      const subIndicator = { id: `${id}-${index}-${fieldItem.label}`, name: fieldItem.label, valueType: fieldItem.type, valueOptions: fieldItem.options || fieldItem.option };
+                      const subIndicator = { id: fieldItem.id, name: fieldItem.label, valueType: fieldItem.type, valueOptions: fieldItem.options || fieldItem.option };
                       const isSelected = formData[subIndicator.id] && formData[subIndicator.id].length > 0;
                       return (
-                        <React.Fragment key={subIndicator.id}>
+                        <Box key={subIndicator.id}>
                           <Box sx={{ pl: item.label ? 2 : 0 }}>
                             <FormIndicator indicator={subIndicator} formData={formData} onInputChange={onInputChange} />
                           </Box>
@@ -45,7 +45,7 @@ export function FormIndicator({ indicator, formData, onInputChange }) {
                               })}
                             </Box>
                           )}
-                        </React.Fragment>
+                        </Box>
                       );
                     })}
                   </Stack>

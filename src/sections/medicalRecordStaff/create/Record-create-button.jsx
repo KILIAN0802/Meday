@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
-import { getVitalGroupById } from 'src/api/vitals'
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
+import { paths } from 'src/routes/paths';
 
 // ----------------------------------------------------------------------
 
@@ -18,43 +19,42 @@ const COLORS = {
 };
 
 const buttonStyles = {
-  minWidth: 240,
+  minWidth: 200,
   minHeight: 60,
   fontSize: '16px',
   fontWeight: 'bold',
   borderRadius: '12px',
   color: '#212B36',
-  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+  boxShadow: 3,
   '&:hover': {
-    boxShadow: '0 6px 12px rgba(0,0,0,0.15)',
-    transform: 'translateY(-2px)',
+    boxShadow: 6,
   },
 };
 
 export function RecordCreateButtons({ onTemplateSelect }) {
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter(); 
+
+  const handleCreateAppointment = () => {
+    router.push(paths.dashboard.appointment.root);
+  };
 
   const fetchTemplatesByIds = useCallback(async () => {
     setIsLoading(true);
     const templateIds = [16, 17, 18];
-
     try {
       const promises = templateIds.map(id => getMedicalRecordTemplateById(id));
       const responses = await Promise.all(promises);
-
       const mappedTemplates = responses.map(response => {
         const templateData = response.data;
         if (!templateData) return null;
-
         return {
           id: templateData.id,
           label: templateData.name,
           color: COLORS[templateData.name] || "#D3D3D3",
         };
       }).filter(Boolean);
-
       setTemplates(mappedTemplates);
     } catch (error) {
       console.error("Lỗi khi fetch templates:", error);
@@ -77,24 +77,41 @@ export function RecordCreateButtons({ onTemplateSelect }) {
         {isLoading ? (
           <CircularProgress />
         ) : templates.length > 0 ? (
-          templates.map((template) => (
+          <>
+            {templates.map((template) => (
+              <Button
+                key={template.id}
+                variant="contained"
+                onClick={() => onTemplateSelect(template.id, template.label)}
+                sx={{
+                  ...buttonStyles,
+                  backgroundColor: template.color,
+                  '&:hover': {
+                    ...buttonStyles['&:hover'],
+                    backgroundColor: template.color,
+                    filter: 'brightness(0.95)',
+                  },
+                }}
+              >
+                {template.label}
+              </Button>
+            ))}
             <Button
-              key={template.id}
               variant="contained"
-              onClick={() => onTemplateSelect(template.id)}
+              onClick={handleCreateAppointment}
               sx={{
                 ...buttonStyles,
-                backgroundColor: template.color,
+                backgroundColor: '#80B3FF',
                 '&:hover': {
                   ...buttonStyles['&:hover'],
-                  backgroundColor: template.color,
+                  backgroundColor: '#80B3FF',
                   filter: 'brightness(0.95)',
                 },
               }}
             >
-              {template.label}
+              Tạo lịch hẹn
             </Button>
-          ))
+          </>
         ) : (
           <Typography sx={{ color: 'text.secondary' }}>
             Không tìm thấy mẫu bệnh án nào.

@@ -12,8 +12,8 @@ import {
 } from '@mui/material';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'next/navigation';
-import { getAppointment } from 'src/api/appointments-staff'; 
 import { getMedicalRecord } from 'src/api/medical-record-staff'
+
 function StatCard({ title, count, color, onClick, loading }) {
   return (
     <Card
