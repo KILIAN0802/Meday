@@ -71,9 +71,9 @@ export function JwtSignInView() {
       <Field.Text name="username" label="Tên tài khoản" slotProps={{ inputLabel: { shrink: true } }} />
 
       <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
-        <Link component={RouterLink} href="#" variant="body2" color="inherit" sx={{ alignSelf: 'flex-end' }}>
+        {/* <Link component={RouterLink} href="#" variant="body2" color="inherit" sx={{ alignSelf: 'flex-end' }}>
           Quên mật khẩu?
-        </Link>
+        </Link> */}
 
         <Field.Text
           name="password"
@@ -113,14 +113,14 @@ export function JwtSignInView() {
     <>
       <FormHead
         title="Đăng nhập tài khoản của bạn"
-        description={
+        /* description={
           <>
             Chưa có tài khoản?
             <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
               Đăng ký ngay
             </Link>
           </>
-        }
+        } */
         sx={{ textAlign: { xs: 'center', md: 'left' } }}
       />
       {!!errorMessage && (

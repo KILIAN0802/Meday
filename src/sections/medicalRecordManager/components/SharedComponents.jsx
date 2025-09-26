@@ -9,6 +9,9 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 
 export function extractFinalValue(data) {
+  if (data === null || typeof data === 'undefined') {
+    return '';
+  }
   if (typeof data !== 'object' || data === null) {
     return String(data);
   }

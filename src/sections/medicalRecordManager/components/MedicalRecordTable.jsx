@@ -200,8 +200,7 @@ export function MedicalRecordTable({ status, title }) {
                     </TableCell>
                     <TableCell>{row.appointment?.reason || 'N/A'}</TableCell>
                     <TableCell align="center"><StatusChip status={row.appointment?.status} /></TableCell>
-                    
-                    {/* Hiển thị nút bấm phù hợp */}
+                  
                     {status !== 'ALL' && status !== 'COMPLETED' && (
                         <TableCell align="right">
                             <Button 
