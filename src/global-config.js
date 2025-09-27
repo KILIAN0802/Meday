@@ -11,10 +11,7 @@ export const CONFIG = {
   assetsDir: process.env.NEXT_PUBLIC_ASSETS_DIR ?? '',
   apiUrl: process.env.NEXT_PUBLIC_API_URL ?? '',
   isStaticExport: JSON.parse(process.env.BUILD_STATIC_EXPORT ?? 'false'),
-  /**
-   * Auth
-   * @method jwt | amplify | firebase | supabase | auth0
-   */
+
   auth: {
     method: 'jwt',
     skip: false,

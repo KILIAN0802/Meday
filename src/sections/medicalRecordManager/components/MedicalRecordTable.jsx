@@ -204,13 +204,10 @@ export function MedicalRecordTable({ status, title }) {
                     {status !== 'ALL' && status !== 'COMPLETED' && (
                         <TableCell align="right">
                             <Button 
-                                variant="contained" 
-                                size="small"
-                                color={status === 'PENDING' ? 'primary' : 'success'}
-                                disabled={isActionLoadingId === row.appointment.id}
-                                onClick={() => handleUpdateStatus(row.appointment.id, status === 'PENDING' ? 'CONFIRMED' : 'COMPLETED')}
+                              disabled={isActionLoadingId === row.appointment?.id}
+                              onClick={() => handleUpdateStatus(row.appointment?.id, status === 'PENDING' ? 'CONFIRMED' : 'COMPLETED')}
                             >
-                                {isActionLoadingId === row.appointment.id ? <CircularProgress size={20} color="inherit"/> : (status === 'PENDING' ? 'Tiếp nhận' : 'Hoàn thành')}
+                              {isActionLoadingId === row.appointment?.id ? <CircularProgress size={20} color="inherit"/> : (status === 'PENDING' ? 'Tiếp nhận' : 'Hoàn thành')}
                             </Button>
                         </TableCell>
                     )}
