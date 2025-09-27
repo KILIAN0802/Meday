@@ -1,14 +1,38 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, FormControl,
   InputLabel, Select, MenuItem, FormGroup, FormControlLabel, Checkbox, Stack, Button
 } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export function FormIndicator({ indicator, formData, onInputChange }) {
-  const { id, name, valueType, valueOptions } = indicator;
+  const { id, name, valueType, valueOptions, code } = indicator;
+  const [showSubOptions, setShowSubOptions] = useState(false);
+
+  useEffect(() => {
+    if (code === 'QUES17CTN') {
+      const currentSelection = formData[id] || [];
+      setShowSubOptions(currentSelection.includes('Khi có các yếu tố kích thích'));
+    }
+  }, [formData, id, code]);
 
   const handleInputChange = (indicatorId, value) => {
     onInputChange(indicatorId, value);
+  };
+
+  const handleMultiSelectionChange = (option, checked) => {
+    const currentSelection = formData[id] || [];
+    let newSelection;
+    if (code === 'QUES17CTN' && option === 'Khi có các yếu tố kích thích' && !checked) {
+      const mainOptions = ["Một cách ngẫu nhiên", "Khi có các yếu tố kích thích"];
+      newSelection = currentSelection.filter(item => mainOptions.includes(item) && item !== option);
+    } else {
+      newSelection = checked ? [...currentSelection, option] : currentSelection.filter(item => item !== option);
+    }
+    handleInputChange(id, newSelection);
   };
 
   switch (valueType) {
@@ -28,9 +52,16 @@ export function FormIndicator({ indicator, formData, onInputChange }) {
                 return (
                   <Stack key={index} spacing={1}>
                     {item.label && <Typography fontWeight="medium">{item.label}</Typography>}
-                    {fields.map((fieldItem) => {
-                      const subIndicator = { id: fieldItem.id, name: fieldItem.label, valueType: fieldItem.type, valueOptions: fieldItem.options || fieldItem.option };
+                    {fields.map((fieldItem, fieldIndex) => {
+                      const subIndicator = {
+                        id: fieldItem.id || `${id}-${index}-${fieldIndex}-${fieldItem.label}`,
+                        name: fieldItem.label,
+                        valueType: fieldItem.type,
+                        valueOptions: fieldItem.options || fieldItem.option,
+                      };
+                      
                       const isSelected = formData[subIndicator.id] && formData[subIndicator.id].length > 0;
+                      
                       return (
                         <Box key={subIndicator.id}>
                           <Box sx={{ pl: item.label ? 2 : 0 }}>
@@ -39,7 +70,6 @@ export function FormIndicator({ indicator, formData, onInputChange }) {
                           {fieldItem.requiredFields && isSelected && (
                             <Box sx={{ pl: item.label ? 4 : 2, mt: 1 }}>
                               {fieldItem.requiredFields.map((rf, rfIndex) => {
-                                if (rf.condition !== 'hasSelection') return null;
                                 const conditionalIndicator = { id: `${subIndicator.id}-cond-${rfIndex}`, name: rf.description, valueType: rf.type, valueOptions: rf.options };
                                 return <FormIndicator key={conditionalIndicator.id} indicator={conditionalIndicator} formData={formData} onInputChange={onInputChange} />;
                               })}
@@ -50,8 +80,12 @@ export function FormIndicator({ indicator, formData, onInputChange }) {
                     })}
                   </Stack>
                 );
-              } else if (item.label && item.type) {
-                const subIndicator = { id: `${id}-${index}-${item.label}`, name: item.label, valueType: item.type, valueOptions: item.options || item.option };
+                const subIndicator = { 
+                  id: item.id || `${id}-${index}-${item.label}`, 
+                  name: item.label, 
+                  valueType: item.type, 
+                  valueOptions: item.options || item.option 
+                };
                 return <FormIndicator key={subIndicator.id} indicator={subIndicator} formData={formData} onInputChange={onInputChange} />;
               }
               return null;
@@ -77,28 +111,59 @@ export function FormIndicator({ indicator, formData, onInputChange }) {
           </Select>
         </FormControl>
       );
-    case 'multi_selection':
+    case 'multi_selection': {
+      if (code === 'QUES17CTN') {
+        const mainOptions = ["Một cách ngẫu nhiên", "Khi có các yếu tố kích thích"];
+        const subOptions = (valueOptions || []).filter(opt => !mainOptions.includes(opt));
+        return (
+          <FormControl component="fieldset" fullWidth>
+            <Typography variant="body1">{name}</Typography>
+            <FormGroup>
+              {mainOptions.map(option => (
+                <FormControlLabel key={option} control={<Checkbox checked={(formData[id] || []).includes(option)} onChange={(e) => handleMultiSelectionChange(option, e.target.checked)} />} label={option} />
+              ))}
+            </FormGroup>
+            {showSubOptions && (
+              <FormGroup sx={{ pl: 4, mt: 1, borderLeft: '2px solid #e0e0e0' }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>Chi tiết yếu tố kích thích:</Typography>
+                {subOptions.map(option => (
+                  <FormControlLabel key={option} control={<Checkbox checked={(formData[id] || []).includes(option)} onChange={(e) => handleMultiSelectionChange(option, e.target.checked)}/>} label={option} />
+                ))}
+              </FormGroup>
+            )}
+          </FormControl>
+        );
+      }
       return (
         <FormControl component="fieldset" fullWidth>
           <Typography variant="body1">{name || "Vui lòng chọn"}</Typography>
           <FormGroup>
             {(valueOptions || []).map(option => (
-              <FormControlLabel key={option} control={
-                <Checkbox
-                  checked={(formData[id] || []).includes(option)}
-                  onChange={(e) => {
-                    const currentSelection = formData[id] || [];
-                    const newSelection = e.target.checked ? [...currentSelection, option] : currentSelection.filter(item => item !== option);
-                    handleInputChange(id, newSelection);
-                  }}
-                />
-              } label={option} />
+              <FormControlLabel key={option} control={<Checkbox checked={(formData[id] || []).includes(option)} onChange={(e) => handleMultiSelectionChange(option, e.target.checked)} />} label={option} />
             ))}
           </FormGroup>
         </FormControl>
       );
-    case 'image':
-      return <Button variant="outlined" component="label">{name}<input type="file" hidden accept="image/*" onChange={(e) => handleInputChange(id, e.target.files[0])} /></Button>;
+    }
+    case 'image': {
+      const selectedFile = formData[id];
+      return (
+        <Button
+          variant="outlined"
+          component="label"
+          fullWidth
+          startIcon={selectedFile ? <CheckCircleIcon color="success" /> : <UploadFileIcon />}
+        >
+          {selectedFile instanceof File ? selectedFile.name : name}
+          <input
+            type="file"
+            hidden
+            accept="image/*"
+            onChange={(e) => handleInputChange(id, e.target.files[0])}
+          />
+        </Button>
+      );
+    }
     default:
       return <Typography color="error">Loại câu hỏi không xác định: {valueType}</Typography>;
   }

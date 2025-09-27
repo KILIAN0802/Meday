@@ -8,39 +8,28 @@ import {
 } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
-import { useMedicalRecordForm } from '../hooks/useMedicalRecordForm';
+import { useMedicalRecordForm } from '../hooks/useMedicalRecordForm'; 
 import { FormIndicator } from './FormIndicator';
 
 export function MedicalRecordFormModal({ open, onClose, templateId, templateName }) {
   const {
-    loading,
-    isCreating,
-    error,
-    vitalGroups,
-    initialFormData,
-    formData,
-    activeStep,
-    doctorProfile,
-    handleInitialFormChange,
-    handleInputChange,
-    handleNext,
-    handleBack,
-    handleSubmit,
+    loading, isCreating, error, vitalGroups, initialFormData, formData, activeStep, doctorProfile, highestStep,
+    handleInitialFormChange, handleInputChange, handleNext, handleBack, handleSubmit, handleStepClick,
   } = useMedicalRecordForm(templateId, open);
 
   const steps = [{ name: 'Thông tin chung' }, ...vitalGroups];
   const currentGroup = vitalGroups[activeStep - 1];
   const isLastStep = activeStep === steps.length - 1;
+  const isInitialFormValid = initialFormData.patientId;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
       <DialogTitle variant="h5">{templateName ? `Bệnh án: ${templateName}` : 'Tạo bệnh án'}</DialogTitle>
       
-      {loading ? (
+      {loading && vitalGroups.length === 0 ? (
         <DialogContent sx={{ height: '65vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress />
-            <Typography sx={{ mt: 2 }}>Đang tải...</Typography>
+            <CircularProgress /><Typography sx={{ mt: 2 }}>Đang tải...</Typography>
           </Box>
         </DialogContent>
       ) : error && vitalGroups.length === 0 ? (
@@ -55,25 +44,37 @@ export function MedicalRecordFormModal({ open, onClose, templateId, templateName
         <>
           <Box sx={{ px: 3, pt: 1, borderBottom: 1, borderColor: 'divider' }}>
             <Stepper activeStep={activeStep} alternativeLabel>
-              {steps.map((step) => (
-                <Step key={step.name}>
-                  <StepLabel sx={{ '& .MuiStepLabel-label': { fontSize: '12px', fontWeight: 500 }}}>{step.name}</StepLabel>
-                </Step>
-              ))}
+              {steps.map((step, index) => {
+                const isStepDisabled = index > highestStep;
+                return (
+                  <Step 
+                    key={step.name} 
+                    onClick={() => !isStepDisabled && handleStepClick(index)}
+                    sx={{ cursor: isStepDisabled ? 'not-allowed' : 'pointer' }}
+                  >
+                    <StepLabel 
+                      sx={{ '& .MuiStepLabel-label': { fontSize: '12px', fontWeight: 500 }}}
+                      style={{ opacity: isStepDisabled ? 0.7 : 1 }}
+                    >
+                      {step.name}
+                    </StepLabel>
+                  </Step>
+                );
+              })}
             </Stepper>
           </Box>
 
           <DialogContent dividers sx={{ height: '60vh', maxHeight: '750px' }}>
-            {error && activeStep === 0 && (
+            {error && (isLastStep) && (
                 <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
             )}
             {activeStep === 0 ? (
                 <Stack spacing={2} sx={{ mt: 2 }}>
                   <Typography variant="h6">Thông tin chung</Typography>
                   <TextField label="Loại bệnh án" variant="filled" disabled value={templateName || ''} />
-                  <TextField label="Bác sĩ phụ trách" variant="filled" disabled value={doctorProfile?.fullname || ''} />
+                  <TextField label="Bác sĩ phụ trách" variant="filled" disabled value={doctorProfile?.id || ''} />
                   <TextField label="ID bệnh nhân" type="number" value={initialFormData.patientId} onChange={(e) => handleInitialFormChange('patientId', e.target.value)} />
-                  <TextField label="ID cuộc hẹn" type="number" value={initialFormData.appointmentId} onChange={(e) => handleInitialFormChange('appointmentId', e.target.value)} />
+                  <TextField label="ID cuộc hẹn (Tùy chọn)" type="number" value={initialFormData.appointmentId} onChange={(e) => handleInitialFormChange('appointmentId', e.target.value)} />
                   <TextField label="Chẩn đoán" value={initialFormData.diagnosis} onChange={(e) => handleInitialFormChange('diagnosis', e.target.value)} />
                   <TextField label="Triệu chứng" multiline rows={3} value={initialFormData.symptoms} onChange={(e) => handleInitialFormChange('symptoms', e.target.value)} />
                   <TextField label="Ghi chú" multiline rows={3} value={initialFormData.notes} onChange={(e) => handleInitialFormChange('notes', e.target.value)} />
@@ -91,8 +92,8 @@ export function MedicalRecordFormModal({ open, onClose, templateId, templateName
         </>
       )}
       
-      <DialogActions sx={{ p: '16px' }}>
-        <Button onClick={onClose}>
+      <DialogActions sx={{ p: '16px 24px' }}>
+        <Button onClick={onClose} disabled={loading}>
           {error && vitalGroups.length === 0 ? "Đóng" : "Hủy"}
         </Button>
         {!loading && !(error && vitalGroups.length === 0) && (
@@ -100,10 +101,12 @@ export function MedicalRecordFormModal({ open, onClose, templateId, templateName
                 <Box sx={{ flex: '1 1 auto' }} />
                 <Button onClick={handleBack} disabled={activeStep === 0}>Quay lại</Button>
                 {isLastStep ? (
-                  <Button onClick={() => handleSubmit(onClose)} variant="contained">Xác nhận</Button>
+                  <Button onClick={() => handleSubmit(onClose)} variant="contained" disabled={loading}>
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Xác nhận'}
+                  </Button>
                 ) : (
-                  <Button onClick={handleNext} variant="contained" disabled={isCreating}>
-                    {isCreating ? <CircularProgress size={24} color="inherit" /> : 'Tiếp theo'}
+                  <Button onClick={handleNext} variant="contained" disabled={activeStep === 0 && !isInitialFormValid}>
+                    Tiếp theo
                   </Button>
                 )}
             </>
