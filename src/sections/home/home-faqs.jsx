@@ -54,7 +54,6 @@ const FAQs = [
         <li>
           Learn more about the
           <Link
-            href="https://docs.minimals.cc/package/"
             target="_blank"
             rel="noopener"
             sx={{ mx: 0.5 }}

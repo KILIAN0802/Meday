@@ -10,7 +10,7 @@ import { getVariant } from '../get-variant';
 
 // ----------------------------------------------------------------------
 
-const TEXT = 'Minimals';
+const TEXT = 'DR MAYDAY';
 
 const IMG = [
   _mock.image.cover(2),

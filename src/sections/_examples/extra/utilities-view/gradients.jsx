@@ -29,7 +29,6 @@ const renderText = () => (
           }),
         ]}
       >
-        Minimals UI
       </Typography>
     </ComponentBox>
 

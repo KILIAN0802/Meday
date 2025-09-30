@@ -184,7 +184,6 @@ const DEMO_COMPONENTS = [
         <FileThumbnail file="example.m4v" />
         <FileThumbnail
           imageView
-          file="https://assets.minimals.cc/public/assets/images/mock/cover/cover-1.webp"
         />
         <FileThumbnail file="example.custom" />
       </ComponentBox>

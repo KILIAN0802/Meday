@@ -31,13 +31,19 @@ const buttonStyles = {
   },
 };
 
-export function RecordCreateButtons({ onTemplateSelect }) {
+export function RecordCreateButtons() {
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter(); 
+  const router = useRouter();
 
   const handleCreateAppointment = () => {
     router.push(paths.dashboard.appointment.root);
+  };
+
+  const handleNavigateToCreate = (templateId, templateName) => {
+    const encodedName = encodeURIComponent(templateName);
+    const path = paths.dashboard.medicalRecordStaff.template(templateId);
+    router.push(`${path}?templateName=${encodedName}`);
   };
 
   const fetchTemplatesByIds = useCallback(async () => {
@@ -72,22 +78,19 @@ export function RecordCreateButtons({ onTemplateSelect }) {
       <Typography variant="h4" sx={{ mb: 5 }}>
         Tạo bệnh án
       </Typography>
-
       <Stack direction="row" spacing={4} justifyContent="center" sx={{ minHeight: 60 }}>
-        {isLoading ? (
-          <CircularProgress />
-        ) : templates.length > 0 ? (
+        {isLoading ? ( <CircularProgress /> ) : 
+        templates.length > 0 ? (
           <>
             {templates.map((template) => (
               <Button
                 key={template.id}
                 variant="contained"
-                onClick={() => onTemplateSelect(template.id, template.label)}
+                onClick={() => handleNavigateToCreate(template.id, template.label)}
                 sx={{
                   ...buttonStyles,
                   backgroundColor: template.color,
                   '&:hover': {
-                    ...buttonStyles['&:hover'],
                     backgroundColor: template.color,
                     filter: 'brightness(0.95)',
                   },
@@ -103,7 +106,6 @@ export function RecordCreateButtons({ onTemplateSelect }) {
                 ...buttonStyles,
                 backgroundColor: '#80B3FF',
                 '&:hover': {
-                  ...buttonStyles['&:hover'],
                   backgroundColor: '#80B3FF',
                   filter: 'brightness(0.95)',
                 },

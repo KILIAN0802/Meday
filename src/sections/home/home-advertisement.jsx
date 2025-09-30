@@ -84,7 +84,7 @@ const renderDescription = () => (
       }}
     >
       Get started with
-      <br /> Minimal kit
+      <br /> DR MAYDAY
       <Box
         component="span"
         sx={(theme) => ({

@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { MedicalRecordTable } from '../components/MedicalRecordTable';
+import { MedicalRecordClientView } from '../components/MedicalRecordTable';
 
 export function AllMedicalRecords() {
   return (
-    <MedicalRecordTable 
+    <MedicalRecordClientView 
       status="ALL" 
       title="Danh sách tất cả bệnh án" 
     />

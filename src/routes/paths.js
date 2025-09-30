@@ -28,12 +28,6 @@ export const paths = {
   page404: '/error/404',
   page500: '/error/500',
   components: '/components',
-  docs: 'https://docs.minimals.cc/',
-  changelog: 'https://docs.minimals.cc/changelog/',
-  zoneStore: 'https://mui.com/store/items/zone-landing-page/',
-  minimalStore: 'https://mui.com/store/items/minimal-dashboard/',
-  freeUI: 'https://mui.com/store/items/minimal-dashboard-free/',
-  figmaUrl: 'https://www.figma.com/design/oAxS3CUFO0ou7rH2lTS8oI/%5BPreview%5D-Minimal-Web.v7.0.0',
   product: {
     root: `/product`,
     checkout: `/product/checkout`,
@@ -140,8 +134,9 @@ export const paths = {
       doneView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/done-view`,
     },
     medicalRecordStaff:{
-      root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager`,
+      root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager/view`,
       create:`${ROOTS.DASHBOARD}/medicalRecordStaff/create`,
+      template: (id) => `${ROOTS.DASHBOARD}/medicalRecordStaff/manager/detail/${id}`,
     },
     
     product: {

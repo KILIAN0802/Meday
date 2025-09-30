@@ -11,20 +11,20 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useMedicalRecordForm } from '../hooks/useMedicalRecordForm'; 
 import { FormIndicator } from './FormIndicator';
 
-export function MedicalRecordFormModal({ open, onClose, templateId, templateName }) {
+export function MedicalRecordFormModal({open, onClose, templateId, templateName }) {
   const {
-    loading, isCreating, error, vitalGroups, initialFormData, formData, activeStep, doctorProfile, highestStep,
+    loading, error, vitalGroups, initialFormData, formData, activeStep, doctorProfile, highestStep, templateName: fetchedTemplateName,
     handleInitialFormChange, handleInputChange, handleNext, handleBack, handleSubmit, handleStepClick,
-  } = useMedicalRecordForm(templateId, open);
-
+  } = useMedicalRecordForm(templateId);
+  
   const steps = [{ name: 'Thông tin chung' }, ...vitalGroups];
   const currentGroup = vitalGroups[activeStep - 1];
   const isLastStep = activeStep === steps.length - 1;
   const isInitialFormValid = initialFormData.patientId;
-
+  console.log('steps', steps);
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
-      <DialogTitle variant="h5">{templateName ? `Bệnh án: ${templateName}` : 'Tạo bệnh án'}</DialogTitle>
+      <DialogTitle variant="h5">{(fetchedTemplateName || templateName) ? `Bệnh án: ${fetchedTemplateName || templateName}` : 'Tạo bệnh án'}</DialogTitle>
       
       {loading && vitalGroups.length === 0 ? (
         <DialogContent sx={{ height: '65vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -65,14 +65,14 @@ export function MedicalRecordFormModal({ open, onClose, templateId, templateName
           </Box>
 
           <DialogContent dividers sx={{ height: '60vh', maxHeight: '750px' }}>
-            {error && (isLastStep) && (
+            {error && isLastStep && (
                 <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
             )}
             {activeStep === 0 ? (
                 <Stack spacing={2} sx={{ mt: 2 }}>
                   <Typography variant="h6">Thông tin chung</Typography>
-                  <TextField label="Loại bệnh án" variant="filled" disabled value={templateName || ''} />
-                  <TextField label="Bác sĩ phụ trách" variant="filled" disabled value={doctorProfile?.id || ''} />
+                  <TextField label="Loại bệnh án" variant="filled" disabled value={fetchedTemplateName || templateName || ''} />
+                  <TextField label="Bác sĩ phụ trách" variant="filled" disabled value={doctorProfile?.fullname || ''} />
                   <TextField label="ID bệnh nhân" type="number" value={initialFormData.patientId} onChange={(e) => handleInitialFormChange('patientId', e.target.value)} />
                   <TextField label="ID cuộc hẹn (Tùy chọn)" type="number" value={initialFormData.appointmentId} onChange={(e) => handleInitialFormChange('appointmentId', e.target.value)} />
                   <TextField label="Chẩn đoán" value={initialFormData.diagnosis} onChange={(e) => handleInitialFormChange('diagnosis', e.target.value)} />
@@ -99,7 +99,7 @@ export function MedicalRecordFormModal({ open, onClose, templateId, templateName
         {!loading && !(error && vitalGroups.length === 0) && (
             <>
                 <Box sx={{ flex: '1 1 auto' }} />
-                <Button onClick={handleBack} disabled={activeStep === 0}>Quay lại</Button>
+                <Button onClick={handleBack} disabled={activeStep === 0 || loading}>Quay lại</Button>
                 {isLastStep ? (
                   <Button onClick={() => handleSubmit(onClose)} variant="contained" disabled={loading}>
                     {loading ? <CircularProgress size={24} color="inherit" /> : 'Xác nhận'}

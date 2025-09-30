@@ -78,7 +78,7 @@ export function JwtSignInView() {
         <Field.Text
           name="password"
           label="Mật khẩu"
-          placeholder="6+ kí tự"
+          placeholder="8+ kí tự"
           type={showPassword.value ? 'text' : 'password'}
           slotProps={{
             inputLabel: { shrink: true },
