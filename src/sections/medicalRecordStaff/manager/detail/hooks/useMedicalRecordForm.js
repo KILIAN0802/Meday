@@ -20,6 +20,7 @@ export function useMedicalRecordForm(templateID) {
   const [vitalGroups, setVitalGroups] = useState([]);
   const [doctorProfile, setDoctorProfile] = useState(null);
   const [templateName, setTemplateName] = useState('');
+  const [vitalGroupIds, setVitalGroupIds] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,7 +67,6 @@ export function useMedicalRecordForm(templateID) {
   }, [templateID]);
 
   const saveMedicalRecord = useCallback(async (initialInfo, indicatorValues) => {
-    // 1. Tạo payload cho API createMedicalRecord
     const createPayload = {
       patientId: Number(initialInfo.patientId),
       doctorId: doctorProfile?.id,
@@ -79,8 +79,7 @@ export function useMedicalRecordForm(templateID) {
     if (initialInfo.appointmentId) {
       createPayload.appointmentId = Number(initialInfo.appointmentId);
     }
-    
-    // 2. Gọi API để tạo bệnh án
+    ư
     const createResponse = await createMedicalRecord(createPayload);
     const newRecordId = createResponse.data?.id;
 
@@ -88,10 +87,8 @@ export function useMedicalRecordForm(templateID) {
       throw new Error("Không nhận được ID của bệnh án mới tạo.");
     }
     
-    // 3. Chuẩn bị payload cho API update
     const vitalValuesPayload = mapIndicatorsToVitalValues(indicatorValues);
     
-    // 4. Gọi API update nếu có dữ liệu
     if (vitalValuesPayload.length > 0) {
       await updateVitalMedicalRecordeById(newRecordId, {
         vitalValues: vitalValuesPayload,

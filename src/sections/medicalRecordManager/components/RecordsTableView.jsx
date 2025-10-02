@@ -9,7 +9,7 @@ import {
   Button,
   Typography,
 } from '@mui/material';
-import { StatusChip } from './SharedComponents'; // Đường dẫn tới file SharedComponents
+import { StatusChip } from './ui/StatusChip';
 
 /**
  * RecordsTableView (Presentational Component)
@@ -27,7 +27,6 @@ export function RecordsTableView({
   onViewDetails,
   onUpdateStatus,
 }) {
-  // Hiển thị vòng xoay loading khi đang tải dữ liệu
   if (loading) {
     return (
       <TableRow>
@@ -38,7 +37,6 @@ export function RecordsTableView({
     );
   }
 
-  // Hiển thị thông báo khi không có dữ liệu
   if (records.length === 0) {
     return (
       <TableRow>
@@ -51,7 +49,6 @@ export function RecordsTableView({
     );
   }
 
-  // Render danh sách các bệnh án
   return (
     <>
       {records.map((row) => (
@@ -85,7 +82,6 @@ export function RecordsTableView({
             <StatusChip status={row.appointment?.status} />
           </TableCell>
 
-          {/* Cột chức năng chỉ hiển thị với một số status nhất định */}
           {status !== 'ALL' && status !== 'COMPLETED' && (
             <TableCell align="right">
               <Button

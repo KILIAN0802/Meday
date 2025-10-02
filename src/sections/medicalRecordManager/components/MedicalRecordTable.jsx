@@ -1,4 +1,4 @@
-'use client'; // Đánh dấu đây là một Client Component để sử dụng hooks và tương tác.
+'use client';
 
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
@@ -12,13 +12,14 @@ import { getVitalValuesMedicalRecord, updateVitalMedicalRecordeById } from 'src/
 
 import { ReusableTablePagination } from 'src/components/pagination';
 import { MedicalRecordTableLayout } from './layouts/MedicalRecordTableLayout';
-import { RecordsTableView } from './RecordsTableView'; 
+import { RecordsTableView } from './RecordsTableView';
+
 import {
-  PersonDetailsModal,
   VitalsFormModal,
   MedicalRecordViewerModal,
-  ImageViewerModal
-} from './SharedComponents';
+  ImageViewerModal,
+  PersonDetailsModal
+} from './modals';
 
 
 export function MedicalRecordClientView({ status }) {
@@ -39,7 +40,6 @@ export function MedicalRecordClientView({ status }) {
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
-  // State cho dữ liệu và trạng thái loading của các hành động
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
   const [vitalQuestionGroups, setVitalQuestionGroups] = useState([]);
   const [activeMedicalRecordId, setActiveMedicalRecordId] = useState(null);
@@ -47,8 +47,6 @@ export function MedicalRecordClientView({ status }) {
   const [isActionLoadingId, setIsActionLoadingId] = useState(null);
 
   const templateMap = { 16: 'Bệnh án cấp tính', 17: 'Bệnh án mãn tính lần 1', 18: 'Bệnh án mãn tính tái khám' };
-
-  // --- EVENT HANDLERS & LOGIC ---
 
   const handleChangePage = (event, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
