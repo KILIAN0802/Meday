@@ -44,12 +44,12 @@ export const viewport = {
 // ----------------------------------------------------------------------
 
 export const metadata = {
-/*   icons: [
+icons: [
     {
       rel: 'icon',
       url: `${CONFIG.assetsDir}/favicon.ico`,
     },
-  ], */
+  ],
   icons: null,
 };
 

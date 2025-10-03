@@ -19,6 +19,8 @@ export const IndicatorStep = forwardRef(function IndicatorStep({ group, initialV
     return <Typography>Nhóm chỉ số không hợp lệ.</Typography>;
   }
   const handleDataChange = (indicatorId, value) => {
+    console.log(`[IndicatorStep] Dữ liệu thay đổi: ID=${indicatorId}, Value=`, value);
+    // ------------------------------------
     setLocalData(prev => ({
       ...prev,
       [indicatorId]: value,
