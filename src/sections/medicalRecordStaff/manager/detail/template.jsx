@@ -1,5 +1,4 @@
 // src/app/record/[id]/page.js
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -7,9 +6,12 @@ import { useParams, useRouter } from 'next/navigation';
 
 import {
   Container, Box, Stepper, Step, StepLabel, Button, Typography, CircularProgress, Alert,
-  Paper, Stack, TextField
+  Paper, Stack, TextField, IconButton,
+  // radio/checkbox
+  FormControlLabel, Radio, RadioGroup, Checkbox, FormGroup,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloseIcon from '@mui/icons-material/Close';
 
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
@@ -17,29 +19,630 @@ import { createMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medi
 import { getStaffProfile } from 'src/api/auth/owner';
 import { paths } from 'src/routes/paths';
 
-// TẤT CẢ RENDER CÂU HỎI ĐÃ TÁCH SANG FILE NÀY
-import { QuestionGroupRenderer } from './components/QuestionRenderers';
-
 const EPISODE_CODES = new Set(['QUES4CTN', 'QUES4MT1']);
 const EPISODE_IDS   = new Set([175, 64]);
 
+// =================== UI helpers (radio/checkbox) ===================
+
+function ClearableSelect({ label, value, options = [], onChange }) {
+  return (
+    <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mt: 1 }}>
+      <Box sx={{ flexGrow: 1 }}>
+        {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
+        <RadioGroup value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
+          {options.map((opt) => (
+            <FormControlLabel
+              key={opt}
+              value={opt}
+              control={<Radio size="small" />}
+              label={opt}
+            />
+          ))}
+        </RadioGroup>
+      </Box>
+      {value ? (
+        <IconButton size="small" aria-label="clear" onClick={() => onChange('')}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      ) : null}
+    </Stack>
+  );
+}
+function ClearableMultiSelect({ label, value, options = [], onChange }) {
+  const arr = Array.isArray(value) ? value : [];
+  const toggle = (opt) => {
+    if (arr.includes(opt)) onChange(arr.filter((v) => v !== opt));
+    else onChange([...arr, opt]);
+  };
+  return (
+    <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mt: 1 }}>
+      <Box sx={{ flexGrow: 1 }}>
+        {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
+        <FormGroup>
+          {options.map((opt) => (
+            <FormControlLabel
+              key={opt}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={arr.includes(opt)}
+                  onChange={() => toggle(opt)}
+                />
+              }
+              label={opt}
+            />
+          ))}
+        </FormGroup>
+      </Box>
+      {arr.length ? (
+        <IconButton size="small" aria-label="clear" onClick={() => onChange([])}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      ) : null}
+    </Stack>
+  );
+}
+
+/* ================== Renderer riêng cho 2 câu đặc biệt ================== */
+function EpisodeInfoRenderer({ indicator, value, onChange }) {
+  const groups = Array.isArray(indicator.valueOptions?.group) ? indicator.valueOptions.group : [];
+  if (!groups.length) return null;
+
+  const MAIN_LABEL = groups[0].label || '__group_0';
+  const valObj = value?.value || {};
+  const mainGroup = valObj[MAIN_LABEL] || {};
+
+  const setKV = (g, k, v) => {
+    const current = value?.value || {};
+    onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
+  };
+
+  const setEpisodeCount = (countStr) => {
+    const count = parseInt(countStr || '0', 10) || 0;
+    const current = value?.value || {};
+    const updated = { ...current, [MAIN_LABEL]: { ...(current[MAIN_LABEL] || {}), ['Số đợt bị']: countStr } };
+    for (let i = count + 1; i <= 3; i += 1) {
+      const lbl = `Thông tin đợt ${i}`;
+      if (updated[lbl]) delete updated[lbl];
+    }
+    onChange({ value: updated, note: '' });
+  };
+
+  const fieldsMain = groups[0].field || groups[0].fields || [];
+  const opt = (label) => fieldsMain.find((f) => f.label === label)?.option || [];
+  const coDieuTri = mainGroup['Có điều trị hay không?'];
+  const tinhTrang = mainGroup['Tình trạng tổn thương khi đang uống thuốc'];
+  const soDotBi   = parseInt(mainGroup['Số đợt bị'] || '0', 10) || 0;
+
+  const renderEpisodeGroup = (group) => {
+    const gKey = group.label;
+    const gVal = valObj[gKey] || {};
+    const flds = group.field || group.fields || [];
+    const optEp = (label) => flds.find((f) => f.label === label)?.option || [];
+    const epCoDieuTri = gVal['Có điều trị hay không?'];
+    const epTinhTrang = gVal['Tình trạng tổn thương khi đang uống thuốc'];
+
+    return (
+      <Box key={gKey} sx={{ mt: 2, borderLeft: 3, borderColor: 'divider', pl: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>
+        <ClearableSelect
+          label="Có điều trị hay không?"
+          value={epCoDieuTri ?? ''}
+          options={optEp('Có điều trị hay không?')}
+          onChange={(v) => setKV(gKey, 'Có điều trị hay không?', v)}
+        />
+        {epCoDieuTri === 'Có' && (
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            <TextField
+              size="small"
+              label="Tên thuốc"
+              value={gVal['Tên thuốc'] ?? ''}
+              onChange={(e) => setKV(gKey, 'Tên thuốc', e.target.value)}
+            />
+            <TextField
+              size="small"
+              label="Liều thuốc (ghi thời gian nếu nhớ)"
+              value={gVal['Liều thuốc (ghi thời gian nếu nhớ)'] ?? ''}
+              onChange={(e) => setKV(gKey, 'Liều thuốc (ghi thời gian nếu nhớ)', e.target.value)}
+            />
+            <ClearableSelect
+              label="Tình trạng tổn thương khi đang uống thuốc"
+              value={epTinhTrang ?? ''}
+              options={optEp('Tình trạng tổn thương khi đang uống thuốc')}
+              onChange={(v) => setKV(gKey, 'Tình trạng tổn thương khi đang uống thuốc', v)}
+            />
+            {(epTinhTrang === 'Giảm xuống' || epTinhTrang === 'Nặng lên') && (
+              <ClearableSelect
+                label="Triệu chứng Giảm xuống/Nặng lên là gì?"
+                value={gVal['Triệu chứng Giảm xuống/Nặng lên là gì?'] ?? ''}
+                options={optEp('Triệu chứng Giảm xuống/Nặng lên là gì?')}
+                onChange={(v) => setKV(gKey, 'Triệu chứng Giảm xuống/Nặng lên là gì?', v)}
+              />
+            )}
+          </Stack>
+        )}
+      </Box>
+    );
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+      <Typography variant="subtitle1" gutterBottom fontWeight="bold">{indicator.name}</Typography>
+
+      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
+        <ClearableSelect
+          label="Có điều trị hay không?"
+          value={coDieuTri ?? ''}
+          options={opt('Có điều trị hay không?')}
+          onChange={(v) => setKV(MAIN_LABEL, 'Có điều trị hay không?', v)}
+        />
+
+        {coDieuTri === 'Có' && (
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            <TextField
+              size="small"
+              label="Tên thuốc"
+              value={mainGroup['Tên thuốc'] ?? ''}
+              onChange={(e) => setKV(MAIN_LABEL, 'Tên thuốc', e.target.value)}
+            />
+            <TextField
+              size="small"
+              label="Liều thuốc (ghi thời gian nếu nhớ)"
+              value={mainGroup['Liều thuốc (ghi thời gian nếu nhớ)'] ?? ''}
+              onChange={(e) => setKV(MAIN_LABEL, 'Liều thuốc (ghi thời gian nếu nhớ)', e.target.value)}
+            />
+            <ClearableSelect
+              label="Tình trạng tổn thương khi đang uống thuốc"
+              value={tinhTrang ?? ''}
+              options={opt('Tình trạng tổn thương khi đang uống thuốc')}
+              onChange={(v) => setKV(MAIN_LABEL, 'Tình trạng tổn thương khi đang uống thuốc', v)}
+            />
+            {(tinhTrang === 'Giảm xuống' || tinhTrang === 'Nặng lên') && (
+              <ClearableSelect
+                label="Triệu chứng Giảm xuống/Nặng lên là gì?"
+                value={mainGroup['Triệu chứng Giảm xuống/Nặng lên là gì?'] ?? ''}
+                options={opt('Triệu chứng Giảm xuống/Nặng lên là gì?')}
+                onChange={(v) => setKV(MAIN_LABEL, 'Triệu chứng Giảm xuống/Nặng lên là gì?', v)}
+              />
+            )}
+          </Stack>
+        )}
+
+        <Box sx={{ mt: 2 }}>
+          <ClearableSelect
+            label="Trước đây bạn đã từng bị đợt nào như vậy chưa?"
+            value={mainGroup['Trước đây bạn đã từng bị đợt nào như vậy chưa?'] ?? ''}
+            options={opt('Trước đây bạn đã từng bị đợt nào như vậy chưa?')}
+            onChange={(v) => setKV(MAIN_LABEL, 'Trước đây bạn đã từng bị đợt nào như vậy chưa?', v)}
+          />
+          {mainGroup['Trước đây bạn đã từng bị đợt nào như vậy chưa?'] === 'Có' && (
+            <Box sx={{ mt: 1 }}>
+              <ClearableSelect
+                label="Số đợt bị"
+                value={mainGroup['Số đợt bị'] ?? ''}
+                options={['1', '2', '3']}
+                onChange={setEpisodeCount}
+              />
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      {mainGroup['Trước đây bạn đã từng bị đợt nào như vậy chưa?'] === 'Có' &&
+        groups.slice(1, 1 + (parseInt(mainGroup['Số đợt bị'] || '0', 10) || 0)).map(renderEpisodeGroup)}
+    </Paper>
+  );
+}
+
+/* ================== Generic custom (GIỮ NGUYÊN + BỔ SUNG) ================== */
+function GenericCustomRenderer({ indicator, value, onChange }) {
+  const groups = (() => {
+    const raw = indicator.valueOptions?.group;
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.fields)) return [raw];
+    return [];
+  })();
+
+  const setKV = (g, k, v) => {
+    const current = value?.value || {};
+    onChange({
+      value: { ...current, [g]: { ...(current[g] || {}), [k]: v } },
+      note: '',
+    });
+  };
+
+  // Hiện trường requiredFields khi có lựa chọn (ví dụ hiện upload ảnh)
+  const renderRequiredFields = (gKey, parentKey, requiredFields, fVal) => {
+    if (!Array.isArray(requiredFields) || requiredFields.length === 0) return null;
+    const hasSelection =
+      (Array.isArray(fVal) && fVal.length > 0) ||
+      (typeof fVal === 'string' && fVal.trim() !== '');
+    if (!hasSelection) return null;
+
+    return requiredFields.map((rf, idx) => {
+      if (rf.type === 'image') {
+        const imgKey = `${parentKey}_required_${idx}`;
+        const files = value?.value?.[gKey]?.[imgKey] || [];
+        const handleFilesChange = (e) => {
+          const selected = Array.from(e.target.files || []);
+          setKV(gKey, imgKey, [...files, ...selected]);
+        };
+        const handleRemoveFile = (index) => {
+          const updated = files.filter((_, i) => i !== index);
+          setKV(gKey, imgKey, updated);
+        };
+        return (
+          <Stack key={imgKey} spacing={1} sx={{ mt: 1, pl: 3 }}>
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              {rf.description || 'Tải ảnh bắt buộc'}
+            </Typography>
+            <Button variant="outlined" component="label" size="small">
+              Tải ảnh
+              <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
+            </Button>
+            {files.length > 0 && (
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {files.map((file, i) => {
+                  const src =
+                    file instanceof File
+                      ? URL.createObjectURL(file)
+                      : typeof file === 'string'
+                      ? file
+                      : '';
+                  return (
+                    <Box key={i} sx={{ position: 'relative' }}>
+                      <Box
+                        component="img"
+                        src={src}
+                        alt={`Ảnh ${i + 1}`}
+                        sx={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 1,
+                          border: '1px solid #ccc',
+                          objectFit: 'cover',
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveFile(i)}
+                        sx={{
+                          position: 'absolute',
+                          top: -8,
+                          right: -8,
+                          bgcolor: 'rgba(255,255,255,0.8)',
+                          '&:hover': { bgcolor: 'white' },
+                        }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Stack>
+        );
+      }
+      return null;
+    });
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+      <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+        {indicator.name}
+      </Typography>
+
+      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
+        {groups.map((group, gi) => {
+          const gKey = group.label || `group_${gi}`;
+          const fields = group.field || group.fields || [];
+          const gVal = value?.value?.[gKey] || {};
+
+          return (
+            <Box key={gKey} sx={{ '&:not(:first-of-type)': { mt: 2 } }}>
+              {group.label && (
+                <Typography variant="subtitle2" gutterBottom>
+                  {group.label}
+                </Typography>
+              )}
+
+              <Stack spacing={2}>
+                {fields.map((field, fi) => {
+                  const fKey = field.label || `field_${fi}`;
+                  const fVal = gVal[fKey];
+                  const options = field.option || field.options || [];
+
+                  // chuẩn hoá key + handlers để tránh lỗi scope
+                  const keyId = `${gKey}-${fKey}`;
+                  const handleText = (e) => setKV(gKey, fKey, e.target.value);
+                  const handleNumber = (e) =>
+                    setKV(gKey, fKey, e.target.value === '' ? '' : Number(e.target.value));
+                  const handleSelect = (v) => setKV(gKey, fKey, v);
+                  const handleMulti = (v) => setKV(gKey, fKey, v);
+
+                  if (field.type === 'text') {
+                    return (
+                      <TextField
+                        key={keyId}
+                        size="small"
+                        fullWidth
+                        label={fKey}
+                        value={fVal ?? ''}
+                        onChange={handleText}
+                      />
+                    );
+                  }
+
+                  if (field.type === 'number') {
+                    return (
+                      <TextField
+                        key={keyId}
+                        size="small"
+                        fullWidth
+                        type="number"
+                        label={fKey}
+                        inputProps={{ step: 'any' }}
+                        value={fVal ?? ''}
+                        onChange={handleNumber}
+                      />
+                    );
+                  }
+
+                  if (field.type === 'select') {
+                    return (
+                      <ClearableSelect
+                        key={keyId}
+                        label={fKey}
+                        value={fVal ?? ''}
+                        options={options}
+                        onChange={handleSelect}
+                      />
+                    );
+                  }
+
+                  if (field.type === 'multi_selection') {
+                    return (
+                      <Box key={keyId}>
+                        <ClearableMultiSelect
+                          label={fKey}
+                          value={fVal ?? []}
+                          options={options}
+                          onChange={handleMulti}
+                        />
+                        {renderRequiredFields(gKey, fKey, field.requiredFields, fVal)}
+                      </Box>
+                    );
+                  }
+
+                  if (field.type === 'image') {
+                    const files = Array.isArray(fVal) ? fVal : [];
+                    const handleFilesChange = (e) => {
+                      const selected = Array.from(e.target.files || []);
+                      setKV(gKey, fKey, [...files, ...selected]);
+                    };
+                    const handleRemoveFile = (index) => {
+                      const updated = files.filter((_, i) => i !== index);
+                      setKV(gKey, fKey, updated);
+                    };
+                    return (
+                      <Stack key={keyId} spacing={1}>
+                        <Typography variant="subtitle2">{fKey}</Typography>
+                        <Button variant="outlined" component="label" size="small">
+                          Tải ảnh
+                          <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
+                        </Button>
+                        {files.length > 0 && (
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            {files.map((file, i) => {
+                              const src =
+                                file instanceof File
+                                  ? URL.createObjectURL(file)
+                                  : typeof file === 'string'
+                                  ? file
+                                  : '';
+                              return (
+                                <Box key={i} sx={{ position: 'relative' }}>
+                                  <Box
+                                    component="img"
+                                    src={src}
+                                    alt={`Ảnh ${i + 1}`}
+                                    sx={{
+                                      width: 80,
+                                      height: 80,
+                                      borderRadius: 1,
+                                      border: '1px solid #ccc',
+                                      objectFit: 'cover',
+                                    }}
+                                  />
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleRemoveFile(i)}
+                                    sx={{
+                                      position: 'absolute',
+                                      top: -8,
+                                      right: -8,
+                                      bgcolor: 'rgba(255,255,255,0.8)',
+                                      '&:hover': { bgcolor: 'white' },
+                                    }}
+                                  >
+                                    <CloseIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              );
+                            })}
+                          </Stack>
+                        )}
+                      </Stack>
+                    );
+                  }
+
+                  return (
+                    <Typography key={keyId} color="error">
+                      Loại custom không được hỗ trợ: {field.type}
+                    </Typography>
+                  );
+                })}
+              </Stack>
+            </Box>
+          );
+        })}
+      </Box>
+    </Paper>
+  );
+}
+
+/* ============================== RENDERER CHÍNH ============================== */
+function QuestionRendererMUI({ indicator, value, onChange }) {
+  if (EPISODE_IDS.has(indicator.id) || EPISODE_CODES.has(indicator.code)) {
+    return <EpisodeInfoRenderer indicator={indicator} value={value} onChange={onChange} />;
+  }
+  const handleTextChange = (e) => onChange({ value: e.target.value, note: '' });
+  const handleNumberChange = (e) => onChange({ value: e.target.value === '' ? '' : Number(e.target.value), note: '' });
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+      <Typography variant="subtitle1" gutterBottom fontWeight="bold">{indicator.name}</Typography>
+
+      {(() => {
+        switch (indicator.valueType) {
+          case 'text':
+            return <TextField fullWidth label="Câu trả lời" value={value?.value ?? ''} onChange={handleTextChange} />;
+
+          case 'number':
+            return (
+              <TextField
+                fullWidth
+                label="Câu trả lời"
+                type="number"
+                inputProps={{ step: 'any' }}
+                value={value?.value ?? ''}
+                onChange={handleNumberChange}
+              />
+            );
+
+          case 'full_date':
+            return (
+              <TextField
+                fullWidth
+                label="Ngày"
+                placeholder="dd/mm/yyyy"
+                value={value?.value ?? ''}
+                onChange={handleTextChange}
+                inputProps={{ inputMode: 'numeric', pattern: '[0-9/]*' }}
+              />
+            );
+
+          case 'selection':
+            return (
+              <ClearableSelect
+                label="Chọn một đáp án"
+                value={value?.value ?? ''}
+                options={indicator.valueOptions || []}
+                onChange={(v) => onChange({ value: v, note: '' })}
+              />
+            );
+
+          case 'multi_selection':
+            return (
+              <ClearableMultiSelect
+                label="Chọn nhiều đáp án"
+                value={value?.value || []}
+                options={indicator.valueOptions || []}
+                onChange={(v) => onChange({ value: v, note: '' })}
+              />
+            );
+
+          case 'image': {
+            const files = Array.isArray(value?.value) ? value.value : [];
+
+            const handleFilesChange = (e) => {
+              const selected = Array.from(e.target.files || []);
+              onChange({ value: [...files, ...selected], note: '' });
+            };
+
+            const handleRemoveFile = (index) => {
+              const updated = files.filter((_, i) => i !== index);
+              onChange({ value: updated, note: '' });
+            };
+
+            return (
+              <Stack spacing={1} alignItems="flex-start">
+                <Button variant="outlined" component="label" size="small">
+                  Tải ảnh
+                  <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
+                </Button>
+
+                {files.length > 0 && (
+                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
+                    {files.map((file, i) => {
+                      const src =
+                        file instanceof File
+                          ? URL.createObjectURL(file)
+                          : typeof file === 'string'
+                          ? file
+                          : '';
+                      return (
+                        <Box key={i} sx={{ position: 'relative' }}>
+                          <Box
+                            component="img"
+                            src={src}
+                            alt={`Ảnh ${i + 1}`}
+                            sx={{
+                              width: 80,
+                              height: 80,
+                              borderRadius: 1,
+                              border: '1px solid #ccc',
+                              objectFit: 'cover',
+                            }}
+                          />
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveFile(i)}
+                            sx={{
+                              position: 'absolute',
+                              top: -8,
+                              right: -8,
+                              bgcolor: 'rgba(255,255,255,0.8)',
+                              '&:hover': { bgcolor: 'white' },
+                            }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                )}
+              </Stack>
+            );
+          }
+
+          case 'custom':
+            return <GenericCustomRenderer indicator={indicator} value={value} onChange={onChange} />;
+
+          default:
+            return <Typography color="error">Loại câu hỏi không được hỗ trợ: {indicator.valueType}</Typography>;
+        }
+      })()}
+    </Paper>
+  );
+}
+
+/* ================================== PAGE ================================== */
 export function RecordDetailView() {
   const router = useRouter();
   const params = useParams();
   const templateIdFromUrl = params.templateID;
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
-
   const [vitalGroups, setVitalGroups] = useState([]);
   const [staffProfile, setStaffProfile] = useState(null);
   const [templateName, setTemplateName] = useState('');
-
-  const [initialErrors, setInitialErrors] = useState({
-    patientId: '', diagnosis: '', symptoms: ''
-  });
+  const [initialErrors, setInitialErrors] = useState({ patientId: '', diagnosis: '', symptoms: '' });
 
   const [formData, setFormData] = useState({
     initialInfo: {
@@ -54,26 +657,34 @@ export function RecordDetailView() {
     vitalValues: {},
   });
 
-  // State điều kiện (điều khiển group) — chỉ lưu giá trị string người dùng chọn
-  const [selectedQ192, setSelectedQ192] = useState(null); // template 16, group 12
-  const [selectedQ62,  setSelectedQ62]  = useState(null); // template 17, group 27
-
-  const isAcuteTemplate    = parseInt(templateIdFromUrl, 10) === 16; // 12/18
-  const isChronic1Template = parseInt(templateIdFromUrl, 10) === 17; // 27/28
-
   const TEMPLATE_OPTIONS = {
     16: 'Bệnh án cấp tính',
     17: 'Bệnh án mãn tính lần 1',
     18: 'Bệnh án mãn tính tái khám',
   };
 
-  // ---------- Fetch ----------
+  // NEW: states điều kiện hiển thị theo câu điều khiển
+  const [selectedQ192, setSelectedQ192] = useState(null); // template 16, group 12, id 192
+  const [selectedQ62,  setSelectedQ62]  = useState(null); // template 17, group 27, id 62
+  const isAcuteTemplate    = parseInt(templateIdFromUrl, 10) === 16; // 12/18
+  const isChronic1Template = parseInt(templateIdFromUrl, 10) === 17; // 27/28
+
+  const indicatorMap = useMemo(() => {
+    const m = {};
+    vitalGroups.forEach((g) => g.indicators.forEach((ind) => (m[ind.id] = ind)));
+    return m;
+  }, [vitalGroups]);
+
+  // Fetch data
   useEffect(() => {
     let cancelled = false;
 
     const fetchData = async () => {
       if (!templateIdFromUrl) {
-        if (!cancelled) { setError('Không tìm thấy ID bệnh án trong URL.'); setLoading(false); }
+        if (!cancelled) {
+          setError('Không tìm thấy ID bệnh án trong URL.');
+          setLoading(false);
+        }
         return;
       }
 
@@ -115,7 +726,7 @@ export function RecordDetailView() {
         const groups = groupResults.filter(Boolean);
         setVitalGroups(groups);
 
-        // reset điều kiện khi đổi template
+        // reset lựa chọn điều kiện khi đổi template
         setSelectedQ192(null);
         setSelectedQ62(null);
 
@@ -133,13 +744,6 @@ export function RecordDetailView() {
     return () => { cancelled = true; };
   }, [templateIdFromUrl]);
 
-  // ---------- Helpers ----------
-  const indicatorMap = useMemo(() => {
-    const m = {};
-    vitalGroups.forEach((g) => g.indicators.forEach((ind) => (m[ind.id] = ind)));
-    return m;
-  }, [vitalGroups]);
-
   const handleInitialInfoChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -149,11 +753,10 @@ export function RecordDetailView() {
     if (initialErrors[name]) setInitialErrors((s) => ({ ...s, [name]: '' }));
   };
 
-  const onChangeAnswer = useCallback((indicatorId, valueObj) => {
-    // valueObj = { value: any, note?: string }
+  const handleVitalValueChange = useCallback((indicatorId, value) => {
     setFormData((prev) => ({
       ...prev,
-      vitalValues: { ...prev.vitalValues, [indicatorId]: valueObj },
+      vitalValues: { ...prev.vitalValues, [indicatorId]: value },
     }));
   }, []);
 
@@ -170,7 +773,7 @@ export function RecordDetailView() {
     return !errs.patientId && !errs.diagnosis && !errs.symptoms;
   };
 
-  // ---------- Serialize for API ----------
+  /* ===================== SERIALIZE (CHỈ LOGIC GỬI) ===================== */
   const isNilOrEmpty = (v) =>
     v === undefined ||
     v === null ||
@@ -195,30 +798,76 @@ export function RecordDetailView() {
     return inner;
   };
 
-  // mapping “bằng tay” cho QUES4CTN/QUES4MT1 (id 175/64)
   const innerOfEpisodeQuestion = (indicator, stored) => {
     const groups = Array.isArray(indicator.valueOptions?.group)
       ? indicator.valueOptions.group
       : [];
     if (!groups.length) return null;
 
+    const MAIN_LABEL = groups[0].label || '__group_0';
     const raw = stored?.value || {};
-    const mappedGroups = groups.map((group) => {
-      const label = group.label;
-      const fields = (group.field || []).map((f) => ({
-        label: f.label,
-        type: f.type,
-        value: raw?.[label]?.[f.label] ?? null,
-      }));
-      return { label, field: fields };
-    });
+    const main = raw[MAIN_LABEL] || {};
 
-    const cleaned = mappedGroups.filter(
-      (g) => g.field.some((f) => f.value !== null && f.value !== '')
-    );
+    const co = main['Có điều trị hay không?'];
+    const tt = main['Tình trạng tổn thương khi đang uống thuốc'];
+    const da = main['Trước đây bạn đã từng bị đợt nào như vậy chưa?'];
+    const so = parseInt(main['Số đợt bị'] || '0', 10) || 0;
 
-    if (!cleaned.length) return null;
-    return cleaned;
+    const isNilOrEmpty2 = (v) =>
+      v === undefined ||
+      v === null ||
+      (typeof v === 'string' && v.trim() === '') ||
+      (Array.isArray(v) && v.length === 0) ||
+      (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+
+    const sanitizeValue2 = (v) => {
+      if (v instanceof File) return v.name;
+      if (Array.isArray(v)) return v.map(sanitizeValue2);
+      if (v && typeof v === 'object') {
+        const out = {};
+        Object.keys(v).forEach((k) => (out[k] = sanitizeValue2(v[k])));
+        return out;
+      }
+      return v;
+    };
+
+    const makeGroup = (label, obj) => {
+      const co = obj['Có điều trị hay không?'];
+      const tt = obj['Tình trạng tổn thương khi đang uống thuốc'];
+      const da = obj['Trước đây bạn đã từng bị đợt nào như vậy chưa?'];
+      const so = obj['Số đợt bị'];
+
+      const value = {};
+      const put = (k, v) => { if (!isNilOrEmpty2(v)) value[k] = sanitizeValue2(v); };
+
+      put('Có điều trị hay không?', co);
+      if (co === 'Có') {
+        put('Tên thuốc', obj['Tên thuốc']);
+        put('Liều thuốc (ghi thời gian nếu nhớ)', obj['Liều thuốc (ghi thời gian nếu nhớ)']);
+        put('Tình trạng tổn thương khi đang uống thuốc', tt);
+        if (tt === 'Giảm xuống' || tt === 'Nặng lên') {
+          put('Triệu chứng Giảm xuống/Nặng lên là gì?', obj['Triệu chứng Giảm xuống/Nặng lên là gì?']);
+        }
+      }
+      if (da) put('Trước đây bạn đã từng bị đợt nào như vậy chưa?', da);
+      if (so) put('Số đợt bị', String(so));
+      return { label, value };
+    };
+
+    const rootGroup = makeGroup(MAIN_LABEL, main);
+
+    const clamp = Math.min(Math.max(so, 0), 3);
+    for (let i = 1; i <= clamp; i += 1) {
+      const lbl = `Thông tin đợt ${i}`;
+      const g = raw[lbl] || {};
+      const childGroup = makeGroup(lbl, g);
+      if (!isNilOrEmpty2(childGroup.value)) {
+        rootGroup.value[lbl] = childGroup;
+      }
+    }
+
+    if (isNilOrEmpty2(rootGroup.value)) return null;
+    return rootGroup;
   };
 
   const innerForApi = (indicator, stored) => {
@@ -229,35 +878,38 @@ export function RecordDetailView() {
     return innerOfNormalIndicator(stored);
   };
 
-  // ---------- Filter groups by controller answers ----------
+  // ===================== FILTER GROUPS (Q192 & Q62 logic) =====================
   const filteredVitalGroups = useMemo(() => {
     let groups = vitalGroups;
 
     if (isAcuteTemplate) {
-      // 16: 12 & 18
       const allow18 = selectedQ192 === 'Phù mạch' || selectedQ192 === 'Cả hai' || selectedQ192 === 'Khác';
-      groups = groups.filter(g => (g.id === 18 ? allow18 : true));
+      groups = groups.filter(g => {
+        if (g.id === 18) return !!allow18;
+        return true;
+      });
     }
 
     if (isChronic1Template) {
-      // 17: 27 & 28
       const allow28 = selectedQ62 === 'Phù mạch' || selectedQ62 === 'Cả hai' || selectedQ62 === 'Khác';
-      groups = groups.filter(g => (g.id === 28 ? allow28 : true));
+      groups = groups.filter(g => {
+        if (g.id === 28) return !!allow28;
+        return true;
+      });
     }
 
     return groups;
   }, [vitalGroups, isAcuteTemplate, selectedQ192, isChronic1Template, selectedQ62]);
 
-  // ---------- Steps ----------
+  // Steps
   const steps = [...filteredVitalGroups.map(g => g.name), 'Thông tin bệnh án'];
 
-  // không tự nhảy về đầu khi steps thay đổi
+  // Clamp step index khi danh sách step thay đổi
   useEffect(() => {
     const totalSteps = filteredVitalGroups.length + 1;
     setActiveStep(prev => (prev >= totalSteps ? Math.max(0, totalSteps - 1) : prev));
   }, [filteredVitalGroups.length]);
 
-  // ---------- Submit ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -271,7 +923,6 @@ export function RecordDetailView() {
 
     try {
       const { patientId, doctorId, diagnosis, symptoms, notes, templateId } = formData.initialInfo;
-
       const createPayload = {
         patientId: parseInt(patientId, 10),
         doctorId,
@@ -291,10 +942,9 @@ export function RecordDetailView() {
         const indicator = indicatorMap[Number(id)];
         const inner = innerForApi(indicator, data);
         if (inner === null) continue;
-
         formattedVitalValues.push({
           vitalIndicatorId: parseInt(id, 10),
-          value: { value: inner }, // luôn bọc theo mẫu API
+          value: { value: inner },
           note: data?.note || '',
         });
       }
@@ -313,7 +963,6 @@ export function RecordDetailView() {
     }
   };
 
-  // ---------- Render ----------
   if (loading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
@@ -322,8 +971,8 @@ export function RecordDetailView() {
     );
   }
 
+  // ===================== Render content per step =====================
   const renderStepContent = (step) => {
-    // Bước cuối: Thông tin bệnh án
     if (step === steps.length - 1) {
       return (
         <Stack spacing={3}>
@@ -334,11 +983,52 @@ export function RecordDetailView() {
             InputProps={{ readOnly: true }}
             variant="filled"
           />
-          <TextField label="Tên bác sĩ phụ trách" value={staffProfile?.fullname || ''} InputProps={{ readOnly: true }} variant="filled" />
-          <TextField label="Mã bệnh nhân" name="patientId" type="number" value={formData.initialInfo.patientId} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.patientId)} helperText={initialErrors.patientId} />
-          <TextField label="Chẩn đoán" name="diagnosis" multiline rows={3} value={formData.initialInfo.diagnosis} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.diagnosis)} helperText={initialErrors.diagnosis} />
-          <TextField label="Triệu chứng" name="symptoms" multiline rows={3} value={formData.initialInfo.symptoms} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.symptoms)} helperText={initialErrors.symptoms} />
-          <TextField label="Ghi chú" name="notes" multiline rows={2} value={formData.initialInfo.notes} onChange={handleInitialInfoChange} />
+          <TextField
+            label="Tên bác sĩ phụ trách"
+            value={staffProfile?.fullname || ''}
+            InputProps={{ readOnly: true }}
+            variant="filled"
+          />
+          <TextField
+            label="Mã bệnh nhân"
+            name="patientId"
+            type="number"
+            value={formData.initialInfo.patientId}
+            onChange={handleInitialInfoChange}
+            required
+            error={Boolean(initialErrors.patientId)}
+            helperText={initialErrors.patientId}
+          />
+          <TextField
+            label="Chẩn đoán"
+            name="diagnosis"
+            multiline
+            rows={3}
+            value={formData.initialInfo.diagnosis}
+            onChange={handleInitialInfoChange}
+            required
+            error={Boolean(initialErrors.diagnosis)}
+            helperText={initialErrors.diagnosis}
+          />
+          <TextField
+            label="Triệu chứng"
+            name="symptoms"
+            multiline
+            rows={3}
+            value={formData.initialInfo.symptoms}
+            onChange={handleInitialInfoChange}
+            required
+            error={Boolean(initialErrors.symptoms)}
+            helperText={initialErrors.symptoms}
+          />
+          <TextField
+            label="Ghi chú"
+            name="notes"
+            multiline
+            rows={2}
+            value={formData.initialInfo.notes}
+            onChange={handleInitialInfoChange}
+          />
         </Stack>
       );
     }
@@ -346,25 +1036,140 @@ export function RecordDetailView() {
     const group = filteredVitalGroups[step];
     if (!group) return null;
 
-    // Toàn bộ render câu hỏi của 1 group đã tách sang QuestionRenderers.jsx
+    // 🔹 1️⃣ Template cấp tính (ID = 16)
+    if (isAcuteTemplate && group.id === 12) {
+      const q192 = group.indicators.find((i) => i.id === 192);
+      const others = group.indicators.filter((i) => i.id !== 192);
+
+      const handleQ192Change = (val) => {
+        setSelectedQ192(val?.value || null);
+        handleVitalValueChange(q192.id, val);
+      };
+
+      // Nếu chưa chọn gì ở câu 192 => chỉ render câu đó
+      if (!selectedQ192) {
+        return (
+          <Stack spacing={2}>
+            <QuestionRendererMUI
+              key={q192.id}
+              indicator={q192}
+              value={formData.vitalValues[q192.id]}
+              onChange={handleQ192Change}
+            />
+          </Stack>
+        );
+      }
+
+      // Nếu chọn “Phù mạch” => chỉ hiển thị câu 192 (ẩn các câu khác)
+      if (selectedQ192 === 'Phù mạch') {
+        return (
+          <Stack spacing={2}>
+            <QuestionRendererMUI
+              key={q192.id}
+              indicator={q192}
+              value={formData.vitalValues[q192.id]}
+              onChange={handleQ192Change}
+            />
+          </Stack>
+        );
+      }
+
+      // Nếu chọn “Sẩn phù”, “Cả hai” hoặc “Khác” => render toàn bộ
+      return (
+        <Stack spacing={2}>
+          <QuestionRendererMUI
+            key={q192.id}
+            indicator={q192}
+            value={formData.vitalValues[q192.id]}
+            onChange={handleQ192Change}
+          />
+          {others.map((i) => (
+            <QuestionRendererMUI
+              key={i.id}
+              indicator={i}
+              value={formData.vitalValues[i.id]}
+              onChange={(val) => handleVitalValueChange(i.id, val)}
+            />
+          ))}
+        </Stack>
+      );
+    }
+
+    if (isChronic1Template && group.id === 27) {
+      const q62 = group.indicators.find((i) => i.id === 62);
+      const others = group.indicators.filter((i) => i.id !== 62);
+
+      const handleQ62Change = (val) => {
+        setSelectedQ62(val?.value || null);
+        handleVitalValueChange(q62.id, val);
+      };
+
+      if (!selectedQ62) {
+        return (
+          <Stack spacing={2}>
+            <QuestionRendererMUI
+              key={q62.id}
+              indicator={q62}
+              value={formData.vitalValues[q62.id]}
+              onChange={handleQ62Change}
+            />
+          </Stack>
+        );
+      }
+
+      if (selectedQ62 === 'Phù mạch') {
+        return (
+          <Stack spacing={2}>
+            <QuestionRendererMUI
+              key={q62.id}
+              indicator={q62}
+              value={formData.vitalValues[q62.id]}
+              onChange={handleQ62Change}
+            />
+          </Stack>
+        );
+      }
+
+      return (
+        <Stack spacing={2}>
+          <QuestionRendererMUI
+            key={q62.id}
+            indicator={q62}
+            value={formData.vitalValues[q62.id]}
+            onChange={handleQ62Change}
+          />
+          {others.map((i) => (
+            <QuestionRendererMUI
+              key={i.id}
+              indicator={i}
+              value={formData.vitalValues[i.id]}
+              onChange={(val) => handleVitalValueChange(i.id, val)}
+            />
+          ))}
+        </Stack>
+      );
+    }
+
     return (
-      <QuestionGroupRenderer
-        group={group}
-        templateId={parseInt(templateIdFromUrl, 10)}
-        values={formData.vitalValues}
-        onChangeAnswer={onChangeAnswer}
-        selectedQ192={selectedQ192}
-        selectedQ62={selectedQ62}
-        onSelectQ192={setSelectedQ192}
-        onSelectQ62={setSelectedQ62}
-      />
+      <Stack spacing={2}>
+        {group.indicators.map((indicator) => (
+          <QuestionRendererMUI
+            key={indicator.id}
+            indicator={indicator}
+            value={formData.vitalValues[indicator.id]}
+            onChange={(val) => handleVitalValueChange(indicator.id, val)}
+          />
+        ))}
+      </Stack>
     );
   };
 
   return (
     <Container maxWidth="md" sx={{ my: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => router.push(`${paths.dashboard.medicalRecordStaff.create}`)}>Trang chủ</Button>
+        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => router.push(`${paths.dashboard.medicalRecordStaff.create}`)}>
+          Trang chủ
+        </Button>
         <Typography variant="h4" component="h1" sx={{ flexGrow: 1, textAlign: 'center' }}>
           Tạo bệnh án: {templateName}
         </Typography>
