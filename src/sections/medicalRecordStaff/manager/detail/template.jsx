@@ -197,58 +197,28 @@ export function RecordDetailView() {
 
   // mapping “bằng tay” cho QUES4CTN/QUES4MT1 (id 175/64)
   const innerOfEpisodeQuestion = (indicator, stored) => {
-    const groups = Array.isArray(indicator.valueOptions?.group) ? indicator.valueOptions.group : [];
+    const groups = Array.isArray(indicator.valueOptions?.group)
+      ? indicator.valueOptions.group
+      : [];
     if (!groups.length) return null;
 
-    const MAIN_LABEL = groups[0].label || '__group_0';
     const raw = stored?.value || {};
-    const main = raw[MAIN_LABEL] || {};
+    const mappedGroups = groups.map((group) => {
+      const label = group.label;
+      const fields = (group.field || []).map((f) => ({
+        label: f.label,
+        type: f.type,
+        value: raw?.[label]?.[f.label] ?? null,
+      }));
+      return { label, field: fields };
+    });
 
-    const co = main['Có điều trị hay không?'];
-    const tt = main['Tình trạng tổn thương khi đang uống thuốc'];
-    const da = main['Trước đây bạn đã từng bị đợt nào như vậy chưa?'];
-    const so = parseInt(main['Số đợt bị'] || '0', 10) || 0;
+    const cleaned = mappedGroups.filter(
+      (g) => g.field.some((f) => f.value !== null && f.value !== '')
+    );
 
-    const root = {};
-    const put = (k, v) => { if (!isNilOrEmpty(v)) root[k] = sanitizeValue(v); };
-
-    put('Có điều trị hay không?', co);
-    if (co === 'Có') {
-      put('Tên thuốc', main['Tên thuốc']);
-      put('Liều thuốc (ghi thời gian nếu nhớ)', main['Liều thuốc (ghi thời gian nếu nhớ)']);
-      put('Tình trạng tổn thương khi đang uống thuốc', tt);
-      if (tt === 'Giảm xuống' || tt === 'Nặng lên') {
-        put('Triệu chứng Giảm xuống/Nặng lên là gì?', main['Triệu chứng Giảm xuống/Nặng lên là gì?']);
-      }
-    }
-    put('Trước đây bạn đã từng bị đợt nào như vậy chưa?', da);
-    if (da === 'Có') put('Số đợt bị', String(so || ''));
-
-    const clamp = Math.min(Math.max(so, 0), 3);
-    for (let i = 1; i <= clamp; i += 1) {
-      const lbl = `Thông tin đợt ${i}`;
-      const g = raw[lbl] || {};
-      const _co = g['Có điều trị hay không?'];
-      const _tt = g['Tình trạng tổn thương khi đang uống thuốc'];
-
-      const child = {};
-      const putChild = (k, v) => { if (!isNilOrEmpty(v)) child[k] = sanitizeValue(v); };
-
-      putChild('Có điều trị hay không?', _co);
-      if (_co === 'Có') {
-        putChild('Tên thuốc', g['Tên thuốc']);
-        putChild('Liều thuốc (ghi thời gian nếu nhớ)', g['Liều thuốc (ghi thời gian nếu nhớ)']);
-        putChild('Tình trạng tổn thương khi đang uống thuốc', _tt);
-        if (_tt === 'Giảm xuống' || _tt === 'Nặng lên') {
-          putChild('Triệu chứng Giảm xuống/Nặng lên là gì?', g['Triệu chứng Giảm xuống/Nặng lên là gì?']);
-        }
-      }
-
-      if (!isNilOrEmpty(child)) root[lbl] = child;
-    }
-
-    if (isNilOrEmpty(root)) return null;
-    return root;
+    if (!cleaned.length) return null;
+    return cleaned;
   };
 
   const innerForApi = (indicator, stored) => {
