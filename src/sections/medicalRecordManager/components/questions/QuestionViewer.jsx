@@ -38,11 +38,24 @@ const findFieldsArray = (valueOptions) => {
   return [];
 };
 
+// ====================== unwrapValueShells (đã fix) ======================
 const unwrapValueShells = (data) => {
   let v = data;
+
+  // unwrap liên tục các lớp { value: ... }
   while (isObj(v) && Object.keys(v).length === 1 && 'value' in v) {
     v = v.value;
   }
+
+  // unwrap nếu chỉ còn lại group kỹ thuật "group_0", "group_1", ...
+  if (
+    isObj(v) &&
+    Object.keys(v).length === 1 &&
+    /^group_\d+$/.test(Object.keys(v)[0])
+  ) {
+    v = v[Object.keys(v)[0]];
+  }
+
   return v;
 };
 
@@ -57,9 +70,14 @@ const normalizeLabelValue = (data) => {
 const isLabelValueGroup = (v) => isObj(v) && 'label' in v && 'value' in v;
 
 // ====================== Recursive renderer for objects ======================
-function RenderKeyValue({ obj, onImageClick, level = 0 }) {
+function RenderKeyValue({ obj, indicator, onImageClick, level = 0 }) {
   if (!isObj(obj)) return null;
-  const entries = Object.entries(obj).filter(([_, v]) => hasValue(unwrapValueShells(v)));
+
+  // Bỏ qua các key kỹ thuật (group_0, group_1, ...)
+  const entries = Object.entries(obj)
+    .filter(([k]) => !/^group_\d+$/.test(k))
+    .filter(([_, v]) => hasValue(unwrapValueShells(v)));
+
   if (!entries.length) return null;
 
   return (
@@ -78,7 +96,12 @@ function RenderKeyValue({ obj, onImageClick, level = 0 }) {
                 {nv.label || k}
               </Typography>
               <Box sx={{ pl: 2, mt: 1 }}>
-                <RenderKeyValue obj={nv.value} level={level + 1} onImageClick={onImageClick} />
+                <RenderKeyValue
+                  obj={nv.value}
+                  indicator={indicator}
+                  level={level + 1}
+                  onImageClick={onImageClick}
+                />
               </Box>
             </Box>
           );
@@ -103,12 +126,30 @@ function RenderKeyValue({ obj, onImageClick, level = 0 }) {
                 {k}:
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                {allImages.map((url, idx2) => {
-                  let resolvedSrc = url;
+                {allImages.map((rawUrl, idx2) => {
+                  let url = rawUrl;
 
-                  if (!url.startsWith('http') && !url.startsWith('data:')) {
-                    resolvedSrc = `https://drmayday.ibme.edu.vn/urticaria-data/medical-record/${encodeURIComponent(url)}`;
+                  // Nếu chuỗi chứa blob URL dạng "filename; size; type; blob:http..."
+                  if (typeof rawUrl === 'string' && rawUrl.includes('blob:')) {
+                    const match = rawUrl.match(/blob:[^,;]+/);
+                    if (match) url = match[0];
                   }
+
+                  let resolvedSrc = url;
+                  const BASE_URL = "https://drmayday.ibme.edu.vn/urticaria-data/medical-record";
+
+                  // Đọc recordId & templateId từ object cha (nếu có)
+                  const groupId = indicator?.groupId || indicator?.id || 28;
+                  const templateId = indicator?.templateId || 17;
+
+                  if (
+                    !url.startsWith('http') &&
+                    !url.startsWith('data:') &&
+                    !url.startsWith('blob:')
+                  ) {
+                    resolvedSrc = `${BASE_URL}/${groupId}/${templateId}/${encodeURIComponent(url)}`;
+                  }
+
                   return (
                     <Box
                       key={idx2}
@@ -135,7 +176,12 @@ function RenderKeyValue({ obj, onImageClick, level = 0 }) {
         // Nếu là object lồng nhau
         if (isObj(v)) {
           const inner = (
-            <RenderKeyValue obj={v} level={level + 1} onImageClick={onImageClick} />
+            <RenderKeyValue
+              obj={v}
+              indicator={indicator}
+              level={level + 1}
+              onImageClick={onImageClick}
+            />
           );
           if (!inner) return null;
           return (
@@ -198,7 +244,11 @@ export function QuestionViewer({ indicator, value, onImageClick }) {
             </Typography>
           ) : null}
           <Box sx={{ pl: 2, mt: 1 }}>
-            <RenderKeyValue obj={groupValue} onImageClick={onImageClick} />
+            <RenderKeyValue
+              obj={groupValue}
+              indicator={indicator}
+              onImageClick={onImageClick}
+            />
           </Box>
         </Box>
       );

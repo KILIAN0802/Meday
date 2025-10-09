@@ -11,7 +11,7 @@ import {
   FormControlLabel, Radio, RadioGroup, Checkbox, FormGroup,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import CloseIcon from '@mui/icons-material/Close';
+  import CloseIcon from '@mui/icons-material/Close';
 
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
@@ -22,8 +22,101 @@ import { paths } from 'src/routes/paths';
 const EPISODE_CODES = new Set(['QUES4CTN', 'QUES4MT1']);
 const EPISODE_IDS   = new Set([175, 64]);
 
-// =================== UI helpers (radio/checkbox) ===================
+/* ============================================================================
+   Helpers cho lưu ảnh tạm & upload thật
+============================================================================ */
+const PENDING_PREFIX = 'pendingUploads:'; // key localStorage
 
+const lsSafeParse = (s, fb) => {
+  try { return JSON.parse(s); } catch { return fb; }
+};
+const getPending = (key) => lsSafeParse(localStorage.getItem(PENDING_PREFIX + key) || '[]', []);
+const setPending = (key, arr) => localStorage.setItem(PENDING_PREFIX + key, JSON.stringify(arr));
+const clearPending = (key) => localStorage.removeItem(PENDING_PREFIX + key);
+
+// Tạo item preview thống nhất
+const makePreviewItem = (file) => ({
+  name: file.name,
+  size: file.size,
+  type: file.type,
+  src: URL.createObjectURL(file),
+  file,
+});
+
+// Upload 1 file → trả về URL (dò cả text thuần & JSON)
+async function uploadOneFile(file, groupId, templateId) {
+  const formDataUpload = new FormData();
+  formDataUpload.append('file', file);
+
+  const endpoint = `https://drmayday.ibme.edu.vn/urticaria-collector/api/v1/medical-records/upload?user_id=${groupId}&record_type=${templateId}`;
+  const res = await fetch(endpoint, { method: 'POST', body: formDataUpload });
+
+  const text = await res.text();
+  if (res.ok && text && text.startsWith('http')) return text.trim();
+
+  // fallback parse json
+  try {
+    const data = JSON.parse(text);
+    const url = data.url || data.data?.url || data.path || data.file_url;
+    if (url) return url;
+  } catch { /* ignore */ }
+
+  throw new Error('Upload ảnh thất bại hoặc phản hồi không hợp lệ.');
+}
+
+// Đệ quy: gặp File hoặc object preview có key .file → upload, thay bằng URL
+async function resolveUploadsDeep(value, groupId, templateId) {
+  if (!value) return value;
+
+  if (value && typeof value === 'object' && !(value instanceof File) && 'file' in value && value.file instanceof File) {
+    const url = await uploadOneFile(value.file, groupId, templateId);
+    return url;
+  }
+
+  if (value instanceof File) {
+    const url = await uploadOneFile(value, groupId, templateId);
+    return url;
+  }
+
+  if (Array.isArray(value)) {
+    const out = [];
+    for (const it of value) {
+      out.push(await resolveUploadsDeep(it, groupId, templateId));
+    }
+    return out;
+  }
+
+  if (typeof value === 'object') {
+    // ✅ NEW: xử lý các object có src blob
+    if (value.src && typeof value.src === 'string' && value.src.startsWith('blob:')) {
+      const fileName = value.name || `image_${Date.now()}.jpg`;
+      const res = await fetch(value.src);
+      const blob = await res.blob();
+      const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      const url = await uploadOneFile(file, groupId, templateId);
+      return url;
+    }
+
+    const out = {};
+    for (const k of Object.keys(value)) {
+      out[k] = await resolveUploadsDeep(value[k], groupId, templateId);
+    }
+    return out;
+  }
+
+  return value;
+}
+
+const isNilOrEmpty = (v) =>
+  v === undefined ||
+  v === null ||
+  (typeof v === 'string' && v.trim() === '') ||
+  (Array.isArray(v) && v.length === 0) ||
+  (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+
+/* ============================================================================
+   UI helpers (radio/checkbox)
+============================================================================ */
 function ClearableSelect({ label, value, options = [], onChange }) {
   return (
     <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mt: 1 }}>
@@ -83,7 +176,9 @@ function ClearableMultiSelect({ label, value, options = [], onChange }) {
   );
 }
 
-/* ================== Renderer riêng cho 2 câu đặc biệt ================== */
+/* ============================================================================
+   Renderer riêng cho 2 câu đặc biệt (giữ nguyên UI, chỉ chạm xử lý ảnh ở dưới)
+============================================================================ */
 function EpisodeInfoRenderer({ indicator, value, onChange }) {
   const groups = Array.isArray(indicator.valueOptions?.group) ? indicator.valueOptions.group : [];
   if (!groups.length) return null;
@@ -234,7 +329,9 @@ function EpisodeInfoRenderer({ indicator, value, onChange }) {
   );
 }
 
-/* ================== Generic custom (GIỮ NGUYÊN + BỔ SUNG) ================== */
+/* ============================================================================
+   Generic custom (đã thêm xử lý preview + localStorage + defer upload)
+============================================================================ */
 function GenericCustomRenderer({ indicator, value, onChange }) {
   const groups = (() => {
     const raw = indicator.valueOptions?.group;
@@ -251,7 +348,10 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
     });
   };
 
-  // Hiện trường requiredFields khi có lựa chọn (ví dụ hiện upload ảnh)
+  // Lưu/đọc ảnh tạm theo key riêng (indicatorId + đường dẫn field)
+  const makeKey = (gKey, fKey) => `${indicator.id}::${gKey}::${fKey}`;
+
+  // Render các requiredFields khi có lựa chọn (ví dụ upload ảnh)
   const renderRequiredFields = (gKey, parentKey, requiredFields, fVal) => {
     if (!Array.isArray(requiredFields) || requiredFields.length === 0) return null;
     const hasSelection =
@@ -262,15 +362,35 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
     return requiredFields.map((rf, idx) => {
       if (rf.type === 'image') {
         const imgKey = `${parentKey}_required_${idx}`;
-        const files = value?.value?.[gKey]?.[imgKey] || [];
+        const pendingKey = makeKey(gKey, imgKey);
+        const previews = getPending(pendingKey);
+
         const handleFilesChange = (e) => {
           const selected = Array.from(e.target.files || []);
-          setKV(gKey, imgKey, [...files, ...selected]);
-        };
-        const handleRemoveFile = (index) => {
-          const updated = files.filter((_, i) => i !== index);
+          if (!selected.length) return;
+          const newPreviews = selected.map(makePreviewItem);
+          const updated = [...previews, ...newPreviews];
+          setPending(pendingKey, updated);
+
+          const current = value?.value || {};
+          const gVal = current[gKey] || {};
           setKV(gKey, imgKey, updated);
         };
+        const handleRemoveFile = (index) => {
+          const updated = previews.filter((_, i) => i !== index);
+          setPending(pendingKey, updated);
+          setKV(gKey, imgKey, updated);
+        };
+
+        // đồng bộ form state lần đầu (nếu chưa)
+        // Đảm bảo state có giá trị khởi tạo ngay khi render (thay cho useEffect)
+        const current = value?.value || {};
+        const gVal = current[gKey] || {};
+        if (!Array.isArray(gVal[imgKey]) && previews.length > 0) {
+          setKV(gKey, imgKey, previews);
+        }
+
+
         return (
           <Stack key={imgKey} spacing={1} sx={{ mt: 1, pl: 3 }}>
             <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
@@ -280,45 +400,37 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
               Tải ảnh
               <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
             </Button>
-            {files.length > 0 && (
+            {previews.length > 0 && (
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {files.map((file, i) => {
-                  const src =
-                    file instanceof File
-                      ? URL.createObjectURL(file)
-                      : typeof file === 'string'
-                      ? file
-                      : '';
-                  return (
-                    <Box key={i} sx={{ position: 'relative' }}>
-                      <Box
-                        component="img"
-                        src={src}
-                        alt={`Ảnh ${i + 1}`}
-                        sx={{
-                          width: 80,
-                          height: 80,
-                          borderRadius: 1,
-                          border: '1px solid #ccc',
-                          objectFit: 'cover',
-                        }}
-                      />
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveFile(i)}
-                        sx={{
-                          position: 'absolute',
-                          top: -8,
-                          right: -8,
-                          bgcolor: 'rgba(255,255,255,0.8)',
-                          '&:hover': { bgcolor: 'white' },
-                        }}
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  );
-                })}
+                {previews.map((item, i) => (
+                  <Box key={i} sx={{ position: 'relative' }}>
+                    <Box
+                      component="img"
+                      src={item.src}
+                      alt={item.name}
+                      sx={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 1,
+                        border: '1px solid #ccc',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveFile(i)}
+                      sx={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        bgcolor: 'rgba(255,255,255,0.8)',
+                        '&:hover': { bgcolor: 'white' },
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))}
               </Stack>
             )}
           </Stack>
@@ -353,9 +465,9 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
                   const fKey = field.label || `field_${fi}`;
                   const fVal = gVal[fKey];
                   const options = field.option || field.options || [];
-
-                  // chuẩn hoá key + handlers để tránh lỗi scope
                   const keyId = `${gKey}-${fKey}`;
+                  const pendingKey = `${indicator.id}::${gKey}::${fKey}`;
+
                   const handleText = (e) => setKV(gKey, fKey, e.target.value);
                   const handleNumber = (e) =>
                     setKV(gKey, fKey, e.target.value === '' ? '' : Number(e.target.value));
@@ -403,29 +515,64 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
                   }
 
                   if (field.type === 'multi_selection') {
-                    return (
-                      <Box key={keyId}>
-                        <ClearableMultiSelect
-                          label={fKey}
-                          value={fVal ?? []}
-                          options={options}
-                          onChange={handleMulti}
-                        />
-                        {renderRequiredFields(gKey, fKey, field.requiredFields, fVal)}
-                      </Box>
-                    );
-                  }
+  const arr = Array.isArray(fVal) ? fVal : [];
+
+  return (
+    <Box key={keyId}>
+      {/* tiêu đề nhóm lựa chọn */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+        {fKey}
+      </Typography>
+
+      <FormGroup>
+        {options.map((opt, idx) => {
+          const checked = arr.includes(opt);
+          const toggle = () => {
+            if (checked) setKV(gKey, fKey, arr.filter((v) => v !== opt));
+            else setKV(gKey, fKey, [...arr, opt]);
+          };
+
+          return (
+            <Box key={idx} sx={{ mb: 1 }}>
+              <FormControlLabel
+                control={<Checkbox size="small" checked={checked} onChange={toggle} />}
+                label={opt}
+              />
+              {/* ✅ hiển thị upload ảnh bắt buộc ngay dưới lựa chọn được chọn */}
+              {checked &&
+                renderRequiredFields(gKey, `${fKey}_${opt}`, field.requiredFields, [opt])}
+            </Box>
+          );
+        })}
+      </FormGroup>
+    </Box>
+  );
+}
+
 
                   if (field.type === 'image') {
-                    const files = Array.isArray(fVal) ? fVal : [];
+                    const previews = getPending(pendingKey);
+
                     const handleFilesChange = (e) => {
                       const selected = Array.from(e.target.files || []);
-                      setKV(gKey, fKey, [...files, ...selected]);
-                    };
-                    const handleRemoveFile = (index) => {
-                      const updated = files.filter((_, i) => i !== index);
+                      if (!selected.length) return;
+                      const newPreviews = selected.map(makePreviewItem);
+                      const updated = [...previews, ...newPreviews];
+                      setPending(pendingKey, updated);
                       setKV(gKey, fKey, updated);
                     };
+                    const handleRemoveFile = (index) => {
+                      const updated = previews.filter((_, i) => i !== index);
+                      setPending(pendingKey, updated);
+                      setKV(gKey, fKey, updated);
+                    };
+
+                    useEffect(() => {
+                      // đồng bộ form state lần đầu
+                      if (!Array.isArray(fVal)) setKV(gKey, fKey, previews);
+                      // eslint-disable-next-line react-hooks/exhaustive-deps
+                    }, []);
+
                     return (
                       <Stack key={keyId} spacing={1}>
                         <Typography variant="subtitle2">{fKey}</Typography>
@@ -433,45 +580,37 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
                           Tải ảnh
                           <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
                         </Button>
-                        {files.length > 0 && (
+                        {previews.length > 0 && (
                           <Stack direction="row" spacing={1} flexWrap="wrap">
-                            {files.map((file, i) => {
-                              const src =
-                                file instanceof File
-                                  ? URL.createObjectURL(file)
-                                  : typeof file === 'string'
-                                  ? file
-                                  : '';
-                              return (
-                                <Box key={i} sx={{ position: 'relative' }}>
-                                  <Box
-                                    component="img"
-                                    src={src}
-                                    alt={`Ảnh ${i + 1}`}
-                                    sx={{
-                                      width: 80,
-                                      height: 80,
-                                      borderRadius: 1,
-                                      border: '1px solid #ccc',
-                                      objectFit: 'cover',
-                                    }}
-                                  />
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleRemoveFile(i)}
-                                    sx={{
-                                      position: 'absolute',
-                                      top: -8,
-                                      right: -8,
-                                      bgcolor: 'rgba(255,255,255,0.8)',
-                                      '&:hover': { bgcolor: 'white' },
-                                    }}
-                                  >
-                                    <CloseIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                              );
-                            })}
+                            {previews.map((item, i) => (
+                              <Box key={i} sx={{ position: 'relative' }}>
+                                <Box
+                                  component="img"
+                                  src={item.src}
+                                  alt={item.name}
+                                  sx={{
+                                    width: 80,
+                                    height: 80,
+                                    borderRadius: 1,
+                                    border: '1px solid #ccc',
+                                    objectFit: 'cover',
+                                  }}
+                                />
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRemoveFile(i)}
+                                  sx={{
+                                    position: 'absolute',
+                                    top: -8,
+                                    right: -8,
+                                    bgcolor: 'rgba(255,255,255,0.8)',
+                                    '&:hover': { bgcolor: 'white' },
+                                  }}
+                                >
+                                  <CloseIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            ))}
                           </Stack>
                         )}
                       </Stack>
@@ -493,13 +632,18 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
   );
 }
 
-/* ============================== RENDERER CHÍNH ============================== */
+/* ============================================================================
+   RENDERER CHÍNH (đã thay case 'image' theo cơ chế preview + localStorage)
+============================================================================ */
 function QuestionRendererMUI({ indicator, value, onChange }) {
   if (EPISODE_IDS.has(indicator.id) || EPISODE_CODES.has(indicator.code)) {
     return <EpisodeInfoRenderer indicator={indicator} value={value} onChange={onChange} />;
   }
   const handleTextChange = (e) => onChange({ value: e.target.value, note: '' });
   const handleNumberChange = (e) => onChange({ value: e.target.value === '' ? '' : Number(e.target.value), note: '' });
+
+  // key lưu ảnh tạm cho indicator này
+  const pendingKey = `${indicator.id}`;
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
@@ -555,17 +699,26 @@ function QuestionRendererMUI({ indicator, value, onChange }) {
             );
 
           case 'image': {
-            const files = Array.isArray(value?.value) ? value.value : [];
+            const previews = getPending(pendingKey);
 
             const handleFilesChange = (e) => {
               const selected = Array.from(e.target.files || []);
-              onChange({ value: [...files, ...selected], note: '' });
-            };
-
-            const handleRemoveFile = (index) => {
-              const updated = files.filter((_, i) => i !== index);
+              if (!selected.length) return;
+              const newPreviews = selected.map(makePreviewItem);
+              const updated = [...previews, ...newPreviews];
+              setPending(pendingKey, updated);
               onChange({ value: updated, note: '' });
             };
+            const handleRemoveFile = (index) => {
+              const updated = previews.filter((_, i) => i !== index);
+              setPending(pendingKey, updated);
+              onChange({ value: updated, note: '' });
+            };
+
+            useEffect(() => {
+              if (!Array.isArray(value?.value)) onChange({ value: previews, note: '' });
+              // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, []);
 
             return (
               <Stack spacing={1} alignItems="flex-start">
@@ -574,45 +727,37 @@ function QuestionRendererMUI({ indicator, value, onChange }) {
                   <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
                 </Button>
 
-                {files.length > 0 && (
+                {previews.length > 0 && (
                   <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
-                    {files.map((file, i) => {
-                      const src =
-                        file instanceof File
-                          ? URL.createObjectURL(file)
-                          : typeof file === 'string'
-                          ? file
-                          : '';
-                      return (
-                        <Box key={i} sx={{ position: 'relative' }}>
-                          <Box
-                            component="img"
-                            src={src}
-                            alt={`Ảnh ${i + 1}`}
-                            sx={{
-                              width: 80,
-                              height: 80,
-                              borderRadius: 1,
-                              border: '1px solid #ccc',
-                              objectFit: 'cover',
-                            }}
-                          />
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveFile(i)}
-                            sx={{
-                              position: 'absolute',
-                              top: -8,
-                              right: -8,
-                              bgcolor: 'rgba(255,255,255,0.8)',
-                              '&:hover': { bgcolor: 'white' },
-                            }}
-                          >
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      );
-                    })}
+                    {previews.map((item, i) => (
+                      <Box key={i} sx={{ position: 'relative' }}>
+                        <Box
+                          component="img"
+                          src={item.src}
+                          alt={item.name}
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: 1,
+                            border: '1px solid #ccc',
+                            objectFit: 'cover',
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveFile(i)}
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            bgcolor: 'rgba(255,255,255,0.8)',
+                            '&:hover': { bgcolor: 'white' },
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
                   </Stack>
                 )}
               </Stack>
@@ -630,7 +775,9 @@ function QuestionRendererMUI({ indicator, value, onChange }) {
   );
 }
 
-/* ================================== PAGE ================================== */
+/* ============================================================================
+   PAGE
+============================================================================ */
 export function RecordDetailView() {
   const router = useRouter();
   const params = useParams();
@@ -773,27 +920,9 @@ export function RecordDetailView() {
     return !errs.patientId && !errs.diagnosis && !errs.symptoms;
   };
 
-  /* ===================== SERIALIZE (CHỈ LOGIC GỬI) ===================== */
-  const isNilOrEmpty = (v) =>
-    v === undefined ||
-    v === null ||
-    (typeof v === 'string' && v.trim() === '') ||
-    (Array.isArray(v) && v.length === 0) ||
-    (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
-
-  const sanitizeValue = (v) => {
-    if (v instanceof File) return v.name;
-    if (Array.isArray(v)) return v.map(sanitizeValue);
-    if (v && typeof v === 'object') {
-      const out = {};
-      Object.keys(v).forEach((k) => (out[k] = sanitizeValue(v[k])));
-      return out;
-    }
-    return v;
-  };
-
+  /* ===================== INNER BUILDERS (KHÔNG tự chế URL nữa) ===================== */
   const innerOfNormalIndicator = (data) => {
-    const inner = sanitizeValue(data?.value);
+    const inner = data?.value;
     if (isNilOrEmpty(inner)) return null;
     return inner;
   };
@@ -820,17 +949,6 @@ export function RecordDetailView() {
       (Array.isArray(v) && v.length === 0) ||
       (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
 
-    const sanitizeValue2 = (v) => {
-      if (v instanceof File) return v.name;
-      if (Array.isArray(v)) return v.map(sanitizeValue2);
-      if (v && typeof v === 'object') {
-        const out = {};
-        Object.keys(v).forEach((k) => (out[k] = sanitizeValue2(v[k])));
-        return out;
-      }
-      return v;
-    };
-
     const makeGroup = (label, obj) => {
       const co = obj['Có điều trị hay không?'];
       const tt = obj['Tình trạng tổn thương khi đang uống thuốc'];
@@ -838,7 +956,7 @@ export function RecordDetailView() {
       const so = obj['Số đợt bị'];
 
       const value = {};
-      const put = (k, v) => { if (!isNilOrEmpty2(v)) value[k] = sanitizeValue2(v); };
+      const put = (k, v) => { if (!isNilOrEmpty2(v)) value[k] = v; };
 
       put('Có điều trị hay không?', co);
       if (co === 'Có') {
@@ -910,6 +1028,7 @@ export function RecordDetailView() {
     setActiveStep(prev => (prev >= totalSteps ? Math.max(0, totalSteps - 1) : prev));
   }, [filteredVitalGroups.length]);
 
+  /* ===================== SUBMIT ===================== */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -923,6 +1042,8 @@ export function RecordDetailView() {
 
     try {
       const { patientId, doctorId, diagnosis, symptoms, notes, templateId } = formData.initialInfo;
+
+      // 1) Tạo bệnh án
       const createPayload = {
         patientId: parseInt(patientId, 10),
         doctorId,
@@ -937,8 +1058,30 @@ export function RecordDetailView() {
       const newId = createResponse.data?.id;
       if (!newId) throw new Error('Không nhận được ID bệnh án sau khi tạo.');
 
-      const formattedVitalValues = [];
+      // 2) Trước khi build payload vitals: duyệt toàn bộ formData.vitalValues và
+      //    upload tất cả File/object preview thành URL thật.
+      //    Ghi chú: không cần đọc localStorage ở đây, vì state đang chứa các object preview.
+
+      const groupId = parseInt(patientId, 10) || 0;
+      const templateIdNum = parseInt(templateId, 10) || 0;
+
+      // Deep-resolve uploads cho từng indicator
+      const resolvedVitalValues = {};
       for (const [id, data] of Object.entries(formData.vitalValues)) {
+        if (!data) continue;
+        const cloned = JSON.parse(JSON.stringify(data));
+
+        // thay mọi file/object preview bằng URL
+        const resolved = {
+          ...cloned,
+          value: await resolveUploadsDeep(cloned.value, groupId, templateIdNum),
+        };
+        resolvedVitalValues[id] = resolved;
+      }
+
+      // 3) Build payload updateVitalMedicalRecordeById
+      const formattedVitalValues = [];
+      for (const [id, data] of Object.entries(resolvedVitalValues)) {
         const indicator = indicatorMap[Number(id)];
         const inner = innerForApi(indicator, data);
         if (inner === null) continue;
@@ -953,6 +1096,11 @@ export function RecordDetailView() {
         await updateVitalMedicalRecordeById(newId, { vitalValues: formattedVitalValues });
       }
 
+      // 4) Dọn dẹp localStorage cho tất cả key pending của trang này
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith(PENDING_PREFIX))
+        .forEach((k) => localStorage.removeItem(k));
+
       alert('Tạo và cập nhật bệnh án thành công!');
       router.push(`${paths.dashboard.medicalRecordStaff.create}`);
     } catch (err) {
@@ -962,14 +1110,6 @@ export function RecordDetailView() {
       setIsSubmitting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
 
   // ===================== Render content per step =====================
   const renderStepContent = (step) => {
