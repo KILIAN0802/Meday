@@ -44,7 +44,7 @@ export async function updateMedicalRecordById(id, data) {
   try {
     const response = await axiosInstance.patch(
       endpoints.medical_record_staff.UpdateID(id),
-      data // 👈 gửi body JSON tại đây
+      data 
     );
     return response.data;
   } catch (error) {

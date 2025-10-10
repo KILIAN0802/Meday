@@ -161,8 +161,8 @@ export function AllMedicalRecords() {
     try {
       // API theo format: { data: [...], total, page, limit }
       const res  = await getMedicalRecord({ page: pg, limit: lim });
-      const data = res?.data || [];           // <-- mảng records
-      const ttl  = res?.total ?? data.length; // tổng
+      const data = res?.data || [];        
+      const ttl  = res?.total ?? data.length;
       const p    = res?.page  ?? pg;
       const l    = res?.limit ?? lim;
 
@@ -359,12 +359,6 @@ const submitCreateAppointment = async () => {
       setSubmitting(false);
       return;
     }
-
-    // ===== Create appointment =====
-    console.log('Creating appointment with payload:', {
-      ...createPayload,
-      appointmentDate: iso,
-    });
 
     const res = await createAppointment({
       ...createPayload,
