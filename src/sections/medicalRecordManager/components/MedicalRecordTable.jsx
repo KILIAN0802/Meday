@@ -99,24 +99,61 @@ export function MedicalRecordClientView({ status }) {
   const handleSaveChanges = async (medicalRecordId, updatedValues) => {
     setIsActionLoadingId(medicalRecordId);
     try {
-      const formattedValues = Object.entries(updatedValues)
-        .filter(([, value]) => (Array.isArray(value) ? value.length > 0 : value !== '' && value != null))
-        .map(([indicatorId, value]) => ({
-          vitalIndicatorId: parseInt(indicatorId, 10),
-          value: Array.isArray(value) ? value : { value },
-          note: ""
-        }));
+      // Lấy toàn bộ indicatorId từ vitalQuestionGroups (đã có sẵn khi mở modal)
+      const allIndicators = vitalQuestionGroups.flatMap((g) => g.indicators || []);
+      const indicatorMap = new Map(allIndicators.map((i) => [String(i.id), i]));
 
-      if (formattedValues.length > 0) {
-        await updateVitalMedicalRecordeById(medicalRecordId, { vitalValues: formattedValues });
-        setNotification({ open: true, message: 'Cập nhật chỉ số thành công!', severity: 'success' });
-        refetch();
-      } else {
-        setNotification({ open: true, message: 'Không có thay đổi nào để lưu.', severity: 'info' });
+      // Chuẩn hóa dữ liệu trước khi gửi
+      const formattedValues = [];
+      for (const [indicatorId, value] of Object.entries(updatedValues)) {
+        const indicator = indicatorMap.get(String(indicatorId));
+        if (!indicator) continue; // bỏ qua nếu không tồn tại
+
+        // Bỏ qua giá trị rỗng
+        const isEmpty =
+          value == null ||
+          (Array.isArray(value) && value.length === 0) ||
+          (typeof value === 'object' && Object.keys(value).length === 0) ||
+          (typeof value === 'string' && !value.trim());
+
+        if (isEmpty) continue;
+
+        formattedValues.push({
+          vitalIndicatorId: Number(indicator.id),
+          value: { value },
+          note: "", // có thể thêm note nếu form có
+        });
       }
+
+      if (formattedValues.length === 0) {
+        setNotification({
+          open: true,
+          message: 'Không có thay đổi nào để lưu.',
+          severity: 'info',
+        });
+        setIsActionLoadingId(null);
+        setIsVitalsModalOpen(false);
+        return;
+      }
+
+      // Gửi API update
+      await updateVitalMedicalRecordeById(medicalRecordId, {
+        vitalValues: formattedValues,
+      });
+
+      setNotification({
+        open: true,
+        message: 'Cập nhật bệnh án thành công!',
+        severity: 'success',
+      });
+      refetch();
     } catch (err) {
       console.error('Lỗi khi cập nhật chỉ số:', err);
-      setNotification({ open: true, message: 'Cập nhật thất bại.', severity: 'error' });
+      setNotification({
+        open: true,
+        message: 'Cập nhật thất bại. Vui lòng thử lại.',
+        severity: 'error',
+      });
     } finally {
       setIsActionLoadingId(null);
       setIsVitalsModalOpen(false);

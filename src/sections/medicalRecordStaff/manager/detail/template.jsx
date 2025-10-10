@@ -390,7 +390,6 @@ function GenericCustomRenderer({ indicator, value, onChange }) {
           setKV(gKey, imgKey, previews);
         }
 
-
         return (
           <Stack key={imgKey} spacing={1} sx={{ mt: 1, pl: 3 }}>
             <Typography variant="body2" sx={{ fontStyle: 'italic' }}>

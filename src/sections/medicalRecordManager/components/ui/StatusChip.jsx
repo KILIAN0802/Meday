@@ -11,7 +11,7 @@ export function StatusChip({ status }) {
     COMPLETED: { color: 'success', text: 'HOÀN THÀNH' },
   };
 
-  const { color, text } = statusMap[status] || { color: 'default', text: 'KHÔNG RÕ' };
+  const { color, text } = statusMap[status] || { color: 'default', text: 'Chưa có trạng thái' };
 
   return <Chip label={text} color={color} size="small" sx={{ fontWeight: 'bold' }} />;
 }
