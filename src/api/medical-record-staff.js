@@ -40,12 +40,15 @@ export async function getMedicalRecordeById(id) {
   }
 }
 
-export async function updateMedicalRecordeById(id) {
+export async function updateMedicalRecordById(id, data) {
   try {
-    const response = await axiosInstance.patch(endpoints.medical_record_staff.UpdateID(id));
+    const response = await axiosInstance.patch(
+      endpoints.medical_record_staff.UpdateID(id),
+      data // 👈 gửi body JSON tại đây
+    );
     return response.data;
   } catch (error) {
-    console.error(`Lỗi khi lấy mẫu hồ sơ bệnh án với ID ${id}:`, error);
+    console.error(`Lỗi khi cập nhật bệnh án với ID ${id}:`, error);
     throw error;
   }
 }

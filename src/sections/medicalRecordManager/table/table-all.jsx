@@ -18,8 +18,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { getMedicalRecord } from 'src/api/medical-record-staff';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
-import { getVitalValuesMedicalRecord } from 'src/api/medical-record-staff';
-
+import { getVitalValuesMedicalRecord, updateMedicalRecordById } from 'src/api/medical-record-staff';
 import { createAppointment, check_Availability, updateAppointmentStatusID } from 'src/api/appointments-staff';
 import { getStaffProfile } from 'src/api/auth/owner';
 
@@ -68,7 +67,8 @@ function RenderAnswerGroup({ data, level = 0 }) {
   const renderNode = (key, value) => {
     if (value == null || value === '') return null;
 
-    if (typeof value === 'string' && value.startsWith('http')) {
+    // ảnh URL
+    if (typeof value === 'string' && /^https?:\/\//.test(value)) {
       return (
         <Card key={key} sx={{ width: 100, height: 100, borderRadius: 1 }}>
           <CardMedia
@@ -80,7 +80,7 @@ function RenderAnswerGroup({ data, level = 0 }) {
         </Card>
       );
     }
-
+    // mảng
     if (Array.isArray(value)) {
       return value.map((item, i) => (
         <Box key={`${key}-${i}`} sx={{ pl: level * 2 }}>
@@ -88,7 +88,7 @@ function RenderAnswerGroup({ data, level = 0 }) {
         </Box>
       ));
     }
-
+    // object
     if (typeof value === 'object') {
       return (
         <Box key={key} sx={{ pl: level * 2, mt: 1 }}>
@@ -97,7 +97,7 @@ function RenderAnswerGroup({ data, level = 0 }) {
         </Box>
       );
     }
-
+    // primitive
     return (
       <Typography key={key} variant="body2" sx={{ ml: 1 }}>
         {key}: {String(value)}
@@ -118,11 +118,10 @@ function RenderAnswerGroup({ data, level = 0 }) {
 export function AllMedicalRecords() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage]   = useState(1);
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(false);
 
-  // profile bác sĩ
   const [doctor, setDoctor] = useState(null);
 
   // dialog bệnh án
@@ -140,7 +139,7 @@ export function AllMedicalRecords() {
   // menu chức năng
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [menuRow, setMenuRow] = useState(null);
-
+  const [selectedRecordId, setSelectedRecordId] = useState(null);
   // modal tạo lịch hẹn
   const [createOpen, setCreateOpen] = useState(false);
   const [createPayload, setCreatePayload] = useState({
@@ -156,15 +155,23 @@ export function AllMedicalRecords() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  /* ===================== FETCH TABLE (page + limit) ===================== */
   const fetchTable = async (pg = page, lim = limit) => {
     setLoading(true);
     try {
-      const res = await getMedicalRecord({ page: pg, limit: lim });
-      const data = res?.data || [];
+      // API theo format: { data: [...], total, page, limit }
+      const res  = await getMedicalRecord({ page: pg, limit: lim });
+      const data = res?.data || [];           // <-- mảng records
+      const ttl  = res?.total ?? data.length; // tổng
+      const p    = res?.page  ?? pg;
+      const l    = res?.limit ?? lim;
+
       setRows(data);
-      setTotal(res?.data?.total || 0);
-      setPage(res?.data?.page || pg);
-      setLimit(res?.data?.limit || lim);
+      setTotal(ttl);
+      setPage(p);
+      setLimit(l);
+    } catch (e) {
+      console.error('Fetch error:', e);
     } finally {
       setLoading(false);
     }
@@ -178,10 +185,19 @@ export function AllMedicalRecords() {
         setDoctor(prof?.data || null);
       } catch {}
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePageChange = (_e, newPage) => fetchTable(newPage, limit);
+  const handlePageChange = (_e, newPage) => {
+    fetchTable(newPage, limit);
+  };
 
+  const handleLimitChange = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    fetchTable(1, newLimit); // đổi limit → quay về trang 1
+  };
+
+  /* ===================== DIALOG & MENU ===================== */
   const openPatientDialog = (p) => {
     setSelectedPatient(p);
     setPatientDialogOpen(true);
@@ -221,7 +237,6 @@ export function AllMedicalRecords() {
     }
   };
 
-  /* ===== Menu Chức năng ===== */
   const openMenu = (e, row) => {
     setMenuAnchorEl(e.currentTarget);
     setMenuRow(row);
@@ -230,7 +245,6 @@ export function AllMedicalRecords() {
     setMenuAnchorEl(null);
     setMenuRow(null);
   };
-
   const refreshAfterAction = async () => {
     closeMenu();
     await fetchTable(page, limit);
@@ -280,6 +294,7 @@ export function AllMedicalRecords() {
 
   /* ===== Modal Thêm lịch hẹn ===== */
   const openCreateModal = (row) => {
+    setSelectedRecordId(row.id);
     setCreatePayload({
       patientId: row.patientId,
       doctorId: doctor?.id || '',
@@ -296,42 +311,101 @@ export function AllMedicalRecords() {
   };
   const closeCreateModal = () => setCreateOpen(false);
 
-  const submitCreateAppointment = async () => {
-    try {
-      if (!createPayload.doctorId || !createPayload.patientId) {
-        alert('Thiếu thông tin bác sĩ hoặc bệnh nhân');
-        return;
-      }
-      setSubmitting(true);
-      const iso = new Date(createPayload.appointmentDate).toISOString();
-
-      // Check availability
-      const avail = await check_Availability({
-        doctorId: createPayload.doctorId,
-        appointmentDate: iso,
-      });
-      const available = avail?.data?.available ?? avail?.data ?? false;
-      if (!available) {
-        alert('Bác sĩ đã có lịch vào thời điểm này!');
-        return;
-      }
-
-      // Create appointment
-      const payload = {
-        ...createPayload,
-        appointmentDate: iso,
-      };
-      await createAppointment(payload);
-      alert('Tạo lịch hẹn thành công!');
-      setCreateOpen(false);
-      await fetchTable(page, limit);
-    } catch (e) {
-      console.error(e);
-      alert('Tạo lịch hẹn thất bại');
-    } finally {
-      setSubmitting(false);
+const submitCreateAppointment = async () => {
+  try {
+    if (!createPayload.doctorId || !createPayload.patientId) {
+      alert('Thiếu thông tin bác sĩ hoặc bệnh nhân');
+      return;
     }
-  };
+
+    setSubmitting(true);
+
+    const dateValue = createPayload.appointmentDate
+      ? new Date(createPayload.appointmentDate)
+      : null;
+
+    if (!dateValue || isNaN(dateValue.getTime())) {
+      alert('Vui lòng chọn thời gian hẹn hợp lệ!');
+      setSubmitting(false);
+      return;
+    }
+
+    let iso;
+    if (
+      createPayload.appointmentDate instanceof Date &&
+      !isNaN(createPayload.appointmentDate.getTime())
+    ) {
+      iso = createPayload.appointmentDate.toISOString();
+    } else if (
+      typeof createPayload.appointmentDate === 'string' &&
+      createPayload.appointmentDate.includes('T')
+    ) {
+      iso = new Date(createPayload.appointmentDate).toISOString();
+    } else {
+      alert('Vui lòng chọn thời gian hẹn hợp lệ (ví dụ: 2024-01-15T10:30:00.000Z)');
+      setSubmitting(false);
+      return;
+    }
+
+    // ===== Check availability =====
+    const avail = await check_Availability({
+      doctorId: createPayload.doctorId,
+      appointmentDate: iso,
+    });
+
+    const available = avail?.available ?? avail?.data ?? false;
+    if (!available) {
+      alert('Bác sĩ đã có lịch vào thời điểm này!');
+      setSubmitting(false);
+      return;
+    }
+
+    // ===== Create appointment =====
+    console.log('Creating appointment with payload:', {
+      ...createPayload,
+      appointmentDate: iso,
+    });
+
+    const res = await createAppointment({
+      ...createPayload,
+      appointmentDate: iso,
+    });
+
+    const createdAppointment = res?.data || res;
+    const appointmentId = createdAppointment?.id;
+    console.log('appointmentId:', selectedRecordId);
+    if (!appointmentId) {
+      alert('Không lấy được ID của lịch hẹn mới tạo!');
+      setSubmitting(false);
+      return;
+    }
+
+    // ===== Update medical record with appointmentId =====
+    if (selectedRecordId) {
+      try {
+        await updateMedicalRecordById(selectedRecordId, {
+          appointmentId: appointmentId,
+        });
+        console.log(
+          `Đã cập nhật bệnh án #${selectedRecordId} với appointmentId = ${appointmentId}`
+        );
+      } catch (err) {
+        console.error('Lỗi khi cập nhật bệnh án:', err);
+        alert('Tạo lịch hẹn thành công nhưng chưa gắn được vào bệnh án!');
+      }
+    }
+
+    // ===== Done =====
+    alert('Tạo lịch hẹn và cập nhật bệnh án thành công!');
+    setCreateOpen(false);
+    await fetchTable(page, limit);
+  } catch (e) {
+    console.error(e);
+    alert('Tạo lịch hẹn thất bại');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -355,30 +429,20 @@ export function AllMedicalRecords() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center"><CircularProgress size={22} /></TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={7} align="center"><CircularProgress size={22} /></TableCell></TableRow>
               ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">Không có dữ liệu</TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={7} align="center">Không có dữ liệu</TableCell></TableRow>
               ) : (
                 rows.map((row) => {
                   const p = row.patient || {};
                   const t = row.template || {};
                   const a = row.appointment;
 
-                  const hasAppointment = !!a;
-                  const quickLabel =
-                    a?.status === 'PENDING' ? 'Tiếp nhận (→ Đang xử lý)' :
-                    a?.status === 'CONFIRMED' ? 'Xác nhận hoàn thành (→ Hoàn tất)' :
-                    null;
-
                   return (
                     <TableRow key={row.id} hover>
                       <TableCell>{row.id}</TableCell>
                       <TableCell>
-                        <Button variant="text" sx={{ color: 'green', fontWeight: 'bold' }} onClick={() => setSelectedPatient(p) || setPatientDialogOpen(true)}>
+                        <Button variant="text" sx={{ color: 'green', fontWeight: 'bold' }} onClick={() => openPatientDialog(p)}>
                           {p.fullname || '—'}
                         </Button>
                       </TableCell>
@@ -401,7 +465,20 @@ export function AllMedicalRecords() {
               )}
             </TableBody>
           </Table>
-          <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+
+          {/* Pagination + Limit */}
+          <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">Hiển thị:</Typography>
+              <FormControl size="small" sx={{ minWidth: 80 }}>
+                <Select value={limit} onChange={handleLimitChange}>
+                  {[5, 10, 15, 20].map((num) => (
+                    <MenuItem key={num} value={num}>{num}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography variant="body2">/ trang</Typography>
+            </Stack>
             <Pagination
               count={Math.max(1, Math.ceil(total / (limit || 10)))}
               page={page}
@@ -474,9 +551,7 @@ export function AllMedicalRecords() {
             ) : (
               <Box>
                 {loadingVitals ? (
-                  <Box sx={{ py: 3, textAlign: 'center' }}>
-                    <CircularProgress size={22} />
-                  </Box>
+                  <Box sx={{ py: 3, textAlign: 'center' }}><CircularProgress size={22} /></Box>
                 ) : vitalGroups.length === 0 ? (
                   <Typography>Không có nhóm chỉ số.</Typography>
                 ) : (
@@ -545,7 +620,6 @@ export function AllMedicalRecords() {
                 InputProps={{ readOnly: true }}
                 helperText={doctor ? `ID: ${doctor.id}` : 'Không lấy được thông tin bác sĩ'}
               />
-
               <TextField label="Họ tên bệnh nhân" value={createPayload.fullName} onChange={(e) => setCreatePayload((p) => ({ ...p, fullName: e.target.value }))} />
               <TextField label="Số điện thoại" value={createPayload.phone} onChange={(e) => setCreatePayload((p) => ({ ...p, phone: e.target.value }))} />
               <TextField label="Lý do khám" value={createPayload.reason} onChange={(e) => setCreatePayload((p) => ({ ...p, reason: e.target.value }))} />
@@ -567,7 +641,6 @@ export function AllMedicalRecords() {
                 </Select>
               </FormControl>
               <TextField label="Ghi chú" value={createPayload.notes} onChange={(e) => setCreatePayload((p) => ({ ...p, notes: e.target.value }))} multiline rows={2} />
-
               <Typography variant="subtitle2" sx={{ mt: 1 }}>Thông tin bổ sung</Typography>
               <TextField
                 label="Người liên hệ khẩn cấp"
