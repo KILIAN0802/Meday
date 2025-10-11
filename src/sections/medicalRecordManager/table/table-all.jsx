@@ -62,38 +62,107 @@ const toDisplayText = (val) => {
 };
 
 function RenderAnswerGroup({ data, level = 0 }) {
-  if (!data || typeof data !== 'object') return null;
+  const [previewImg, setPreviewImg] = useState(null);
+  const indent = level * 1.5;
 
-  const renderNode = (key, value) => {
-    if (value == null || value === '') return null;
-    if (typeof value === 'string' && /^https?:\/\//.test(value)) {
-      return (
-        <Card key={key} sx={{ width: 100, height: 100, borderRadius: 1 }}>
-          <CardMedia component="img" image={value} alt={key}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 1, border: '1px solid #ccc' }} />
-        </Card>
-      );
-    }
-    if (Array.isArray(value)) {
-      return value.map((item, i) => (
-        <Box key={`${key}-${i}`} sx={{ pl: level * 2 }}>{renderNode(`${key}-${i}`, item)}</Box>
-      ));
-    }
-    if (typeof value === 'object') {
-      return (
-        <Box key={key} sx={{ pl: level * 2, mt: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>{key}</Typography>
-          <RenderAnswerGroup data={value} level={level + 1} />
-        </Box>
-      );
-    }
-    return <Typography key={key} variant="body2" sx={{ ml: 1 }}>{key}: {String(value)}</Typography>;
+  const isImageUrl = (val) => {
+    if (typeof val !== 'string') return false;
+    const lower = val.toLowerCase();
+    return (
+      lower.startsWith('http') &&
+      (lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.bmp') ||
+        lower.includes('data:image/'))
+    );
   };
 
+  // Nếu là primitive
+  if (typeof data !== 'object') {
+    if (isImageUrl(data)) {
+      return (
+        <>
+          <Box
+            sx={{
+              ml: indent,
+              my: 1,
+              cursor: 'pointer',
+              display: 'inline-block',
+              '&:hover': { opacity: 0.85, transform: 'scale(1.03)' },
+              transition: '0.2s',
+            }}
+            onClick={() => setPreviewImg(data)}
+          >
+            <img
+              src={data}
+              alt="medical-img"
+              style={{
+                width: 120,
+                height: 120,
+                objectFit: 'cover',
+                borderRadius: 8,
+                border: '1px solid #ccc',
+              }}
+            />
+          </Box>
+
+          {/* Dialog xem ảnh lớn */}
+          <Dialog
+            open={!!previewImg}
+            onClose={() => setPreviewImg(null)}
+            maxWidth="lg"
+          >
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+              <img
+                src={previewImg}
+                alt="preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '80vh',
+                  borderRadius: 8,
+                  display: 'inline-block',
+                }}
+              />
+            </Box>
+          </Dialog>
+        </>
+      );
+    }
+
+    return (
+      <Typography variant="body2" sx={{ ml: indent, whiteSpace: 'pre-wrap' }}>
+        {String(data)}
+      </Typography>
+    );
+  }
+
+  // Nếu là mảng
+  if (Array.isArray(data)) {
+    return (
+      <Stack sx={{ ml: indent }} spacing={0.5}>
+        {data.map((item, idx) => (
+          <RenderAnswerGroup key={idx} data={item} level={level + 1} />
+        ))}
+      </Stack>
+    );
+  }
+
+  // Nếu là object
+  const keys = Object.keys(data).filter((k) => data[k] != null);
+  if (keys.length === 0) return null;
+
   return (
-    <Stack spacing={1}>
-      {Object.entries(data).map(([key, value]) => (
-        <Box key={key}>{renderNode(key, value)}</Box>
+    <Stack sx={{ ml: indent }} spacing={0.5}>
+      {keys.map((k) => (
+        <Box key={k}>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {k}:
+          </Typography>
+          <RenderAnswerGroup data={data[k]} level={level + 1} />
+        </Box>
       ))}
     </Stack>
   );
@@ -264,23 +333,6 @@ export function AllMedicalRecords() {
     finally { await refreshAfterAction(); }
   };
 
-  const onQuickAction = async () => {
-    try {
-      const ap = menuRow?.appointment; if (!ap) return;
-      if (ap.status === 'PENDING') await updateAppointmentStatusID(ap.id, { status: 'CONFIRMED' });
-      else if (ap.status === 'CONFIRMED') await updateAppointmentStatusID(ap.id, { status: 'COMPLETED' });
-    } catch (e) { console.error(e); alert('Thao tác nhanh thất bại'); }
-    finally { await refreshAfterAction(); }
-  };
-
-  const onCancelQuick = async () => {
-    try {
-      const ap = menuRow?.appointment; if (!ap) return;
-      await updateAppointmentStatusID(ap.id, { status: 'CANCELLED' });
-    } catch (e) { console.error(e); alert('Hủy nhanh thất bại'); }
-    finally { await refreshAfterAction(); }
-  };
-
   const openCreateModal = (row) => {
     setSelectedRecordId(row.id);
     setCreatePayload({
@@ -396,21 +448,24 @@ export function AllMedicalRecords() {
 
         {/* Menu chức năng */}
         <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={closeMenu}>
-          {!menuRow?.appointment ? (
-            <MenuItem onClick={() => openCreateModal(menuRow)}>Thêm lịch hẹn</MenuItem>
-          ) : (
-            <>
-              <MenuItem disabled>Chuyển trạng thái</MenuItem>
-              {ALL_STATUSES.map((st) => <MenuItem key={st} onClick={() => onChangeStatus(st)}>{STATUS_LABEL[st]}</MenuItem>)}
-              <Divider />
-              {menuRow?.appointment?.status === 'PENDING' && <MenuItem onClick={onQuickAction}>Tiếp nhận (→ Đang xử lý)</MenuItem>}
-              {menuRow?.appointment?.status === 'CONFIRMED' && <MenuItem onClick={onQuickAction}>Xác nhận hoàn thành (→ Hoàn tất)</MenuItem>}
-              {menuRow?.appointment?.status !== 'CANCELLED' && <MenuItem onClick={onCancelQuick}>Hủy nhanh</MenuItem>}
-            </>
-          )}
+          {!menuRow?.appointment
+            ? [
+                <MenuItem key="add" onClick={() => openCreateModal(menuRow)}>
+                  Thêm lịch hẹn
+                </MenuItem>,
+              ]
+            : [
+                <MenuItem key="label" disabled>
+                  Chuyển trạng thái
+                </MenuItem>,
+                ...ALL_STATUSES.map((st) => (
+                  <MenuItem key={st} onClick={() => onChangeStatus(st)}>
+                    {STATUS_LABEL[st]}
+                  </MenuItem>
+                )),
+              ]}
         </Menu>
 
-        {/* Dialogs giữ nguyên như bản gốc */}
         {/* Dialog bệnh nhân */}
         <Dialog open={patientDialogOpen} onClose={() => setPatientDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Thông tin bệnh nhân</DialogTitle>
@@ -439,6 +494,11 @@ export function AllMedicalRecords() {
                 {selectedRecord.diagnosis && <Row label="Chẩn đoán" value={selectedRecord.diagnosis} />}
                 {selectedRecord.symptoms && <Row label="Triệu chứng" value={selectedRecord.symptoms} />}
                 {selectedRecord.notes && <Row label="Ghi chú" value={selectedRecord.notes} />}
+                {selectedRecord.createdAt && (
+                  <Row
+                    label="Ngày tạo"
+                    value={new Date(selectedRecord.createdAt).toLocaleString('vi-VN')}
+                  />)}
               </Stack>
             ) : (
               <Box>

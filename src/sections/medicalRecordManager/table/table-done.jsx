@@ -5,7 +5,7 @@ import debounce from 'lodash.debounce';
 import {
   Box, Paper, Table, TableHead, TableBody, TableRow, TableCell,
   Typography, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, Divider, CircularProgress, Pagination, Card, CardMedia,
+  Button, Stack, Divider, CircularProgress, Pagination,
   IconButton, Menu, MenuItem, TextField, FormControl, Select, InputAdornment
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -59,6 +59,108 @@ const toDisplayText = (val) => {
   return String(v);
 };
 
+/* ===================== NEW: Render đệ quy dữ liệu phức tạp ===================== */
+function RenderAnswerGroup({ data, level = 0 }) {
+  const [previewImg, setPreviewImg] = useState(null);
+  const indent = level * 1.5;
+
+  const isImageUrl = (val) => {
+    if (typeof val !== 'string') return false;
+    const lower = val.toLowerCase();
+    return (
+      lower.startsWith('http') &&
+      (lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.bmp') ||
+        lower.includes('data:image/'))
+    );
+  };
+
+  // Nếu là primitive
+  if (typeof data !== 'object') {
+    if (isImageUrl(data)) {
+      return (
+        <>
+          <Box
+            sx={{
+              ml: indent,
+              my: 1,
+              cursor: 'pointer',
+              display: 'inline-block',
+            }}
+            onClick={() => setPreviewImg(data)}
+          >
+            <img
+              src={data}
+              alt="medical-img"
+              style={{
+                width: 120,
+                height: 120,
+                objectFit: 'cover',
+                borderRadius: 8,
+                border: '1px solid #ccc',
+              }}
+            />
+          </Box>
+
+          {/* Dialog xem ảnh lớn */}
+          <Dialog open={!!previewImg} onClose={() => setPreviewImg(null)} maxWidth="lg">
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+              <img
+                src={previewImg}
+                alt="preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '80vh',
+                  borderRadius: 8,
+                  display: 'inline-block',
+                }}
+              />
+            </Box>
+          </Dialog>
+        </>
+      );
+    }
+
+    return (
+      <Typography variant="body2" sx={{ ml: indent, whiteSpace: 'pre-wrap' }}>
+        {String(data)}
+      </Typography>
+    );
+  }
+
+  // Nếu là mảng
+  if (Array.isArray(data)) {
+    return (
+      <Stack sx={{ ml: indent }} spacing={0.5}>
+        {data.map((item, idx) => (
+          <RenderAnswerGroup key={idx} data={item} level={level + 1} />
+        ))}
+      </Stack>
+    );
+  }
+
+  // Nếu là object
+  const keys = Object.keys(data).filter((k) => data[k] != null);
+  if (keys.length === 0) return null;
+
+  return (
+    <Stack sx={{ ml: indent }} spacing={0.5}>
+      {keys.map((k) => (
+        <Box key={k}>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {k}:
+          </Typography>
+          <RenderAnswerGroup data={data[k]} level={level + 1} />
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
 /* ===================== Component ===================== */
 export function CompletedMedicalRecords() {
   const [rows, setRows] = useState([]);
@@ -97,6 +199,7 @@ export function CompletedMedicalRecords() {
   const fetchOnce = async (paramsObj = {}) => {
     const res = await getMedicalRecord({ page: 1, limit: 1000, ...paramsObj });
     const data = res?.data || [];
+    // 🔹 Lọc chỉ lấy COMPLETED
     return data.filter((it) => it?.appointment?.status?.toUpperCase() === 'COMPLETED');
   };
 
@@ -104,7 +207,7 @@ export function CompletedMedicalRecords() {
     const thisReq = ++reqIdRef.current;
     const q = (query || '').trim();
 
-    // Nếu không có gì trong ô tìm kiếm → load tất cả COMPLETED
+    setLoading(true);
     if (!q) {
       try {
         const list = await fetchOnce({});
@@ -113,9 +216,10 @@ export function CompletedMedicalRecords() {
         applyPaginate(list, pg, lim);
       } catch (e) {
         console.error('Lỗi tải dữ liệu:', e);
-        // ✅ Nếu BE lỗi, clear bảng
         setAllFiltered([]);
         applyPaginate([], pg, lim);
+      } finally {
+        setLoading(false);
       }
       return;
     }
@@ -135,22 +239,19 @@ export function CompletedMedicalRecords() {
           break;
         }
       }
-
-      // ✅ Nếu tất cả đều rỗng → reset bảng ngay
       if (!found || found.length === 0) {
-        console.warn('Không tìm thấy dữ liệu, clear bảng');
         setAllFiltered([]);
         applyPaginate([], pg, lim);
         return;
       }
-
       setAllFiltered(found);
       applyPaginate(found, pg, lim);
     } catch (e) {
       console.error('Lỗi khi tìm kiếm:', e);
-      // ✅ Nếu lỗi (401, 500, v.v.) → reset bảng
       setAllFiltered([]);
       applyPaginate([], pg, lim);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -200,12 +301,13 @@ export function CompletedMedicalRecords() {
     try {
       const tpl = await getMedicalRecordTemplateById(selectedRecord.templateId);
       const vitalGroupIds = tpl?.data?.vitalGroupIds || [];
-      const groups = [];
-      for (const gid of vitalGroupIds) {
-        const gr = await getVitalGroupById(gid);
-        if (gr?.data) groups.push(gr.data);
-      }
-      setVitalGroups(groups);
+      const groups = await Promise.all(
+        vitalGroupIds.map(async (gid) => {
+          const gr = await getVitalGroupById(gid);
+          return gr?.data;
+        })
+      );
+      setVitalGroups(groups.filter(Boolean));
 
       const saved = await getVitalValuesMedicalRecord(selectedRecord.id);
       const arr = saved?.data || [];
@@ -242,36 +344,6 @@ export function CompletedMedicalRecords() {
     }
   };
 
-  const onQuickAction = async () => {
-    try {
-      const ap = menuRow?.appointment;
-      if (!ap) return;
-      if (ap.status === 'PENDING') {
-        await updateAppointmentStatusID(ap.id, { status: 'CONFIRMED' });
-      } else if (ap.status === 'CONFIRMED') {
-        await updateAppointmentStatusID(ap.id, { status: 'COMPLETED' });
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Thao tác nhanh thất bại');
-    } finally {
-      await refreshAfterAction();
-    }
-  };
-
-  const onCancelQuick = async () => {
-    try {
-      const ap = menuRow?.appointment;
-      if (!ap) return;
-      await updateAppointmentStatusID(ap.id, { status: 'CANCELLED' });
-    } catch (e) {
-      console.error(e);
-      alert('Hủy nhanh thất bại');
-    } finally {
-      await refreshAfterAction();
-    }
-  };
-
   /* ===================== useEffect ===================== */
   useEffect(() => {
     searchSequential('', 1, limit);
@@ -290,7 +362,7 @@ export function CompletedMedicalRecords() {
         {/* Header + Search */}
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-            Danh sách bệnh án đã xử lý
+            Danh sách bệnh án đang xử lý
           </Typography>
           <TextField
             size="small"
@@ -347,21 +419,13 @@ export function CompletedMedicalRecords() {
                     <TableRow key={row.id} hover>
                       <TableCell>{row.id}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="text"
-                          sx={{ color: 'green', fontWeight: 'bold' }}
-                          onClick={() => openPatientDialog(p)}
-                        >
+                        <Button variant="text" sx={{ color: 'green', fontWeight: 'bold' }} onClick={() => openPatientDialog(p)}>
                           {p.fullname || '—'}
                         </Button>
                       </TableCell>
                       <TableCell>{p.phone || '—'}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="text"
-                          sx={{ color: 'green', fontWeight: 'bold' }}
-                          onClick={() => openRecordDialog(row)}
-                        >
+                        <Button variant="text" sx={{ color: 'green', fontWeight: 'bold' }} onClick={() => openRecordDialog(row)}>
                           {t.name || '—'}
                         </Button>
                       </TableCell>
@@ -410,16 +474,6 @@ export function CompletedMedicalRecords() {
               {STATUS_LABEL[st] || st}
             </MenuItem>
           ))}
-          <Divider />
-          {menuRow?.appointment?.status === 'PENDING' && (
-            <MenuItem onClick={onQuickAction}>Tiếp nhận (→ Đang xử lý)</MenuItem>
-          )}
-          {menuRow?.appointment?.status === 'CONFIRMED' && (
-            <MenuItem onClick={onQuickAction}>Xác nhận hoàn thành (→ Hoàn tất)</MenuItem>
-          )}
-          {menuRow?.appointment?.status !== 'CANCELLED' && (
-            <MenuItem onClick={onCancelQuick}>Hủy nhanh</MenuItem>
-          )}
         </Menu>
 
         {/* Dialog bệnh nhân */}
@@ -454,11 +508,18 @@ export function CompletedMedicalRecords() {
                 {selectedRecord.diagnosis && <Row label="Chẩn đoán" value={selectedRecord.diagnosis} />}
                 {selectedRecord.symptoms && <Row label="Triệu chứng" value={selectedRecord.symptoms} />}
                 {selectedRecord.notes && <Row label="Ghi chú" value={selectedRecord.notes} />}
+                {selectedRecord.createdAt && (
+                  <Row
+                    label="Ngày tạo"
+                    value={new Date(selectedRecord.createdAt).toLocaleString('vi-VN')}
+                  />)}
               </Stack>
             ) : (
               <Box>
                 {loadingVitals ? (
-                  <Box sx={{ py: 3, textAlign: 'center' }}><CircularProgress size={22} /></Box>
+                  <Box sx={{ py: 3, textAlign: 'center' }}>
+                    <CircularProgress size={22} />
+                  </Box>
                 ) : vitalGroups.length === 0 ? (
                   <Typography>Không có nhóm chỉ số.</Typography>
                 ) : (
@@ -500,7 +561,11 @@ export function CompletedMedicalRecords() {
             )}
           </DialogContent>
           <DialogActions sx={{ justifyContent: 'space-between' }}>
-            <Button startIcon={<ArrowBackIcon />} onClick={() => setRecordStep(1)} disabled={recordStep === 1}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => setRecordStep(1)}
+              disabled={recordStep === 1}
+            >
               Quay lại
             </Button>
             {recordStep === 1 ? (
@@ -523,8 +588,12 @@ export function CompletedMedicalRecords() {
 function Row({ label, value }) {
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ mb: 0.25 }}>{label}</Typography>
-      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{value ?? '—'}</Typography>
+      <Typography variant="subtitle2" sx={{ mb: 0.25 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        {value ?? '—'}
+      </Typography>
     </Box>
   );
 }
