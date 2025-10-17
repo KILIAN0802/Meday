@@ -924,7 +924,23 @@ export function RecordDetailView() {
     }
     return innerOfNormalIndicator(stored);
   };
+  // Kiểm tra xem step có được hoàn thành không
+  const isStepComplete = (stepIdx) => {
+    if (stepIdx === steps.length - 1) {
+      // Step cuối là "Thông tin bệnh án"
+      const { patientId, diagnosis, symptoms } = formData.initialInfo;
+      return !!patientId && !!diagnosis?.trim() && !!symptoms?.trim();
+    }
 
+    const group = filteredVitalGroups[stepIdx];
+    if (!group) return false;
+
+    return group.indicators.every((indicator) => {
+      const val = formData.vitalValues[indicator.id];
+      const inner = val?.value;
+      return inner !== undefined && inner !== null && inner !== '' && !(Array.isArray(inner) && inner.length === 0);
+    });
+  };
   const renderStepContent = (stepIdx) => {
     if (stepIdx === steps.length - 1) {
       return (
@@ -1003,7 +1019,19 @@ export function RecordDetailView() {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    const incompleteSteps = steps
+    .slice(0, -1) // bỏ qua step "Thông tin bệnh án"
+    .filter((_, idx) => !isStepComplete(idx));
 
+    if (incompleteSteps.length > 0) {
+      const confirmProceed = window.confirm(
+        'Còn câu hỏi chưa trả lời. Bạn muốn trả lời hết chứ?\n\nẤn "OK" để tiếp tục lưu hoặc "Cancel" để quay lại.'
+      );
+      if (!confirmProceed) {
+        setIsSubmitting(false);
+        return;
+      }
+    }
     if (!validateInitialInfo()) {
       setError('Vui lòng nhập đầy đủ Mã bệnh nhân, Chẩn đoán và Triệu chứng.');
       setIsSubmitting(false);
@@ -1078,8 +1106,25 @@ export function RecordDetailView() {
       alert('Tạo và cập nhật bệnh án thành công!');
       router.push(`${paths.dashboard.medicalRecordStaff.create}`);
     } catch (err) {
-      setError(err.message || 'Đã có lỗi xảy ra khi lưu bệnh án.');
-    } finally {
+    console.error('Error khi tạo bệnh án:', err);
+
+    let msg = 'Đã có lỗi xảy ra khi lưu bệnh án.';
+
+    const backendMsg = err?.response?.data?.message || err?.message || '';
+
+    if (
+      typeof backendMsg === 'string' &&
+      (backendMsg.includes('violates foreign key constraint') ||
+      backendMsg.includes('FK_43e2800e756c913a6c7a07cc271'))
+    ) {
+      msg = 'Mã bệnh nhân không tồn tại trong hệ thống. Vui lòng kiểm tra lại.';
+    } else if (backendMsg.includes('500')) {
+      msg = 'Máy chủ gặp lỗi. Vui lòng thử lại sau.';
+    }
+
+    setError(msg);
+  }
+ finally {
       setIsSubmitting(false);
       setUploadProgressMap({});
     }
@@ -1112,14 +1157,22 @@ export function RecordDetailView() {
         </Paper>
       )}
 
-      <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-        {steps.map((label, i) => (
-          <Step key={`${label}-${i}`}>
-            <StepLabel onClick={() => setActiveStep(i)} sx={{ cursor: 'pointer' }}>{label}</StepLabel>
+    <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+      {steps.map((label, i) => {
+        const completed = isStepComplete(i);
+        return (
+          <Step key={`${label}-${i}`} completed={completed}>
+            <StepLabel
+              error={!completed && i !== activeStep}
+              onClick={() => setActiveStep(i)}
+              sx={{ cursor: 'pointer' }}
+            >
+              {label}
+            </StepLabel>
           </Step>
-        ))}
-      </Stepper>
-
+        );
+      })}
+    </Stepper>
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 8 }}>
         <Typography variant="h5" gutterBottom>{steps[activeStep]}</Typography>
         {error && <Alert severity="error" sx={{ mb: 3, mt: 2 }}>{error}</Alert>}
