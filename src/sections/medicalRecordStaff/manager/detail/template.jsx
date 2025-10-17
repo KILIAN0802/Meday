@@ -35,6 +35,10 @@ import { getVitalGroupById } from 'src/api/vitals';
 import { createMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
 import { getStaffProfile } from 'src/api/auth/owner';
 import { paths } from 'src/routes/paths';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 
 const EPISODE_CODES = new Set(['QUES4CTN', 'QUES4MT1']);
 const EPISODE_IDS = new Set([175, 64]);
@@ -650,7 +654,26 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
           case 'number':
             return <TextField fullWidth label="Câu trả lời" type="number" inputProps={{ step: 'any' }} value={value?.value ?? ''} onChange={handleNumberChange} />;
           case 'full_date':
-            return <TextField fullWidth label="Ngày (dd/mm/yyyy)" placeholder="dd/mm/yyyy" value={value?.value ?? ''} onChange={handleTextChange} inputProps={{ inputMode: 'numeric', pattern: '[0-9/]*' }} />;
+            return (
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Ngày sinh"
+                  format="DD/MM/YYYY"
+                  value={value?.value ? dayjs(value.value, 'DD/MM/YYYY') : null}
+                  onChange={(newVal) => {
+                    const formatted = newVal ? dayjs(newVal).format('DD/MM/YYYY') : '';
+                    onChange({ value: formatted, note: '' });
+                  }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: 'medium',
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            );
+
           case 'selection':
             return <ClearableSelect label="Chọn một đáp án" value={value?.value ?? ''} options={indicator.valueOptions || []} onChange={(v) => onChange({ value: v, note: '' })} />;
           case 'multi_selection':
