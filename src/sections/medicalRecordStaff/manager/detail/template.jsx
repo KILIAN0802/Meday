@@ -657,7 +657,6 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
             return (
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
-                  label="Ngày sinh"
                   format="DD/MM/YYYY"
                   value={value?.value ? dayjs(value.value, 'DD/MM/YYYY') : null}
                   onChange={(newVal) => {
