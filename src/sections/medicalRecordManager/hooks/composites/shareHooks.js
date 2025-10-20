@@ -44,8 +44,41 @@ export function useMedicalRecordManager() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchRecords({ page: 1, limit: 1000 }); }, []);
-  useEffect(() => { setFiltered(records); setRows(records.slice(0, limit)); }, [records]);
+  useEffect(() => {
+    const loadAllRecords = async () => {
+      let page = 1;
+      let hasMore = true;
+      const all = [];
+      const perPage = 100;
+
+      while (hasMore) {
+        const res = await fetchRecords({ page, limit: perPage });
+        if (!res?.length) break;
+        all.push(...res);
+        hasMore = res.length === perPage;
+        page++;
+      }
+
+      setFiltered(all);
+      setRows(all.slice(0, limit));
+    };
+
+    loadAllRecords();
+  }, [limit]);
+
+  useEffect(() => {
+    const normalized = records.map((r) => {
+      const p = r.patient || {};
+      let phone = p.phone ? String(p.phone) : '';
+
+      if (phone && !phone.startsWith('0')) phone = '0' + phone;
+
+      return { ...r, patient: { ...p, phone } };
+    });
+
+    setFiltered(normalized);
+    setRows(normalized.slice(0, limit));
+  }, [records, limit]);
 
   const applyPaginate = (list, pg, lim) => {
     const start = (pg - 1) * lim;

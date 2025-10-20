@@ -38,7 +38,7 @@ export function MedicalRecordTable({ rows, loading, page, limit, total, onPagina
                       {p.fullname || '—'}
                     </Button>
                   </TableCell>
-                  <TableCell>{p.phone || '—'}</TableCell>
+                  <TableCell >{p.phone || '—'}</TableCell>
                   <TableCell>
                     <Button variant="text" sx={{ color: 'green', fontWeight: 'bold' }} onClick={() => onOpenRecord(row)}>
                       {t.name || '—'}

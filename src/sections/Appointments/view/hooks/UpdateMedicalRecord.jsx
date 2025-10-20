@@ -8,14 +8,7 @@ import {
   Checkbox, FormGroup // THAY ĐỔI: Thêm Checkbox và FormGroup cho multiple choice
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff.js';
-import { getVitalValuesMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff.js';
-import {
-  Accordion, AccordionSummary, AccordionDetails
-} from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { RecordCreateButtons } from 'src/sections/medicalRecordStaff/create/Record-create-button.jsx';
-import axiosInstance from 'src/lib/axios.js';
+import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff.js';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import { useSnackbar } from 'notistack';
