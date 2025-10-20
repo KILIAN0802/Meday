@@ -1163,7 +1163,7 @@ export function RecordDetailView() {
         return (
           <Step key={`${label}-${i}`} completed={completed}>
             <StepLabel
-              error={!completed && i !== activeStep}
+              error={i < activeStep && !completed}
               onClick={() => setActiveStep(i)}
               sx={{ cursor: 'pointer' }}
             >
