@@ -1184,12 +1184,12 @@ export function RecordDetailView() {
           note: data?.note || ''
         });
       }
+      console.log('✅ formattedVitalValues:', formattedVitalValues);
       if (formattedVitalValues.length) {
         await updateVitalMedicalRecordeById(newId, { vitalValues: formattedVitalValues });
       }
 
       clearPendingStartsWith(PENDING_PREFIX);
-      localStorage.removeItem(DRAFT_KEY);
 
       alert('Tạo và cập nhật bệnh án thành công!');
       router.push(`${paths.dashboard.medicalRecordStaff.create}`);
