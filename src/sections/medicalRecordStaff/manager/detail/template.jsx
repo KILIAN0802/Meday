@@ -404,130 +404,214 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
 
                   if (field.type === 'multi_selection') {
                     const arr = Array.isArray(fVal) ? fVal : [];
-                    const baseOnlyQ4 = Q4_IDS.has(indicator.id) && (fKey.includes('4.') || indicator.id === 190 || indicator.id === 65);
 
+                    // --- Q5 logic riêng ---
+                    if (isQ5This) {
+                      const hasFood = arr.includes('Thức ăn');
+                      const hasDrug = arr.includes('Chống viêm, giảm đau');
+
+                      const toggle = (opt) => {
+                        const updated = arr.includes(opt)
+                          ? arr.filter((v) => v !== opt)
+                          : [...arr, opt];
+                        setKV(gKey, fKey, updated);
+                      };
+
+                      const labelsRendered = new Set();
+
+                      return (
+                        <Box key={keyId} sx={{ mb: 1 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                            {fKey || 'Chọn yếu tố làm nặng bệnh'}
+                          </Typography>
+
+                          <FormGroup>
+                            {['Stress', 'Thức ăn', 'Chống viêm, giảm đau'].map((opt) => (
+                              <FormControlLabel
+                                key={opt}
+                                control={
+                                  <Checkbox
+                                    size="small"
+                                    checked={arr.includes(opt)}
+                                    onChange={() => toggle(opt)}
+                                  />
+                                }
+                                label={opt}
+                              />
+                            ))}
+                          </FormGroup>
+
+                          {/* ✅ Nếu chọn “Thức ăn” → hiển thị text “Chi tiết thức ăn” */}
+                          {hasFood &&
+                            fields
+                              .filter(
+                                (fld) =>
+                                  fld.label &&
+                                  fld.label.toLowerCase().includes('chi tiết thức ăn') &&
+                                  !labelsRendered.has(fld.label)
+                              )
+                              .map((fld) => {
+                                labelsRendered.add(fld.label);
+                                return (
+                                  <TextField
+                                    key={fld.label}
+                                    size="small"
+                                    fullWidth
+                                    sx={{ mt: 1 }}
+                                    label={fld.label}
+                                    placeholder={fld.placeholder || 'Nhập chi tiết thức ăn'}
+                                    value={gVal[fld.label] || ''}
+                                    onChange={(e) => setKV(gKey, fld.label, e.target.value)}
+                                  />
+                                );
+                              })}
+
+                          {/* ✅ Nếu chọn “Chống viêm, giảm đau” → hiển thị text “Chi tiết thuốc” */}
+                          {hasDrug &&
+                            fields
+                              .filter(
+                                (fld) =>
+                                  fld.label &&
+                                  fld.label.toLowerCase().includes('chi tiết thuốc') &&
+                                  !labelsRendered.has(fld.label)
+                              )
+                              .map((fld) => {
+                                labelsRendered.add(fld.label);
+                                return (
+                                  <TextField
+                                    key={fld.label}
+                                    size="small"
+                                    fullWidth
+                                    sx={{ mt: 1 }}
+                                    label={fld.label}
+                                    placeholder={fld.placeholder || 'Nhập chi tiết thuốc'}
+                                    value={gVal[fld.label] || ''}
+                                    onChange={(e) => setKV(gKey, fld.label, e.target.value)}
+                                  />
+                                );
+                              })}
+                        </Box>
+                      );
+                    }
+
+                    // --- Logic chung cho các multi_selection khác (bao gồm Q6 upload ảnh) ---
                     const renderOptions = () => {
                       let list = options;
-                      if (baseOnlyQ4) {
+                      if (Q4_IDS.has(indicator.id) && (fKey.includes('4.') || indicator.id === 190 || indicator.id === 65)) {
                         const baseTwo = ['Một cách ngẫu nhiên', 'Khi có các yếu tố kích thích'];
                         const showExtra = arr.includes('Khi có các yếu tố kích thích');
                         list = showExtra ? options : options.filter((o) => baseTwo.includes(o));
                       }
-                      if (isQ5This) {
-                        list = ['Stress', 'Thức ăn', 'Chống viêm, giảm đau'];
-                      }
                       return list;
                     };
 
-                    const checkboxList = (
+                    return (
                       <Box key={keyId}>
                         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey || 'Chọn'}</Typography>
+
                         <FormGroup>
                           {renderOptions().map((opt, idx) => {
                             const checked = arr.includes(opt);
-                            const toggle = () => setKV(gKey, fKey, checked ? arr.filter((v) => v !== opt) : [...arr, opt]);
+                            const toggle = () => {
+                              const updated = checked
+                                ? arr.filter((v) => v !== opt)
+                                : [...arr, opt];
+                              setKV(gKey, fKey, updated);
+                            };
+
+                            // --- Xử lý upload ảnh theo requiredFields ---
+                            const reqField = Array.isArray(field.requiredFields)
+                              ? field.requiredFields.find((r) => r.type === 'image' && r.condition === 'hasSelection')
+                              : null;
+
+                            const pendingKey = `${indicator.id}::${gKey}::${fKey}::${opt}`;
+                            const previews = getPending(pendingKey);
+
+                            const handleFilesChange = (e) => {
+                              const selected = Array.from(e.target.files || []);
+                              if (!selected.length) return;
+                              const newPreviews = selected.map(makePreviewItem);
+                              const updated = [...previews, ...newPreviews];
+                              setPending(pendingKey, updated);
+                              setKV(gKey, `${fKey}__${opt}__images`, updated);
+                            };
+
+                            const handleRemoveFile = (i) => {
+                              const updated = previews.filter((_, j) => j !== i);
+                              setPending(pendingKey, updated);
+                              setKV(gKey, `${fKey}__${opt}__images`, updated);
+                            };
+
                             return (
                               <Box key={`${keyId}-${idx}`} sx={{ mb: 1 }}>
-                                <FormControlLabel control={<Checkbox size="small" checked={checked} onChange={toggle} />} label={opt} />
+                                <FormControlLabel
+                                  control={<Checkbox size="small" checked={checked} onChange={toggle} />}
+                                  label={opt}
+                                />
+
+                                {checked && reqField && (
+                                  <Stack spacing={1} sx={{ ml: 4, mt: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {reqField.description || 'Tải ảnh'}
+                                    </Typography>
+
+                                    <Button
+                                      variant="outlined"
+                                      component="label"
+                                      size="small"
+                                      sx={{ width: 'fit-content' }}
+                                    >
+                                      Tải ảnh
+                                      <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
+                                    </Button>
+
+                                    {previews.length > 0 && (
+                                      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                                        {previews.map((item, i) => (
+                                          <Box key={i} sx={{ position: 'relative' }}>
+                                            <Box
+                                              component="img"
+                                              src={item.src}
+                                              alt={item.name}
+                                              onClick={() => onOpenPreview && onOpenPreview(item.src)}
+                                              sx={{
+                                                width: 70,
+                                                height: 70,
+                                                borderRadius: 1,
+                                                border: '1px solid #ccc',
+                                                objectFit: 'cover',
+                                                cursor: 'zoom-in',
+                                              }}
+                                            />
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => handleRemoveFile(i)}
+                                              sx={{
+                                                position: 'absolute',
+                                                top: -8,
+                                                right: -8,
+                                                bgcolor: 'rgba(255,255,255,0.8)',
+                                                '&:hover': { bgcolor: 'white' },
+                                              }}
+                                            >
+                                              <CloseIcon fontSize="small" />
+                                            </IconButton>
+                                          </Box>
+                                        ))}
+                                      </Stack>
+                                    )}
+
+                                    <Typography variant="caption" color="text.secondary">
+                                      {previews.length}/{MAX_IMAGES_PER_FIELD} ảnh
+                                    </Typography>
+                                  </Stack>
+                                )}
                               </Box>
                             );
                           })}
                         </FormGroup>
                       </Box>
                     );
-
-                    // --- Xử lý riêng cho multi_selection của Q5 ---
-if (isQ5This) {
-  // Bỏ qua các field không phải multi_selection chính
-  if (field.type !== 'multi_selection') return null;
-
-  const arr = Array.isArray(fVal) ? fVal : [];
-  const hasFood = arr.includes('Thức ăn');
-  const hasDrug = arr.includes('Chống viêm, giảm đau');
-
-  const toggle = (opt) => {
-    const updated = arr.includes(opt)
-      ? arr.filter((v) => v !== opt)
-      : [...arr, opt];
-    setKV(gKey, fKey, updated);
-  };
-
-  // ✅ Loại bỏ field trống và tránh duplicate bằng Set label duy nhất
-  const labelsRendered = new Set();
-
-  return (
-    <Box key={keyId}>
-      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-        {fKey || 'Chọn yếu tố làm nặng bệnh'}
-      </Typography>
-
-      <FormGroup>
-        {['Stress', 'Thức ăn', 'Chống viêm, giảm đau'].map((opt) => (
-          <FormControlLabel
-            key={opt}
-            control={
-              <Checkbox
-                size="small"
-                checked={arr.includes(opt)}
-                onChange={() => toggle(opt)}
-              />
-            }
-            label={opt}
-          />
-        ))}
-      </FormGroup>
-
-      {hasFood &&
-        fields
-          .filter(
-            (fld) =>
-              fld.label &&
-              fld.label.toLowerCase().includes('chi tiết thức ăn') &&
-              !labelsRendered.has(fld.label)
-          )
-          .map((fld) => {
-            labelsRendered.add(fld.label);
-            return (
-              <TextField
-                key={fld.label}
-                size="small"
-                fullWidth
-                sx={{ mt: 1 }}
-                label={fld.label}
-                placeholder={fld.placeholder}
-                value={gVal[fld.label] || ''}
-                onChange={(e) => setKV(gKey, fld.label, e.target.value)}
-              />
-            );
-          })}
-
-      {hasDrug &&
-        fields
-          .filter(
-            (fld) =>
-              fld.label &&
-              fld.label.toLowerCase().includes('chi tiết thuốc') &&
-              !labelsRendered.has(fld.label)
-          )
-          .map((fld) => {
-            labelsRendered.add(fld.label);
-            return (
-              <TextField
-                key={fld.label}
-                size="small"
-                fullWidth
-                sx={{ mt: 1 }}
-                label={fld.label}
-                placeholder={fld.placeholder}
-                value={gVal[fld.label] || ''}
-                onChange={(e) => setKV(gKey, fld.label, e.target.value)}
-              />
-            );
-          })}
-    </Box>
-  );
-}
-                    return checkboxList;
                   }
 
                   if (field.type === 'image') {
@@ -854,11 +938,16 @@ export function RecordDetailView() {
   }, []);
 
   const validateInitialInfo = () => {
+    const diag = formData.initialInfo.diagnosis?.trim() || '';
+    const symp = formData.initialInfo.symptoms?.trim() || '';
+    const pid = formData.initialInfo.patientId;
+
     const errs = {
-      patientId: formData.initialInfo.patientId ? '' : 'Bắt buộc',
-      diagnosis: formData.initialInfo.diagnosis?.trim() ? '' : 'Bắt buộc',
-      symptoms: formData.initialInfo.symptoms?.trim() ? '' : 'Bắt buộc'
+      patientId: pid ? '' : 'Bắt buộc',
+      diagnosis: diag.length < 3 ? 'Cần ít nhất 3 ký tự' : '',
+      symptoms: symp.length < 3 ? 'Cần ít nhất 3 ký tự' : ''
     };
+
     setInitialErrors(errs);
     return !errs.patientId && !errs.diagnosis && !errs.symptoms;
   };
