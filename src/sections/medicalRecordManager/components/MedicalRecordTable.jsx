@@ -7,7 +7,18 @@ import {
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { statusChip } from '../utils/statusChip'
 
-export function MedicalRecordTable({ rows, loading, page, limit, total, onPaginate, onLimitChange, onOpenMenu, onOpenPatient, onOpenRecord }) {
+export function MedicalRecordTable({ 
+  rows, 
+  loading, 
+  page, 
+  limit, 
+  total, 
+  onPaginate, 
+  onLimitChange, 
+  onOpenMenu, 
+  onOpenPatient, 
+  onOpenRecord 
+}) {
   return (
     <Paper variant="outlined">
       <Table>

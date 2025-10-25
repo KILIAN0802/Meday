@@ -267,7 +267,13 @@ function EpisodeInfoRenderer({ indicator, value, onChange, groupLabelMap }) {
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-      <Typography variant="subtitle1" gutterBottom fontWeight="bold">{indicator.name}</Typography>
+      <Typography
+        variant="subtitle1"
+        gutterBottom
+        fontWeight="bold"
+        component="div"
+        dangerouslySetInnerHTML={{ __html: indicator.name }}
+      />
       <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
         <Box>
           {(MAIN_LABEL || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{MAIN_LABEL}</Typography>}
@@ -345,7 +351,13 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-      <Typography variant="subtitle1" gutterBottom fontWeight="bold">{indicator.name}</Typography>
+      <Typography
+        variant="subtitle1"
+        gutterBottom
+        fontWeight="bold"
+        component="div"
+        dangerouslySetInnerHTML={{ __html: indicator.name }}
+      />
       <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
         {groups.map((group, gi) => {
           const gKeyFromApi = groupLabelMap?.[indicator.groupId] || '';
@@ -718,7 +730,13 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
   if (Q4_IDS.has(indicator.id) && indicator.valueType === 'multi_selection') {
     return (
       <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-        <Typography variant="subtitle1" gutterBottom fontWeight="bold">{indicator.name}</Typography>
+        <Typography
+          variant="subtitle1"
+          gutterBottom
+          fontWeight="bold"
+          component="div"
+          dangerouslySetInnerHTML={{ __html: indicator.name }}
+        />
         <Q4MultiSelect indicator={indicator} value={value} onChange={onChange} />
       </Paper>
     );
@@ -730,7 +748,13 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-      <Typography variant="subtitle1" gutterBottom fontWeight="bold">{indicator.name}</Typography>
+      <Typography
+        variant="subtitle1"
+        gutterBottom
+        fontWeight="bold"
+        component="div"
+        dangerouslySetInnerHTML={{ __html: indicator.name }}
+      />
       {(() => {
         switch (indicator.valueType) {
           case 'text':
