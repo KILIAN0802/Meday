@@ -12,6 +12,8 @@ import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import { NotificationAddOutlined } from '@mui/icons-material';
+
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -24,9 +26,9 @@ import { NotificationItem } from './notification-item';
 // ----------------------------------------------------------------------
 
 const TABS = [
-  { value: 'all', label: 'All', count: 22 },
-  { value: 'unread', label: 'Unread', count: 12 },
-  { value: 'archived', label: 'Archived', count: 10 },
+  { value: 'all', label: 'Tất cả', count: 22 },
+  { value: 'unread', label: 'Chưa đọc', count: 12 },
+  { value: 'archived', label: 'Lưu trữ', count: 10 },
 ];
 
 // ----------------------------------------------------------------------
@@ -60,11 +62,11 @@ export function NotificationsDrawer({ data = [], sx, ...other }) {
       }}
     >
       <Typography variant="h6" sx={{ flexGrow: 1 }}>
-        Notifications
+        Thông báo
       </Typography>
 
       {!!totalUnRead && (
-        <Tooltip title="Mark all as read">
+        <Tooltip title="Đánh dấu tất cả là đã đọc">
           <IconButton color="primary" onClick={handleMarkAllAsRead}>
             <Iconify icon="eva:done-all-fill" />
           </IconButton>
@@ -131,7 +133,7 @@ export function NotificationsDrawer({ data = [], sx, ...other }) {
         {...other}
       >
         <Badge badgeContent={totalUnRead} color="error">
-          <Iconify width={24} icon="solar:bell-bing-bold-duotone" />
+            <NotificationAddOutlined />
         </Badge>
       </IconButton>
 
@@ -150,7 +152,7 @@ export function NotificationsDrawer({ data = [], sx, ...other }) {
 
         <Box sx={{ p: 1 }}>
           <Button fullWidth size="large">
-            View all
+            Xem toàn bộ
           </Button>
         </Box>
       </Drawer>

@@ -5,8 +5,6 @@ import { useBoolean } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import Avatar from '@mui/material/Avatar';
-import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
@@ -32,10 +30,6 @@ import { HeaderSection } from '../core/header-section';
 import { LayoutSection } from '../core/layout-section';
 import { AccountDrawer } from '../components/account-drawer';
 import { SettingsButton } from '../components/settings-button';
-import { LanguagePopover } from '../components/language-popover';
-import { ContactsPopover } from '../components/contacts-popover';
-import { WorkspacesPopover } from '../components/workspaces-popover';
-// import { navData as dashboardNavData } from '../nav-config-dashboard';
 import { useNavData } from '../nav-config-dashboard';
 import { dashboardLayoutVars, dashboardNavColorVars } from './css-vars';
 import { NotificationsDrawer } from '../components/notifications-drawer';
@@ -126,12 +120,6 @@ export function DashboardLayout({ sx, cssVars, children, slotProps, layoutQuery 
           {isNavHorizontal && (
             <VerticalDivider sx={{ [theme.breakpoints.up(layoutQuery)]: { display: 'flex' } }} />
           )}
-
-          {/** @slot Workspace popover */}
-          {/* <WorkspacesPopover
-            data={_workspaces}
-            sx={{ ...(isNavHorizontal && { color: 'var(--layout-nav-text-primary-color)' }) }}
-          /> */}
         </>
       ),
       rightArea: (
@@ -139,17 +127,14 @@ export function DashboardLayout({ sx, cssVars, children, slotProps, layoutQuery 
           {/** @slot Searchbar */}
           <Searchbar data={navData} />
 
-          {/** @slot Language popover */}
-          <LanguagePopover data={allLangs} />
-
           {/** @slot Notifications popover */}
           <NotificationsDrawer data={_notifications} />
 
           {/** @slot Contacts popover */}
-          <ContactsPopover data={_contacts} />
+          {/* <ContactsPopover data={_contacts} /> */}
 
           {/** @slot Settings button */}
-          <SettingsButton />
+          <SettingsButton/>
 
           {/** @slot Account drawer */}
           <AccountDrawer data={buildAccount} />

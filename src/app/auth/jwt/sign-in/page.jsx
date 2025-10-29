@@ -8,5 +8,4 @@ export const metadata = { title: `Sign in | Jwt - ${CONFIG.appName}` };
 
 export default function Page() {
   return <JwtSignInView />;
-  return
 }

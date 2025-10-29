@@ -7,20 +7,15 @@ import { useBoolean } from 'minimal-shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
-import { LoadingButton } from '@mui/lab';
-
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
-import { RouterLink } from 'src/routes/components';
 
-import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -68,13 +63,11 @@ export function JwtSignInView() {
   });
   const renderForm = () => (
     <Box sx={{ gap: 3, display: 'flex', flexDirection: 'column' }}>
-      <Field.Text name="username" label="Tên tài khoản" slotProps={{ inputLabel: { shrink: true } }} />
+      <Field.Text 
+        name="username" 
+        label="Tên tài khoản" slotProps={{ inputLabel: { shrink: true } }} />
 
       <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
-        {/* <Link component={RouterLink} href="#" variant="body2" color="inherit" sx={{ alignSelf: 'flex-end' }}>
-          Quên mật khẩu?
-        </Link> */}
-
         <Field.Text
           name="password"
           label="Mật khẩu"
@@ -86,7 +79,11 @@ export function JwtSignInView() {
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton onClick={showPassword.onToggle} edge="end">
-                    <Iconify icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                    {showPassword.value ? (
+                      <VisibilityIcon />
+                    ) : (
+                      <VisibilityOffIcon />
+                    )}
                   </IconButton>
                 </InputAdornment>
               ),
@@ -113,14 +110,6 @@ export function JwtSignInView() {
     <>
       <FormHead
         title="Đăng nhập tài khoản của bạn"
-        /* description={
-          <>
-            Chưa có tài khoản?
-            <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
-              Đăng ký ngay
-            </Link>
-          </>
-        } */
         sx={{ textAlign: { xs: 'center', md: 'left' } }}
       />
       {!!errorMessage && (

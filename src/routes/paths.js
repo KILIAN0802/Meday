@@ -1,4 +1,5 @@
 import { Create } from '@mui/icons-material';
+import { de } from 'date-fns/locale';
 import { kebabCase } from 'es-toolkit';
 
 import { _id, _postTitles } from 'src/_mock/assets';
@@ -132,6 +133,7 @@ export const paths = {
       pendingView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/pending-view`,
       processingView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/processing-view`,
       doneView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/done-view`,
+      detailView: (id) => `${ROOTS.DASHBOARD}/medicalRecordManager/detail-view/${id}`,
     },
     medicalRecordStaff:{
       root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager/view`,

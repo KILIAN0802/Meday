@@ -6,6 +6,8 @@ import {
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useRouter } from 'next/navigation';
+import { paths } from 'src/routes/paths';
 
 import {
   useGetMedicalRecordTemplate,
@@ -124,7 +126,7 @@ export function RecordDialog({
   const { fetchTemplate } = useGetMedicalRecordTemplate();
   const { fetchVitalGroup } = useGetVitalGroup();
   const { fetchVitalValues } = useGetVitalValuesMedicalRecord();
-
+  const router = useRouter();
   const [vitalGroups, setVitalGroups] = useState([]);
   const [savedValuesMap, setSavedValuesMap] = useState(new Map());
   const [loadingVitals, setLoadingVitals] = useState(false);
@@ -226,9 +228,14 @@ export function RecordDialog({
             Tiếp theo
           </Button>
         ) : (
-          <Button variant="contained" onClick={onClose}>
-            Đóng
-          </Button>
+          <>
+            <Button variant="contained" onClick={() => router.push(paths.dashboard.medicalRecordManager.detailView(record.id))}>
+              xem chi tiết
+            </Button>
+            <Button variant="contained" onClick={onClose}>
+              Đóng
+            </Button>
+          </>
         )}
       </DialogActions>
     </Dialog>
