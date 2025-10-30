@@ -198,9 +198,12 @@ export function RecordDialog({
                       const val = unwrapValue(savedValuesMap.get(ind.id));
                       return (
                         <Box key={ind.id}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {ind.name}
-                          </Typography>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 600 }}
+                          component="div"
+                          dangerouslySetInnerHTML={{ __html: ind.name }}
+                        />
                           {val && typeof val === 'object' ? (
                             <RenderAnswerGroup data={val} />
                           ) : (

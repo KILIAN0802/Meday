@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Container,
@@ -48,7 +48,8 @@ const MAX_IMAGES_PER_FIELD = 10;
 const UPLOAD_CONCURRENCY = 3;
 const Q4_IDS = new Set([190, 65]);
 const Q5_IDS = new Set([196, 66]);
-const Q11_IDS = new Set([185, 71]);
+const Q11_IDS = new Set([185, 71]); // 11.x thá»i gian tá»“n táº¡i
+const SHAPE_IDS = new Set([182, 69]); // 9. Hình dạng
 
 const lsSafeParse = (s, fb) => {
   try { return JSON.parse(s); } catch { return fb; }
@@ -157,13 +158,13 @@ function ClearableSelect({ label, value, options = [], onChange }) {
       <Box sx={{ flexGrow: 1 }}>
         {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
         <RadioGroup value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
-          {options.map((opt) => (
-            <FormControlLabel key={opt} value={opt} control={<Radio size="small" />} label={opt} />
+          {options.map((opt, i) => (
+            <FormControlLabel key={`${label || 'no_label'}-${i}`} value={opt} control={<Radio size="small" />} label={opt} />
           ))}
         </RadioGroup>
       </Box>
       {value ? (
-        <IconButton size="small" aria-label="Xóa lựa chọn" onClick={() => onChange('')}>
+        <IconButton size="small" aria-label="Xóa lựa Chọn" onClick={() => onChange('')}>
           <CloseIcon fontSize="small" />
         </IconButton>
       ) : null}
@@ -182,9 +183,9 @@ function ClearableMultiSelect({ label, value, options = [], onChange }) {
       <Box sx={{ flexGrow: 1 }}>
         {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
         <FormGroup>
-          {options.map((opt) => (
+          {options.map((opt, i) => (
             <FormControlLabel
-              key={opt}
+              key={`${label || 'no_label'}-${i}`}
               control={<Checkbox size="small" checked={arr.includes(opt)} onChange={() => toggle(opt)} />}
               label={opt}
             />
@@ -192,7 +193,7 @@ function ClearableMultiSelect({ label, value, options = [], onChange }) {
         </FormGroup>
       </Box>
       {arr.length ? (
-        <IconButton size="small" aria-label="Xóa tất cả" onClick={() => onChange([])}>
+        <IconButton size="small" aria-label="Xóa táº¥t cáº£" onClick={() => onChange([])}>
           <CloseIcon fontSize="small" />
         </IconButton>
       ) : null}
@@ -349,15 +350,11 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
     onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
   };
 
+  const isShapeThis = SHAPE_IDS.has(indicator.id);
+  const isDurationThis = Q11_IDS.has(indicator.id);
+
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-      <Typography
-        variant="subtitle1"
-        gutterBottom
-        fontWeight="bold"
-        component="div"
-        dangerouslySetInnerHTML={{ __html: indicator.name }}
-      />
       <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
         {groups.map((group, gi) => {
           const gKeyFromApi = groupLabelMap?.[indicator.groupId] || '';
@@ -366,25 +363,35 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
           const gVal = value?.value?.[gKey] || {};
 
           return (
-            <Box key={`${gKey || 'no_label'}_${gi}`} sx={{ '&:not(:first-of-type)': { mt: 2 } }}>
+            <Box key={`${gKey || ''}_${gi}`} sx={{ '&:not(:first-of-type)': { mt: 2 } }}>
               {(gKey || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>}
               <Stack spacing={2}>
                 {fields.map((field, fi) => {
-                  const fKey = field.label || `field_${fi}`;
+                  const fKey = field.label || ``;
                   const fVal = gVal[fKey];
                   const options = field.option || field.options || [];
-                  const keyId = `${gKey || 'no_label'}-${fKey}`;
+                  const fieldId = field.id ?? fi;
+                  const keyId = `${indicator.id}-${gKey || ''}-${fKey}-${fieldId}`;
                   const pendingKey = `${indicator.id}::${gKey}::${fKey}`;
                   const isQ5This = Q5_IDS.has(indicator.id);
                   const handleText = (e) => setKV(gKey, fKey, e.target.value);
                   const handleNumber = (e) => setKV(gKey, fKey, e.target.value === '' ? '' : Number(e.target.value));
                   const handleSelect = (v) => setKV(gKey, fKey, v);
+
+                  if (isShapeThis && field.label && field.label.toLowerCase().includes('mô tả hình dạng khác')) {
+                    return null;
+                  }
+                  if (isDurationThis && field.label === 'Nhập khoảng thời gian') {
+                    return null;
+                  }
+
                   if (isQ5This && field.label) {
                     const lower = field.label.toLowerCase();
                     if (lower.includes('chi tiết thức ăn') || lower.includes('chi tiết thuốc')) {
                       return null;
                     }
                   }
+
                   if (field.type === 'text') {
                     return (
                       <TextField key={keyId} size="small" fullWidth label={fKey} value={fVal ?? ''} onChange={handleText} />
@@ -398,26 +405,35 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                   }
 
                   if (field.type === 'select') {
-                    const isOtherHoursEnabled = Q11_IDS.has(indicator.id) && (options.includes('Khác (theo giờ)') || fVal === 'Khác (theo giờ)');
+                    if (isDurationThis && (fKey === '11.1 Khi dùng thuốc' || fKey === '11.2 Khi không dùng thuốc')) {
+                      return (
+                        <Box key={keyId}>
+                          <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
+                          {fVal === 'Khác (theo giờ)' && (
+                            <Box sx={{ mt: 1 }}>
+                              <TextField
+                                key={`${keyId}-other-hours`}
+                                size="small"
+                                fullWidth
+                                label="Nhập khoảng thời gian"
+                                value={gVal[`${fKey} - Khác (theo giờ)`] || ''}
+                                onChange={(e) => setKV(gKey, `${fKey} - Khác (theo giờ)`, e.target.value)}
+                              />
+                            </Box>
+                          )}
+                        </Box>
+                      );
+                    }
+
                     return (
                       <Box key={keyId}>
                         <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
-                        {isOtherHoursEnabled && fVal === 'Khác (theo giờ)' && (
-                          <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                            <TextField size="small" label="Nhập số giờ cụ thể" value={gVal[`${fKey} - khác (giờ)`] || ''} onChange={(e) => setKV(gKey, `${fKey} - khác (giờ)`, e.target.value)} />
-                            <Button variant="outlined" onClick={() => setKV(gKey, `${fKey} - khác (giờ)`, '1')}>+1h</Button>
-                            <Button variant="outlined" onClick={() => setKV(gKey, `${fKey} - khác (giờ)`, '6')}>+6h</Button>
-                            <Button variant="outlined" onClick={() => setKV(gKey, `${fKey} - khác (giờ)`, '12')}>+12h</Button>
-                          </Box>
-                        )}
                       </Box>
                     );
                   }
 
                   if (field.type === 'multi_selection') {
                     const arr = Array.isArray(fVal) ? fVal : [];
-
-                    // --- Q5 logic riêng ---
                     if (isQ5This) {
                       const hasFood = arr.includes('Thức ăn');
                       const hasDrug = arr.includes('Chống viêm, giảm đau');
@@ -453,7 +469,6 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                             ))}
                           </FormGroup>
 
-                          {/* ✅ Nếu chọn “Thức ăn” → hiển thị text “Chi tiết thức ăn” */}
                           {hasFood &&
                             fields
                               .filter(
@@ -506,12 +521,51 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                       );
                     }
 
-                    // --- Logic chung cho các multi_selection khác (bao gồm Q6 upload ảnh) ---
+                    if (isShapeThis && fKey === 'Chọn hình dạng bạn gặp phải') {
+                      const toggleShape = (opt) => {
+                        const updated = arr.includes(opt) ? arr.filter((v) => v !== opt) : [...arr, opt];
+                        if (!updated.includes('Hình dạng khác')) {
+                          setKV(gKey, 'Mô tả hình dạng khác', '');
+                        }
+                        setKV(gKey, fKey, updated);
+                      };
+                      const otherSelected = arr.includes('Hình dạng khác');
+                      const otherValue = gVal['Mô tả hình dạng khác'] ?? '';
+
+                      return (
+                        <Box key={keyId}>
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey}</Typography>
+                          <FormGroup>
+                            {(options || []).map((opt, idx) => (
+                              <FormControlLabel
+                                key={`${keyId}-opt-${idx}`}
+                                control={<Checkbox size="small" checked={arr.includes(opt)} onChange={() => toggleShape(opt)} />}
+                                label={opt}
+                              />
+                            ))}
+                          </FormGroup>
+                          {otherSelected && (
+                            <TextField
+                              key={`${keyId}-other-input`}
+                              size="small"
+                              fullWidth
+                              sx={{ mt: 1 }}
+                              label="Mô tả hình dạng khác"
+                              placeholder="Nhập mô tả"
+                              value={otherValue}
+                              onChange={(e) => setKV(gKey, 'Mô tả hình dạng khác', e.target.value)}
+                            />
+                          )}
+                        </Box>
+                      );
+                    }
+
+                    const arrVal = arr;
                     const renderOptions = () => {
                       let list = options;
                       if (Q4_IDS.has(indicator.id) && (fKey.includes('4.') || indicator.id === 190 || indicator.id === 65)) {
                         const baseTwo = ['Một cách ngẫu nhiên', 'Khi có các yếu tố kích thích'];
-                        const showExtra = arr.includes('Khi có các yếu tố kích thích');
+                        const showExtra = arrVal.includes('Khi có các yếu tố kích thích');
                         list = showExtra ? options : options.filter((o) => baseTwo.includes(o));
                       }
                       return list;
@@ -520,42 +574,38 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                     return (
                       <Box key={keyId}>
                         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey || 'Chọn'}</Typography>
-
                         <FormGroup>
                           {renderOptions().map((opt, idx) => {
-                            const checked = arr.includes(opt);
+                            const checked = arrVal.includes(opt);
                             const toggle = () => {
-                              const updated = checked
-                                ? arr.filter((v) => v !== opt)
-                                : [...arr, opt];
+                              const updated = checked ? arrVal.filter((v) => v !== opt) : [...arrVal, opt];
                               setKV(gKey, fKey, updated);
                             };
 
-                            // --- Xử lý upload ảnh theo requiredFields ---
                             const reqField = Array.isArray(field.requiredFields)
                               ? field.requiredFields.find((r) => r.type === 'image' && r.condition === 'hasSelection')
                               : null;
 
-                            const pendingKey = `${indicator.id}::${gKey}::${fKey}::${opt}`;
-                            const previews = getPending(pendingKey);
+                            const pendingKey2 = `${indicator.id}::${gKey}::${fKey}::${opt}`;
+                            const previews = getPending(pendingKey2);
 
                             const handleFilesChange = (e) => {
                               const selected = Array.from(e.target.files || []);
                               if (!selected.length) return;
                               const newPreviews = selected.map(makePreviewItem);
                               const updated = [...previews, ...newPreviews];
-                              setPending(pendingKey, updated);
+                              setPending(pendingKey2, updated);
                               setKV(gKey, `${fKey}__${opt}__images`, updated);
                             };
 
                             const handleRemoveFile = (i) => {
                               const updated = previews.filter((_, j) => j !== i);
-                              setPending(pendingKey, updated);
+                              setPending(pendingKey2, updated);
                               setKV(gKey, `${fKey}__${opt}__images`, updated);
                             };
 
                             return (
-                              <Box key={`${keyId}-${idx}`} sx={{ mb: 1 }}>
+                              <Box key={`${keyId}-opt-${idx}`} sx={{ mb: 1 }}>
                                 <FormControlLabel
                                   control={<Checkbox size="small" checked={checked} onChange={toggle} />}
                                   label={opt}
@@ -566,45 +616,25 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                                     <Typography variant="caption" color="text.secondary">
                                       {reqField.description || 'Tải ảnh'}
                                     </Typography>
-
-                                    <Button
-                                      variant="outlined"
-                                      component="label"
-                                      size="small"
-                                      sx={{ width: 'fit-content' }}
-                                    >
+                                    <Button variant="outlined" component="label" size="small" sx={{ width: 'fit-content' }}>
                                       Tải ảnh
                                       <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
                                     </Button>
-
                                     {previews.length > 0 && (
                                       <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
                                         {previews.map((item, i) => (
-                                          <Box key={i} sx={{ position: 'relative' }}>
+                                          <Box key={`${keyId}-prev-${idx}-${i}`} sx={{ position: 'relative' }}>
                                             <Box
                                               component="img"
                                               src={item.src}
                                               alt={item.name}
                                               onClick={() => onOpenPreview && onOpenPreview(item.src)}
-                                              sx={{
-                                                width: 70,
-                                                height: 70,
-                                                borderRadius: 1,
-                                                border: '1px solid #ccc',
-                                                objectFit: 'cover',
-                                                cursor: 'zoom-in',
-                                              }}
+                                              sx={{ width: 70, height: 70, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }}
                                             />
                                             <IconButton
                                               size="small"
                                               onClick={() => handleRemoveFile(i)}
-                                              sx={{
-                                                position: 'absolute',
-                                                top: -8,
-                                                right: -8,
-                                                bgcolor: 'rgba(255,255,255,0.8)',
-                                                '&:hover': { bgcolor: 'white' },
-                                              }}
+                                              sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
                                             >
                                               <CloseIcon fontSize="small" />
                                             </IconButton>
@@ -612,7 +642,6 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                                         ))}
                                       </Stack>
                                     )}
-
                                     <Typography variant="caption" color="text.secondary">
                                       {previews.length}/{MAX_IMAGES_PER_FIELD} ảnh
                                     </Typography>
@@ -633,7 +662,7 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                       if (!selected.length) return;
                       const nextCount = previews.length + selected.length;
                       if (nextCount > MAX_IMAGES_PER_FIELD) {
-                        alert(`Tối đa ${MAX_IMAGES_PER_FIELD} ảnh cho trường này.`);
+                        alert(`Tải ảnh${MAX_IMAGES_PER_FIELD} ảnh cho trang này.`);
                         return;
                       }
                       const newPreviews = selected.map(makePreviewItem);
@@ -659,7 +688,7 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                         {previews.length > 0 && (
                           <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
                             {previews.map((item, i) => (
-                              <Box key={i} sx={{ position: 'relative' }}>
+                              <Box key={`${keyId}-prev-${i}`} sx={{ position: 'relative' }}>
                                 <Box
                                   component="img"
                                   src={item.src}
@@ -707,10 +736,10 @@ function Q4MultiSelect({ indicator, value, onChange }) {
   };
   return (
     <FormGroup>
-      {list.map((opt) => {
+      {list.map((opt, i) => {
         const checked = arr.includes(opt);
         return (
-          <FormControlLabel key={opt} control={<Checkbox size="small" checked={checked} onChange={() => toggle(opt)} />} label={opt} />
+          <FormControlLabel key={`q4-${i}`} control={<Checkbox size="small" checked={checked} onChange={() => toggle(opt)} />} label={opt} />
         );
       })}
     </FormGroup>
@@ -791,7 +820,7 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
               const selected = Array.from(e.target.files || []);
               if (!selected.length) return;
               const nextCount = previews.length + selected.length;
-              if (nextCount > MAX_IMAGES_PER_FIELD) { alert(`Tối đa ${MAX_IMAGES_PER_FIELD} ảnh cho câu hỏi này.`); return; }
+              if (nextCount > MAX_IMAGES_PER_FIELD) { alert(`Tải ảnh ${MAX_IMAGES_PER_FIELD} ảnh cho câu này`); return; }
               const newPreviews = selected.map(makePreviewItem);
               const updated = [...previews, ...newPreviews];
               setPending(pendingKey, updated);
@@ -814,7 +843,7 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
                 {previews.length > 0 && (
                   <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
                     {previews.map((item, i) => (
-                      <Box key={i} sx={{ position: 'relative' }}>
+                      <Box key={`img-prev-${i}`} sx={{ position: 'relative' }}>
                         <Box component="img" src={item.src} alt={item.name} onClick={() => onOpenPreview && onOpenPreview(item.src)} sx={{ width: 80, height: 80, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }} />
                         <IconButton size="small" onClick={() => handleRemoveFile(i)} aria-label={`Xóa ảnh ${item.name}`} sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}>
                           <CloseIcon fontSize="small" />
@@ -830,7 +859,7 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
           case 'custom':
             return <GenericCustomRenderer indicator={indicator} value={value} onChange={onChange} onOpenPreview={onOpenPreview} groupLabelMap={groupLabelMap} />;
           default:
-            return <Typography color="error">Loại câu hỏi không được hỗ trợ: {indicator.valueType}</Typography>;
+            return <Typography color="error">Loại câu hỏi không được hỗ trợ {indicator.valueType}</Typography>;
         }
       })()}
     </Paper>
@@ -968,8 +997,8 @@ export function RecordDetailView() {
 
     const errs = {
       patientId: pid ? '' : 'Bắt buộc',
-      diagnosis: diag.length < 3 ? 'Cần ít nhất 3 ký tự' : '',
-      symptoms: symp.length < 3 ? 'Cần ít nhất 3 ký tự' : ''
+      diagnosis: diag.length < 3 ? '+3 kí tự' : '',
+      symptoms: symp.length < 3 ? '+3 kí tự' : ''
     };
 
     setInitialErrors(errs);
@@ -1005,14 +1034,14 @@ export function RecordDetailView() {
       put('Có điều trị hay không?', co);
       if (co === 'Có') {
         put('Tên thuốc', obj['Tên thuốc']);
-        put('Liều thuốc (ghi thời gian nếu nhớ)', obj['Liều thuốc (ghi thời gian nếu nhớ)']);
+        put('liều thuốc (ghi thời gian nếu nhớ)', obj['liều thuốc (ghi thời gian nếu nhớ)']);
         put('Tình trạng tổn thương khi đang uống thuốc', tt);
-        if (tt === 'Giảm xuống' || tt === 'Nặng lên') {
+        if (tt === 'Giảm xuống' || tt === 'Tăng lên') {
           put('Triệu chứng Giảm xuống/Nặng lên là gì?', obj['Triệu chứng Giảm xuống/Nặng lên là gì?']);
         }
       }
-      if (da) put('Trước đây bạn đã từng bị đợt nào như vậy chưa?', da);
-      if (so) put('Số đợt bị', String(so));
+      if (da) put('Trước đây bạn đã đừng bị đợt nào như vậy chưa?', da);
+      if (so) put('Số đợt bỏ', String(so));
       return value;
     };
     const result = { [MAIN_LABEL]: buildGroup(main) };
@@ -1036,10 +1065,8 @@ export function RecordDetailView() {
     }
     return innerOfNormalIndicator(stored);
   };
-  // Kiểm tra xem step có được hoàn thành không
   const isStepComplete = (stepIdx) => {
     if (stepIdx === steps.length - 1) {
-      // Step cuối là "Thông tin bệnh án"
       const { patientId, diagnosis, symptoms } = formData.initialInfo;
       return !!patientId && !!diagnosis?.trim() && !!symptoms?.trim();
     }
@@ -1060,8 +1087,8 @@ export function RecordDetailView() {
           <TextField label="Mã bệnh nhân" name="patientId" type="number" value={formData.initialInfo.patientId} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.patientId)} helperText={initialErrors.patientId} />
           <TextField label="Chẩn đoán" name="diagnosis" multiline rows={3} value={formData.initialInfo.diagnosis} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.diagnosis)} helperText={initialErrors.diagnosis} />
           <TextField label="Triệu chứng" name="symptoms" multiline rows={3} value={formData.initialInfo.symptoms} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.symptoms)} helperText={initialErrors.symptoms} />
-          <TextField label="Ghi chú" name="notes" multiline rows={2} value={formData.initialInfo.notes} onChange={handleInitialInfoChange} />
-          <TextField label="Mẫu bệnh án" value={{16:'Bệnh án cấp tính',17:'Bệnh án mãn tính lần 1',18:'Bệnh án mãn tính tái khám'}[formData.initialInfo.templateId] || ''} InputProps={{ readOnly: true }} variant="filled" />
+          <TextField label="Ghi chúº" name="notes" multiline rows={2} value={formData.initialInfo.notes} onChange={handleInitialInfoChange} />
+          <TextField label="Mẫu bệnh án" value={{16:'Bệnh án cấp tính',17:'Bệnh án mạn tính lần 1',18:'Bệnh án mạn tính tái khám'}[formData.initialInfo.templateId] || ''} InputProps={{ readOnly: true }} variant="filled" />
           <TextField label="Bác sĩ phụ trách" value={staffProfile?.fullname || ''} InputProps={{ readOnly: true }} variant="filled" />
         </Stack>
       );
@@ -1132,12 +1159,12 @@ export function RecordDetailView() {
     setIsSubmitting(true);
     setError(null);
     const incompleteSteps = steps
-    .slice(0, -1) // bỏ qua step "Thông tin bệnh án"
+    .slice(0, -1)
     .filter((_, idx) => !isStepComplete(idx));
 
     if (incompleteSteps.length > 0) {
       const confirmProceed = window.confirm(
-        'Còn câu hỏi chưa trả lời. Bạn muốn trả lời hết chứ?\n\nẤn "OK" để tiếp tục lưu hoặc "Cancel" để quay lại.'
+        'Còn câu hỏi chưa trả lời. Bạn muốn trả lời hết chứ?\n\nNhấn "OK" để tiếp tục lưu hoặc "Cancel" để quay lại.'
       );
       if (!confirmProceed) {
         setIsSubmitting(false);
@@ -1165,7 +1192,7 @@ export function RecordDetailView() {
 
       const createResponse = await createMedicalRecord(createPayload);
       const newId = createResponse.data?.id;
-      if (!newId) throw new Error('Không nhận được ID bệnh án sau khi tạo.');
+      if (!newId) throw new Error('Không nhận được ID bệnh án sau khi tạo!');
 
       const groupId = parseInt(patientId, 10) || 0;
       const templateIdNum = parseInt(templateId, 10) || 0;
@@ -1208,35 +1235,32 @@ export function RecordDetailView() {
           note: data?.note || ''
         });
       }
-      console.log('✅ formattedVitalValues:', formattedVitalValues);
       if (formattedVitalValues.length) {
         await updateVitalMedicalRecordeById(newId, { vitalValues: formattedVitalValues });
       }
 
       clearPendingStartsWith(PENDING_PREFIX);
 
-      alert('Tạo và cập nhật bệnh án thành công!');
+      alert('Tạo bệnh án thành công!!!');
       router.push(`${paths.dashboard.medicalRecordStaff.create}`);
     } catch (err) {
-    console.error('Error khi tạo bệnh án:', err);
 
-    let msg = 'Đã có lỗi xảy ra khi lưu bệnh án.';
+      let msg = 'Đã có lỗi xảy ra khi lưu bệnh án';
 
-    const backendMsg = err?.response?.data?.message || err?.message || '';
+      const backendMsg = err?.response?.data?.message || err?.message || '';
 
-    if (
-      typeof backendMsg === 'string' &&
-      (backendMsg.includes('violates foreign key constraint') ||
-      backendMsg.includes('FK_43e2800e756c913a6c7a07cc271'))
-    ) {
-      msg = 'Mã bệnh nhân không tồn tại trong hệ thống. Vui lòng kiểm tra lại.';
-    } else if (backendMsg.includes('500')) {
-      msg = 'Máy chủ gặp lỗi. Vui lòng thử lại sau.';
-    }
+      if (
+        typeof backendMsg === 'string' &&
+        (backendMsg.includes('violates foreign key constraint') ||
+        backendMsg.includes('FK_43e2800e756c913a6c7a07cc271'))
+      ) {
+        msg = 'Mã bệnh nhân không tồn tại trong hệ thống.';
+      } else if (backendMsg.includes('500')) {
+        msg = 'Máy chủ gặp lỗi. Vui lòng thử lại sau.';
+      }
 
-    setError(msg);
-  }
- finally {
+      setError(msg);
+    } finally {
       setIsSubmitting(false);
       setUploadProgressMap({});
     }
@@ -1246,7 +1270,7 @@ export function RecordDetailView() {
     return (
       <Container maxWidth="sm" sx={{ my: 6, textAlign: 'center' }}>
         <CircularProgress />
-        <Typography variant="body2" sx={{ mt: 2 }}>Đang tải template…</Typography>
+        <Typography variant="body2" sx={{ mt: 2 }}>Đang tải template...</Typography>
       </Container>
     );
   }
@@ -1264,27 +1288,27 @@ export function RecordDetailView() {
 
       {Object.keys(uploadProgressMap).length > 0 && (
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom aria-live="polite">Đang tải ảnh…</Typography>
+          <Typography variant="subtitle2" gutterBottom aria-live="polite">Đang tải ảnh...</Typography>
           <LinearProgress />
         </Paper>
       )}
 
-    <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-      {steps.map((label, i) => {
-        const completed = isStepComplete(i);
-        return (
-          <Step key={`${label}-${i}`} completed={completed}>
-            <StepLabel
-              error={i < activeStep && !completed}
-              onClick={() => setActiveStep(i)}
-              sx={{ cursor: 'pointer' }}
-            >
-              {label}
-            </StepLabel>
-          </Step>
-        );
-      })}
-    </Stepper>
+      <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+        {steps.map((label, i) => {
+          const completed = isStepComplete(i);
+          return (
+            <Step key={`${label}-${i}`} completed={completed}>
+              <StepLabel
+                error={i < activeStep && !completed}
+                onClick={() => setActiveStep(i)}
+                sx={{ cursor: 'pointer' }}
+              >
+                {label}
+              </StepLabel>
+            </Step>
+          );
+        })}
+      </Stepper>
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 8 }}>
         <Typography variant="h5" gutterBottom>{steps[activeStep]}</Typography>
         {error && <Alert severity="error" sx={{ mb: 3, mt: 2 }}>{error}</Alert>}
@@ -1306,7 +1330,7 @@ export function RecordDetailView() {
             </Button>
           ) : (
             <Button variant="contained" color="success" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Hoàn tất và Lưu'}
+              {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Hoàn tất và lưu'}
             </Button>
           )}
         </Box>
