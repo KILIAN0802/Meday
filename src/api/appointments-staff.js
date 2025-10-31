@@ -83,7 +83,7 @@ export async function updateAppointmentStatusID(id, body) {
   }
 }
 
-export async function updateVitalMedicalRecordeById(id) {
+export async function updateVitalMedicalRecordById(id) {
   try {
     const response = await axiosInstance.patch(endpoints.appointments_staff.UpdateVitalId(id));
     return response.data;
@@ -93,7 +93,7 @@ export async function updateVitalMedicalRecordeById(id) {
   }
 }
 
-export async function updateGroupMedicalRecordeById(id) {
+export async function updateGroupMedicalRecordById(id) {
   try {
     const response = await axiosInstance.patch(endpoints.appointments_staff.UpdateGroupID(id));
     return response.data;

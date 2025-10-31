@@ -8,7 +8,7 @@ import {
   Checkbox, FormGroup // THAY ĐỔI: Thêm Checkbox và FormGroup cho multiple choice
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff.js';
+import { updateVitalMedicalRecordById } from 'src/api/medical-record-staff.js';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import { useSnackbar } from 'notistack';
@@ -443,7 +443,7 @@ const handleSave = async (medicalRecordId, updatedValues) => {
     }
 
     // --- Gửi dữ liệu lên backend ---
-    await updateVitalMedicalRecordeById(medicalRecordId, { vitalValues: formattedValues });
+    await updateVitalMedicalRecordById(medicalRecordId, { vitalValues: formattedValues });
 
     setSnackbar?.({ open: true, severity: 'success', message: 'Cập nhật chỉ số thành công!' });
   } catch (err) {
