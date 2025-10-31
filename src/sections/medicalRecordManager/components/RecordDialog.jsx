@@ -8,6 +8,8 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useRouter } from 'next/navigation';
 import { paths } from 'src/routes/paths';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 
 import {
   useGetMedicalRecordTemplate,
@@ -163,7 +165,26 @@ export function RecordDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{step === 1 ? 'Thông tin bệnh án' : 'Chỉ số đã ghi nhận'}</DialogTitle>
+      <DialogTitle
+        sx={{
+          m: 0,
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        {step === 1 ? 'Thông tin bệnh án' : 'Chỉ số đã ghi nhận'}
+        <IconButton
+          onClick={onClose}
+          sx={{
+            ml: 2,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent dividers>
         {!record ? (
           <Typography>Không có dữ liệu</Typography>
@@ -224,7 +245,7 @@ export function RecordDialog({
           Quay lại
         </Button>
         {step === 1 ? (
-          <Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={onNext}>
+          <Button endIcon={<ArrowForwardIcon />} onClick={onNext}>
             Tiếp theo
           </Button>
         ) : (
