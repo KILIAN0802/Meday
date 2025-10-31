@@ -30,7 +30,7 @@ export async function getMyMedicalRecord(params) {
   }
 }
 
-export async function getMedicalRecordeById(id) {
+export async function getMedicalRecordById(id) {
   try {
     const response = await axiosInstance.get(endpoints.medical_record_staff.getID(id));
     return response.data;
@@ -53,7 +53,7 @@ export async function updateMedicalRecordById(id, data) {
   }
 }
 
-export async function deleteMedicalRecordeById(id) {
+export async function deleteMedicalRecordById(id) {
   try {
     const response = await axiosInstance.delete(endpoints.medical_record_staff.DeleteID(id));
     return response.data;
@@ -73,7 +73,7 @@ export async function getVitalValuesMedicalRecord(id) {
   }
 }
 
-export async function updateVitalMedicalRecordeById(id, payload) {
+export async function updateVitalMedicalRecordById(id, payload) {
   try {
     const response = await axiosInstance.patch(
       endpoints.medical_record_staff.UpdateVitalId(id),
@@ -87,7 +87,7 @@ export async function updateVitalMedicalRecordeById(id, payload) {
   }
 }
 
-export async function updateGroupMedicalRecordeById(id) {
+export async function updateGroupMedicalRecordById(id) {
   try {
     const response = await axiosInstance.patch(endpoints.medical_record_staff.UpdateGroupID(id));
     console.log('response:', response.data);

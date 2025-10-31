@@ -32,7 +32,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
-import { createMedicalRecord, updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
+import { createMedicalRecord, updateVitalMedicalRecordById } from 'src/api/medical-record-staff';
 import { getStaffProfile } from 'src/api/auth/owner';
 import { paths } from 'src/routes/paths';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -1236,7 +1236,7 @@ export function RecordDetailView() {
         });
       }
       if (formattedVitalValues.length) {
-        await updateVitalMedicalRecordeById(newId, { vitalValues: formattedVitalValues });
+        await updateVitalMedicalRecordById(newId, { vitalValues: formattedVitalValues });
       }
 
       clearPendingStartsWith(PENDING_PREFIX);

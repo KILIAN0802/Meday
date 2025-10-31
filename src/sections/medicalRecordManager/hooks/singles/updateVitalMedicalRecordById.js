@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback } from 'react';
-import { updateVitalMedicalRecordeById } from 'src/api/medical-record-staff';
+import { updateVitalMedicalRecordById } from 'src/api/medical-record-staff';
 
 export function useUpdateVitalMedicalRecord() {
   const [loading, setLoading] = useState(false);
@@ -10,7 +10,7 @@ export function useUpdateVitalMedicalRecord() {
     if (!recordId || !indicatorId) return;
     try {
       setLoading(true);
-      await updateVitalMedicalRecordeById(recordId, {
+      await updateVitalMedicalRecordById(recordId, {
         vitalValues: [
           {
             vitalIndicatorId: indicatorId,
