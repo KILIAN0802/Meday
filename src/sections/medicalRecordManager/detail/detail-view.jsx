@@ -978,8 +978,29 @@ export function DetailViewMedicalRecord() {
         // Chuẩn hóa dữ liệu trước khi đưa vào form
         const formMap = {};
         vitals.forEach((v) => {
-          const normalized = normalizeVitalValue(v.value);
-          formMap[v.vitalIndicatorId] = {
+          const indicatorId = Number(v.vitalIndicatorId);
+          let normalized = normalizeVitalValue(v.value);
+
+          // === xử lý đặc biệt các câu hỏi dạng nhóm/episode/custom ===
+          if (EPISODE_IDS.has(indicatorId) || EPISODE_CODES.has(v.indicatorCode)) {
+            // Đây là dạng "episode" (ví dụ ID 64)
+            const groupLabel = groupLabelMap[Object.keys(groupLabelMap)[0]] || 'Thông tin chính';
+            normalized = { [groupLabel]: normalized };
+          }
+
+          if (Q5_IDS.has(indicatorId)) {
+            // Dạng "Yếu tố làm nặng bệnh" – cần wrap vào group label
+            const groupLabel = groupLabelMap[Object.keys(groupLabelMap)[0]] || '';
+            normalized = { [groupLabel]: normalized };
+          }
+
+          if (SHAPE_IDS.has(indicatorId)) {
+            // Dạng hình dạng nổi mề đay
+            const groupLabel = groupLabelMap[Object.keys(groupLabelMap)[0]] || '';
+            normalized = { [groupLabel]: normalized };
+          }
+
+          formMap[indicatorId] = {
             value: normalized,
             note: v.note || ''
           };
