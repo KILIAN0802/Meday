@@ -85,6 +85,92 @@ const makePreviewItem = (file) => ({
   file
 });
 
+const LAB_STANDARD_RANGES = {
+  WBC: "4-10",
+  EO: "0-0.8",
+  BA: "0.0-0.12",
+  CRP: "<1.0",
+  "Máu lắng - 1h": "",
+  "Máu lắng - 2h": "",
+  FT3: "3.1-6.8",
+  FT4: "11.9-21.6",
+  TSH: "0.27-4.2",
+  "IgE toàn phần": "<100",
+  "Anti-TPO": "0-34",
+};
+
+function normalizeLabName(name) {
+  return name
+    .replace(/^Chỉ số\s*/i, "")   // bỏ chữ "Chỉ số"
+    .trim();
+}
+
+function LabResultTable({ title, indicators, values, onChange, extraQuestions }) {
+  return (
+    <Stack spacing={2}>
+
+      <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {title}
+        </Typography>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
+              <th style={{ padding: 8 }}>Chỉ số</th>
+              <th style={{ padding: 8 }}>Kết quả</th>
+              <th style={{ padding: 8 }}>Tiêu chuẩn</th>
+              <th style={{ padding: 8 }}>Đơn vị</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {indicators.map((ind) => {
+              const val = values[ind.id]?.value ?? "";
+              const standard = LAB_STANDARD_RANGES[ normalizeLabName(ind.name) ] || "—";
+
+              return (
+                <tr key={ind.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: 8 }}>{ind.name}</td>
+
+                  <td style={{ padding: 8, width: 160 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      type="number"
+                      value={val}
+                      onChange={(e) =>
+                        onChange(ind.id, { value: e.target.value, note: "" })
+                      }
+                    />
+                  </td>
+
+                  <td style={{ padding: 8 }}>{standard}</td>
+                  <td style={{ padding: 8 }}>{ind.unit || ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Paper>
+
+      {/* Nếu có extraQuestions thì render dưới bảng */}
+      {extraQuestions && extraQuestions.length > 0 && (
+        <Stack spacing={2}>
+          {extraQuestions.map((ind) => (
+            <QuestionRendererMUI
+              key={ind.id}
+              indicator={ind}
+              value={values[ind.id]}
+              onChange={(val) => onChange(ind.id, val)}
+            />
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
 function uploadOneFileWithProgress(file, groupId, templateId, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -965,6 +1051,7 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
   if (EPISODE_IDS.has(indicator.id) || EPISODE_CODES.has(indicator.code)) {
     return <EpisodeInfoRenderer indicator={indicator} value={value} onChange={onChange} groupLabelMap={groupLabelMap} />;
   }
+
   if (Q4_IDS.has(indicator.id) && indicator.valueType === 'multi_selection') {
     return (
       <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
@@ -1397,7 +1484,29 @@ export function RecordDetailView() {
         </Stack>
       );
     }
+    if (group.id === 23) {
+      return (
+        <LabResultTable
+          indicators={group.indicators}
+          values={formData.vitalValues}
+          onChange={handleVitalValueChange}
+        />
+      );
+    }
+    if (group.id === 34) {
+      const numberIndicators = group.indicators.filter(i => i.valueType === "number");
+      const extraIndicators = group.indicators.filter(i => i.valueType !== "number");
 
+      return (
+        <LabResultTable
+          title="Cận lâm sàng mạn tính - Lần 1"
+          indicators={numberIndicators}
+          extraQuestions={extraIndicators}
+          values={formData.vitalValues}
+          onChange={handleVitalValueChange}
+        />
+      );
+    }
     return (
       <Stack spacing={2}>
         {group.indicators.map((indicator) => (
