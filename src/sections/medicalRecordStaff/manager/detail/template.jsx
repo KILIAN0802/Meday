@@ -246,13 +246,25 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
     return [];
   })();
 
-  const setKV = (g, k, v) => {
-    const current = value?.value || {};
-    onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
-  };
+const setKV = (g, k, v) => {
+  const groupKeySafe = (g && String(g).trim() !== '') ? g : '__main__';
+  const current = value?.value || {};
+  console.log('DEBUG setKV', { indicatorId: indicator.id, groupKeySafe, g, k, v, current });
+  onChange({ value: { ...current, [groupKeySafe]: { ...(current[groupKeySafe] || {}), [k]: v } }, note: '' });
+};
 
   const isShapeThis = SHAPE_IDS.has(indicator.id);
   const isDurationThis = Q11_IDS.has(indicator.id);
+  if (CONDITIONAL_TEXT_IDS.has(indicator.id)) {
+    indicator.valueOptions?.group?.forEach((g) => {
+      (g.field || g.fields || []).forEach((f) => {
+        if (f.label === '' && f.type === 'select') {
+          f.label = 'Chọn một đáp án';
+        }
+      });
+    });
+  }
+
   const isConditionalTextThis = CONDITIONAL_TEXT_IDS.has(indicator.id);
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
@@ -261,7 +273,10 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
           const gKeyFromApi = groupLabelMap?.[indicator.groupId] || '';
           const gKey = gKeyFromApi;
           const fields = group.field || group.fields || [];
-          const gVal = value?.value?.[gKey] || {};
+          const gVal = {
+            ...(value?.value?.[gKey] || {}),
+            ...(value?.value?.['__main__'] || {})
+          };
           const renderedFieldLabels = new Set();
           return (
             <Box key={`${gKey || ''}_${gi}`} sx={{ '&:not(:first-of-type)': { mt: 2 } }}>
@@ -352,27 +367,24 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                             </Box>
                         );
                     }
-                  if (isConditionalTextThis && fKey === '__select__') {
-                        const selectedOption = gVal[fKey];
+                  if (isConditionalTextThis && (fKey === '__select__' || fKey === 'Chọn một đáp án')) {
+                        const selectedOption = (gVal[fKey] ?? '').toString();
                         const textControl = fields.find((f, index) => index > fi && f.label === 'Số lần bị khó thở' && f.type === 'text');
                         const textKey = textControl?.label;
                         if (textKey) renderedFieldLabels.add(textKey); 
-                        
-                        // Cập nhật hàm xử lý chọn
+                        const safeGKey = (gKey && gKey.trim() !== '') ? gKey : '__main__';
                         const handleConditionalSelect = (v) => {
-                            setKV(gKey, fKey, v); 
-                            if (v !== 'Có' && textKey) {
-                                setKV(gKey, textKey, '');
-                            }
-                        };
+                          const val = (v ?? '').toString();
+                          setKV(safeGKey, fKey, val);
+                          if (val !== 'Có' && textKey) setKV(safeGKey, textKey, '');
+                        };
 
                         return (
                             <Box key={keyId}>
-                                {/* 1. Select chính: Label rỗng để chỉ hiển thị radio buttons */}
                                 <ClearableSelect 
                                     label="" 
                                     name={keyId}
-                                    value={selectedOption ?? ''} 
+                                    value={selectedOption} 
                                     options={options} 
                                     onChange={handleConditionalSelect}
                                 />
@@ -386,7 +398,7 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                                             type="number" 
                                             inputProps={{ step: '1', min: '0' }}
                                             value={gVal[textKey] ?? ''}
-                                            onChange={(e) => setKV(gKey, textKey, e.target.value)}
+                                            onChange={(e) => setKV(safeGKey, textKey, e.target.value)}
                                         />
                                     </Box>
                                 )}
@@ -460,8 +472,6 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                                   />
                                 );
                               })}
-
-                          {/* ✅ Nếu chọn “Chống viêm, giảm đau” → hiển thị text “Chi tiết thuốc” */}
                           {hasDrug &&
                             fields
                               .filter(
@@ -702,9 +712,8 @@ function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupK
   
   const weekCount = useMemo(() => calculateWeeks(startMonth, endMonth), [startMonth, endMonth]);
   
-  // Tự động cập nhật số tuần vào state mỗi khi range thay đổi
   useEffect(() => {
-      const weekKey = keyPrefix.includes('Đợt này') ? 'Số tuần bị đợt này' : 'Số tuần bị đợt này'; // Giữ nguyên nhãn cũ trong trường hợp này
+      const weekKey = keyPrefix.includes('Đợt này') ? 'Số tuần bị đợt này' : 'Số tuần bị đợt này'; 
       if (valueObj[weekKey] !== weekCount) {
           setKV(groupKey, weekKey, weekCount);
       }
