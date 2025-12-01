@@ -26,13 +26,17 @@ import {
   Radio,
   RadioGroup,
   Checkbox,
-  FormGroup
+  FormGroup,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
+  Select, MenuItem, InputLabel, FormControl
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
 import { createMedicalRecord, updateVitalMedicalRecordById } from 'src/api/medical-record-staff';
+import { getPatient } from 'src/api/staff/patient_manage';
 import { getStaffProfile } from 'src/api/auth/owner';
 import { paths } from 'src/routes/paths';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -42,7 +46,6 @@ import dayjs from 'dayjs';
 
 const EPISODE_CODES = new Set(['QUES4CTN', 'QUES4MT1']);
 const EPISODE_IDS = new Set([175, 64]);
-const DRAFT_KEY_PREFIX = 'mr_template_draft:';
 const PENDING_PREFIX = 'pendingUploads:';
 const MAX_IMAGES_PER_FIELD = 10;
 const UPLOAD_CONCURRENCY = 3;
@@ -50,7 +53,7 @@ const Q4_IDS = new Set([190, 65]);
 const Q5_IDS = new Set([196, 66]);
 const Q11_IDS = new Set([185, 71, 41, 81]);
 const CONDITIONAL_TEXT_IDS = new Set([204, 209]);
-const SHAPE_IDS = new Set([182, 69]); // 9. Hình dạng
+const SHAPE_IDS = new Set([182, 69]); 
 
 const lsSafeParse = (s, fb) => {
   try { return JSON.parse(s); } catch { return fb; }
@@ -58,15 +61,11 @@ const lsSafeParse = (s, fb) => {
 
 const calculateWeeks = (start, end) => {
   if (!start || !end || start.isAfter(end)) return '';
-  
-  // Lấy ngày đầu tiên của tháng bắt đầu và ngày cuối cùng của tháng kết thúc
+
   const startDate = start.startOf('month');
   const endDate = end.endOf('month');
-
-  // Tính số ngày
   const daysDiff = endDate.diff(startDate, 'day') + 1;
 
-  // Tính số tuần và làm tròn lên
   const weeks = Math.ceil(daysDiff / 7);
   return String(weeks);
 };
@@ -84,6 +83,554 @@ const makePreviewItem = (file) => ({
   src: URL.createObjectURL(file),
   file
 });
+
+const LAB_STANDARD_RANGES = {
+  WBC: "4-10",
+  EO: "0-0.8",
+  BA: "0.0-0.12",
+  CRP: "<1.0",
+  "Máu lắng - 1h": "",
+  "Máu lắng - 2h": "",
+  FT3: "3.1-6.8",
+  FT4: "11.9-21.6",
+  TSH: "0.27-4.2",
+  "IgE toàn phần": "<100",
+  "Anti-TPO": "0-34",
+};
+
+// Thêm component mới vào đâu đó trong file
+function UAS7TrackerTable({ value, onChange, indicatorId }) {
+  const UAS7_DAYS = useMemo(() => ([
+    "Ngày 1", "Ngày 2", "Ngày 3", "Ngày 4", "Ngày 5", "Ngày 6", "Ngày 7"
+  ]), []);
+  const URTICARIA_SEVERITY_OPTIONS = useMemo(() => ([
+    { value: "0", label: "0 - Không ngứa" },
+    { value: "1", label: "1 - Ngứa nhẹ, không khó chịu" },
+    { value: "2", label: "2 - Ngứa nhiều, khó chịu nhưng chịu được" },
+    { value: "3", label: "3 - Ngứa rất nhiều, không thể chịu đựng" },
+  ]), []);
+  const currentValues = useMemo(() => {
+    const data = Array.isArray(value?.value) ? value.value : Array(7).fill({});
+    
+    // Đảm bảo có đủ 7 phần tử
+    return data.length === 7 ? data : Array(7).fill({});
+  }, [value]);
+
+  // Các tùy chọn cho Select
+  const severityValues = URTICARIA_SEVERITY_OPTIONS.map(opt => opt.value);
+
+  const handleDayChange = useCallback((dayIndex, field, newValue) => {
+    const updatedValues = currentValues.map((dayData, i) => {
+      if (i === dayIndex) {
+        return { ...dayData, [field]: newValue };
+      }
+      return dayData;
+    });
+
+    // 1. Tính toán UAS7 và HSS7
+    const uas7 = updatedValues.reduce((sum, item) => sum + (parseInt(item.dot, 10) || 0) + (parseInt(item.phu, 10) || 0), 0);
+    const hss7 = updatedValues.reduce((sum, item) => sum + (parseInt(item.phu, 10) || 0), 0);
+    
+    // 2. Cập nhật state nội bộ và prop value
+    onChange({ 
+      value: updatedValues, 
+      note: `UAS7: ${uas7}, HSS7: ${hss7}` // Lưu kết quả vào note
+    });
+
+  }, [currentValues, onChange]);
+
+  // Hiển thị UAS7/HSS7 dưới dạng tổng
+  const totalUAS7 = currentValues.reduce((sum, item) => sum + (parseInt(item.dot, 10) || 0) + (parseInt(item.phu, 10) || 0), 0);
+  const totalHSS7 = currentValues.reduce((sum, item) => sum + (parseInt(item.phu, 10) || 0), 0);
+
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        Theo dõi UAS7
+      </Typography>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Ngày/tháng/năm</TableCell>
+              <TableCell>Ngày</TableCell>
+              <TableCell>Điểm mức độ ngứa</TableCell>
+              <TableCell>Điểm mức độ sẩn phù (chỉ tính những nốt tự liên không do cào gãi)</TableCell>
+              <TableCell>Ghi chú</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {UAS7_DAYS.map((dayLabel, index) => (
+              <TableRow key={index}>
+                <TableCell sx={{ minWidth: 150 }}>
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker
+                      format="MM/DD/YYYY"
+                      value={currentValues[index].date ? dayjs(currentValues[index].date, 'MM/DD/YYYY') : null}
+                      onChange={(date) => 
+                        handleDayChange(index, 'date', date ? dayjs(date).format('MM/DD/YYYY') : '')
+                      }
+                      slotProps={{ textField: { size: 'small' } }}
+                    />
+                  </LocalizationProvider>
+                </TableCell>
+                
+                {/* Cột Ngày 1-7 */}
+                <TableCell sx={{ minWidth: 80 }}>{dayLabel}</TableCell>
+                
+                {/* Cột Điểm mức độ ngứa (dot) */}
+                <TableCell sx={{ minWidth: 250 }}>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={currentValues[index].dot ?? ''}
+                      onChange={(e) => handleDayChange(index, 'dot', e.target.value)}
+                      renderValue={(selected) => {
+                        const option = URTICARIA_SEVERITY_OPTIONS.find(o => o.value === selected);
+                        return option ? option.label : selected; // Hiển thị nhãn chi tiết
+                      }}
+                    >
+                      {URTICARIA_SEVERITY_OPTIONS.map((opt) => (
+                        <MenuItem key={`dot-${index}-${opt.value}`} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </TableCell>
+                
+                <TableCell sx={{ minWidth: 250 }}>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={currentValues[index].phu ?? ''}
+                      onChange={(e) => handleDayChange(index, 'phu', e.target.value)}
+                      renderValue={(selected) => {
+                        const option = URTICARIA_SEVERITY_OPTIONS.find(o => o.value === selected);
+                        return option ? option.label : selected;
+                      }}
+                    >
+                      {URTICARIA_SEVERITY_OPTIONS.map((opt) => (
+                        <MenuItem key={`phu-${index}-${opt.value}`} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </TableCell>
+                
+                {/* Cột Ghi chú */}
+                <TableCell>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={currentValues[index].note ?? ''}
+                    onChange={(e) => handleDayChange(index, 'note', e.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      
+      <Stack direction="row" spacing={2} sx={{ mt: 3, maxWidth: 500 }}>
+          <TextField 
+              label="UAS7 (Tổng điểm Ngứa và Sẩn phù)" 
+              value={totalUAS7} 
+              InputProps={{ readOnly: true }} 
+              sx={{ flex: 1 }}
+              variant="filled"
+          />
+          <TextField 
+              label="HSS7 (Tổng điểm Sẩn phù)" 
+              value={totalHSS7} 
+              InputProps={{ readOnly: true }} 
+              sx={{ flex: 1 }}
+              variant="filled"
+          />
+      </Stack>
+    </Paper>
+  );
+}
+
+function normalizeLabName(name) {
+  return name
+    .replace(/^Chỉ số\s*/i, "")
+    .trim();
+}
+
+function LabResultTable({ title, indicators, values, onChange, extraQuestions }) {
+  return (
+    <Stack spacing={2}>
+
+      <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {title}
+        </Typography>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
+              <th style={{ padding: 8 }}>Chỉ số</th>
+              <th style={{ padding: 8 }}>Kết quả</th>
+              <th style={{ padding: 8 }}>Tiêu chuẩn</th>
+              <th style={{ padding: 8 }}>Đơn vị</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {indicators.map((ind) => {
+              const val = values[ind.id]?.value ?? "";
+              const standard = LAB_STANDARD_RANGES[ normalizeLabName(ind.name) ] || "—";
+
+              return (
+                <tr key={ind.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: 8 }}>{ind.name}</td>
+
+                  <td style={{ padding: 8, width: 160 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      type="number"
+                      value={val}
+                      onChange={(e) =>
+                        onChange(ind.id, { value: e.target.value, note: "" })
+                      }
+                    />
+                  </td>
+
+                  <td style={{ padding: 8 }}>{standard}</td>
+                  <td style={{ padding: 8 }}>{ind.unit || ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Paper>
+
+      {/* Nếu có extraQuestions thì render dưới bảng */}
+      {extraQuestions && extraQuestions.length > 0 && (
+        <Stack spacing={2}>
+          {extraQuestions.map((ind) => (
+            <QuestionRendererMUI
+              key={ind.id}
+              indicator={ind}
+              value={values[ind.id]}
+              onChange={(val) => onChange(ind.id, val)}
+            />
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+function PatientSearchDialog({ open, onClose, onSelect }) {
+  const GENDER_OPTIONS = [
+        { value: 'MALE', label: 'Nam' },
+        { value: 'FEMALE', label: 'Nữ' },
+        { value: 'OTHER', label: 'Khác' },
+    ];
+  
+  const SORTABLE_COLUMNS = ['id', 'fullname', 'createdAt']; 
+  
+  const DEFAULT_SORT_COLUMN = 'createdAt';
+  const DEFAULT_SORT_DIRECTION = 'DESC';
+  
+  const INITIAL_PARAMS = {
+    limit: 10,
+    page: 1,
+    search: '',
+    gender: '',
+    phone: '', // Đảm bảo là chuỗi
+    identityNumber: '',
+    sort: '',
+  };
+  
+  const [currentSort, setCurrentSort] = useState({ 
+    column: DEFAULT_SORT_COLUMN, 
+    direction: DEFAULT_SORT_DIRECTION 
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [searchParams, setSearchParams] = useState(INITIAL_PARAMS);
+  const [localSearch, setLocalSearch] = useState(INITIAL_PARAMS);
+
+  const fetchPatients = useCallback(async (params) => {
+    setLoading(true);
+    try {
+      const response = await getPatient({
+        limit: params.limit,
+        page: params.page,
+        search: params.search || undefined,
+        gender: params.gender || undefined,
+        phone: params.phone || undefined,
+        identityNumber: params.identityNumber || undefined,
+        sort: params.sort || undefined, 
+      });
+
+      setPatients(response.data.data || []); 
+      setTotalCount(response.data.total || 0);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bệnh án:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      const sortParam = (currentSort.column && currentSort.direction)
+        ? `${currentSort.column}:${currentSort.direction}`
+        : ''; 
+      
+      setSearchParams((prev) => ({
+        ...prev,
+        sort: sortParam,
+        page: 1, 
+      }));
+    }
+  }, [open, currentSort]);
+
+  useEffect(() => {
+    if (open) {
+      fetchPatients(searchParams);
+    }
+  }, [open, searchParams, fetchPatients]);
+
+  const handleLocalChange = (e) => {
+    const { name, value } = e.target;
+    // Chuyển giá trị thành chuỗi khi lưu, để tránh bị cắt số 0
+    setLocalSearch((prev) => ({ ...prev, [name]: String(value) })); 
+  };
+
+  const handleApplySearch = (e) => {
+    if (e) e.preventDefault();
+    let processedPhone = localSearch.phone.trim();
+    
+    // 2. LOGIC QUAN TRỌNG: Nếu số điện thoại BẮT ĐẦU bằng '0', loại bỏ nó khi gửi API.
+    if (processedPhone.startsWith('0')) {
+        processedPhone = processedPhone.substring(1); 
+    }  
+    setSearchParams((prev) => ({
+      ...prev,
+      page: 1,
+      search: localSearch.search,
+      gender: localSearch.gender,
+      phone: processedPhone, 
+      identityNumber: localSearch.identityNumber,
+    }));
+  };
+
+  const handleChangePage = (event, newPage) => {
+    setSearchParams((prev) => ({ ...prev, page: newPage + 1 })); 
+  };
+  const handleChangeRowsPerPage = (event) => {
+    setSearchParams((prev) => ({
+      ...prev,
+      limit: parseInt(event.target.value, 10),
+      page: 1,
+    }));
+  };
+  
+  const getSortDirection = (column) => {
+    if (currentSort.column === column) {
+      return currentSort.direction;
+    }
+    return false;
+  };
+  
+  const handleSort = (column) => {
+    if (!SORTABLE_COLUMNS.includes(column)) {
+      return; 
+    }
+
+    let newDirection = 'ASC';
+    let newColumn = column;
+
+    if (currentSort.column === column) {
+        if (currentSort.direction === 'ASC') {
+            newDirection = 'DESC';
+        } else if (currentSort.direction === 'DESC') {
+            newColumn = '';
+            newDirection = '';
+        }
+    } else { 
+        newDirection = 'ASC';
+    } 
+    
+    setCurrentSort({ column: newColumn, direction: newDirection });
+  };
+
+  const handleRowClick = (patient) => {
+    onSelect(patient.id, patient.fullname);
+    onClose();
+  };
+  
+  const renderSortIcon = (column) => {
+    const direction = getSortDirection(column);
+    if (direction === 'ASC') return ' \u25B2'; 
+    if (direction === 'DESC') return ' \u25BC'; 
+    return '';
+  };
+  
+  const getGenderLabel = (gender) => {
+    const option = GENDER_OPTIONS.find(g => g.value === gender);
+    return option ? option.label : '—';
+  };
+  
+  // HÀM MỚI: Định dạng số điện thoại cho mục đích hiển thị
+  // Giữ lại logic format để hiển thị số 0 nếu DB trả về thiếu 
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return '—';
+    const phoneStr = String(phone).trim();
+    // Kiểm tra nếu số điện thoại có độ dài 9 hoặc 10 chữ số và không bắt đầu bằng '0'
+    if (phoneStr.length >= 9 && phoneStr.length <= 10 && !phoneStr.startsWith('0')) {
+        return '0' + phoneStr;
+    }
+    return phoneStr;
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+      <DialogTitle>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6">Tìm kiếm và Chọn Bệnh nhân</Typography>
+          <IconButton onClick={onClose}><CloseIcon /></IconButton>
+        </Stack>
+      </DialogTitle>
+      <DialogContent dividers sx={{ minHeight: 400 }}>
+        {/* === Thanh Filter được bọc trong <form> để bắt sự kiện Enter === */}
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }} component="form" onSubmit={handleApplySearch}>
+          <Stack direction="row" spacing={2} flexWrap="wrap">
+            {/* 1. Tìm kiếm theo Tên */}
+            <TextField
+              size="small"
+              label="Tìm kiếm theo Tên"
+              name="search"
+              value={localSearch.search}
+              onChange={handleLocalChange}
+              sx={{ minWidth: 200 }}
+            />
+            
+            {/* 2. Lọc theo Giới tính */}
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Giới tính</InputLabel>
+              <Select
+                name="gender"
+                label="Giới tính"
+                value={localSearch.gender}
+                onChange={handleLocalChange}
+              >
+                <MenuItem value="">Tất cả</MenuItem>
+                {GENDER_OPTIONS.map((g) => (
+                  <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            {/* 3. Tìm theo SĐT (Sử dụng type="tel" an toàn hơn type="number") */}
+            <TextField
+              size="small"
+              label="Tìm theo SĐT"
+              name="phone"
+              type="tel" // Quan trọng: type="tel" cho phép nhập số 0 ở đầu
+              value={localSearch.phone}
+              onChange={handleLocalChange}
+            />
+            
+            {/* 4. Tìm theo CMND/CCCD */}
+            <TextField
+              size="small"
+              label="Tìm theo CMND/CCCD"
+              name="identityNumber"
+              value={localSearch.identityNumber}
+              onChange={handleLocalChange}
+            />
+            
+            {/* 5. Nút ÁP DỤNG BỘ LỌC */}
+            <Button
+              variant="contained"
+              startIcon={<SearchIcon />}
+              onClick={handleApplySearch} 
+              disabled={loading}
+              type="submit" 
+            >
+              Áp dụng bộ lọc
+            </Button>
+          </Stack>
+        </Paper>
+        {/* === Bảng Kết quả === */}
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell 
+                    onClick={() => handleSort('id')} 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    ID {renderSortIcon('id')}
+                  </TableCell>
+                  <TableCell 
+                    onClick={() => handleSort('fullname')} 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    Họ tên {renderSortIcon('fullname')}
+                  </TableCell>
+                  <TableCell>Giới tính</TableCell>
+                  <TableCell>Ngày sinh</TableCell>
+                  <TableCell>CMND/CCCD</TableCell>
+                  <TableCell>Số điện thoại</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {patients.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} align="center">Không tìm thấy bệnh nhân nào.</TableCell></TableRow>
+                ) : (
+                  patients.map((patient) => (
+                    <TableRow
+                      key={patient.id}
+                      onClick={() => handleRowClick(patient)}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>{patient.id}</TableCell>
+                      <TableCell>{patient.fullname}</TableCell>
+                      <TableCell>{getGenderLabel(patient.gender) || '—'}</TableCell>
+                      <TableCell>{patient.birthday ? dayjs(patient.birthday).format('DD/MM/YYYY') : '—'}</TableCell>
+                      <TableCell>{patient.identityNumber || '—'}</TableCell>
+                      <TableCell>{formatPhoneNumber(patient.phone)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={searchParams.page - 1} 
+          onPageChange={handleChangePage}
+          rowsPerPage={searchParams.limit}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[10, 25, 50]}
+          labelRowsPerPage="Số dòng/trang:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} trong ${count}`}
+        />
+      </DialogActions>
+    </Dialog>
+  );
+}
 
 function uploadOneFileWithProgress(file, groupId, templateId, onProgress) {
   return new Promise((resolve, reject) => {
@@ -174,15 +721,15 @@ function ClearableSelect({ label, value, options = [], onChange, name }) {
       <Box sx={{ flexGrow: 1 }}>
         {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
         <RadioGroup
-          name={name}                // cùng name cho 1 nhóm
-          value={value ?? ''}        // controlled bởi state
-          onChange={(e) => onChange(e.target.value)}   // nhận 'Có' | 'Không'
+          name={name}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
         >
           {options.map((opt, i) => (
             <FormControlLabel
               key={`${name}-${i}`}
               value={opt}
-              control={<Radio size="small" />} // KHÔNG truyền 'checked' vào đây
+              control={<Radio size="small" />}
               label={opt}
             />
           ))}
@@ -246,26 +793,14 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
     return [];
   })();
 
-const setKV = (g, k, v) => {
-  const groupKeySafe = (g && String(g).trim() !== '') ? g : '__main__';
-  const current = value?.value || {};
-  console.log('DEBUG setKV', { indicatorId: indicator.id, groupKeySafe, g, k, v, current });
-  onChange({ value: { ...current, [groupKeySafe]: { ...(current[groupKeySafe] || {}), [k]: v } }, note: '' });
-};
+  const setKV = (g, k, v) => {
+    const current = value?.value || {};
+    onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
+  };
 
   const isShapeThis = SHAPE_IDS.has(indicator.id);
   const isDurationThis = Q11_IDS.has(indicator.id);
-  if (CONDITIONAL_TEXT_IDS.has(indicator.id)) {
-    indicator.valueOptions?.group?.forEach((g) => {
-      (g.field || g.fields || []).forEach((f) => {
-        if (f.label === '' && f.type === 'select') {
-          f.label = 'Chọn một đáp án';
-        }
-      });
-    });
-  }
-
-  const isConditionalTextThis = CONDITIONAL_TEXT_IDS.has(indicator.id);
+  const isConditionalTextThis = CONDITIONAL_TEXT_IDS.has(indicator.id);
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
       <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
@@ -273,10 +808,7 @@ const setKV = (g, k, v) => {
           const gKeyFromApi = groupLabelMap?.[indicator.groupId] || '';
           const gKey = gKeyFromApi;
           const fields = group.field || group.fields || [];
-          const gVal = {
-            ...(value?.value?.[gKey] || {}),
-            ...(value?.value?.['__main__'] || {})
-          };
+          const gVal = value?.value?.[gKey] || {};
           const renderedFieldLabels = new Set();
           return (
             <Box key={`${gKey || ''}_${gi}`} sx={{ '&:not(:first-of-type)': { mt: 2 } }}>
@@ -284,7 +816,7 @@ const setKV = (g, k, v) => {
               <Stack spacing={2}>
                 {fields.map((field, fi) => {
                   const fKeyRaw = field.label || ``;
-                  const fKey = fKeyRaw === '' ? '__select__' : fKeyRaw;
+                  const fKey = fKeyRaw === '' ? '_select_' : fKeyRaw;
                   if (renderedFieldLabels.has(fKey)) return null;
                   const fVal = gVal[fKey];
                   const options = field.option || field.options || [];
@@ -345,66 +877,68 @@ const setKV = (g, k, v) => {
                       );
                     }
                   if (isDurationThis && (fKey.includes('4.1') || fKey.includes('4.2'))) {
-                        // Tìm nhãn của trường nhập liệu phụ (Nhập khoảng thời gian) trong cùng nhóm
                         const otherInputField = fields.find(f => f.label === 'Nhập khoảng thời gian' && f.type === 'text');
                         const otherInputKey = otherInputField ? 'Nhập khoảng thời gian' : `${fKey} - Khác (theo giờ)`; // Dùng nhãn chính thức nếu có, hoặc dùng key tạm nếu không tìm thấy (giống logic cũ)
                         
-                        return (
-                            <Box key={keyId}>
-                              <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
-                              {fVal === 'Khác (theo giờ)' && (
-                                <Box sx={{ mt: 1 }}>
-                                  <TextField
-                                    key={`${keyId}-other-hours`}
-                                    size="small"
-                                    fullWidth
-                                    label="Nhập khoảng thời gian"
-                                    value={gVal[otherInputKey] || ''}
-                                    onChange={(e) => setKV(gKey, otherInputKey, e.target.value)}
-                                  />
-                                </Box>
-                              )}
-                            </Box>
-                        );
-                    }
-                  if (isConditionalTextThis && (fKey === '__select__' || fKey === 'Chọn một đáp án')) {
-                        const selectedOption = (gVal[fKey] ?? '').toString();
-                        const textControl = fields.find((f, index) => index > fi && f.label === 'Số lần bị khó thở' && f.type === 'text');
-                        const textKey = textControl?.label;
-                        if (textKey) renderedFieldLabels.add(textKey); 
-                        const safeGKey = (gKey && gKey.trim() !== '') ? gKey : '__main__';
-                        const handleConditionalSelect = (v) => {
-                          const val = (v ?? '').toString();
-                          setKV(safeGKey, fKey, val);
-                          if (val !== 'Có' && textKey) setKV(safeGKey, textKey, '');
+                        return (
+                            <Box key={keyId}>
+                              <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
+                              {fVal === 'Khác (theo giờ)' && (
+                                <Box sx={{ mt: 1 }}>
+                                  <TextField
+                                    key={`${keyId}-other-hours`}
+                                    size="small"
+                                    fullWidth
+                                    label="Nhập khoảng thời gian"
+                                    value={gVal[otherInputKey] || ''}
+                                    onChange={(e) => setKV(gKey, otherInputKey, e.target.value)}
+                                  />
+                                </Box>
+                              )}
+                            </Box>
+                        );
+                    }
+                  if (isConditionalTextThis && fKey === '_select_') {
+                        const selectedOption = gVal[fKey];
+                        const textControl = fields.find((f, index) => index > fi && f.label === 'Số lần bị khó thở' && f.type === 'text');
+                        const textKey = textControl?.label;
+                        if (textKey) renderedFieldLabels.add(textKey); 
+                        
+                        // Cập nhật hàm xử lý chọn
+                        const handleConditionalSelect = (v) => {
+                            setKV(gKey, fKey, v); 
+                            if (v !== 'Có' && textKey) {
+                                setKV(gKey, textKey, '');
+                            }
                         };
 
-                        return (
-                            <Box key={keyId}>
-                                <ClearableSelect 
-                                    label="" 
+                        return (
+                            <Box key={keyId}>
+                                {/* 1. Select chính: Label rỗng để chỉ hiển thị radio buttons */}
+                                <ClearableSelect 
+                                    label="" 
                                     name={keyId}
-                                    value={selectedOption} 
-                                    options={options} 
-                                    onChange={handleConditionalSelect}
-                                />
-                                {textKey && selectedOption === 'Có' && (
-                                    <Box sx={{ mt: 1 }}>
-                                        <TextField
-                                            key={`${keyId}-conditional-text`}
-                                            size="small"
-                                            fullWidth
-                                            label={textKey}
-                                            type="number" 
-                                            inputProps={{ step: '1', min: '0' }}
-                                            value={gVal[textKey] ?? ''}
-                                            onChange={(e) => setKV(safeGKey, textKey, e.target.value)}
-                                        />
-                                    </Box>
-                                )}
-                            </Box>
-                        );
-                    }
+                                    value={selectedOption ?? ''} 
+                                    options={options} 
+                                    onChange={handleConditionalSelect}
+                                />
+                                {textKey && selectedOption === 'Có' && (
+                                    <Box sx={{ mt: 1 }}>
+                                        <TextField
+                                            key={`${keyId}-conditional-text`}
+                                            size="small"
+                                            fullWidth
+                                            label={textKey}
+                                            type="number" 
+                                            inputProps={{ step: '1', min: '0' }}
+                                            value={gVal[textKey] ?? ''}
+                                            onChange={(e) => setKV(gKey, textKey, e.target.value)}
+                                        />
+                                    </Box>
+                                )}
+                            </Box>
+                        );
+                    }
                     return (
                       <Box key={keyId}>
                         <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
@@ -472,6 +1006,8 @@ const setKV = (g, k, v) => {
                                   />
                                 );
                               })}
+
+                          {/* ✅ Nếu chọn “Chống viêm, giảm đau” → hiển thị text “Chi tiết thuốc” */}
                           {hasDrug &&
                             fields
                               .filter(
@@ -612,7 +1148,7 @@ const setKV = (g, k, v) => {
                                             <IconButton
                                               size="small"
                                               onClick={() => handleRemoveFile(i)}
-                                              sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
+                                              sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.😎', '&:hover': { bgcolor: 'white' } }}
                                             >
                                               <CloseIcon fontSize="small" />
                                             </IconButton>
@@ -678,7 +1214,7 @@ const setKV = (g, k, v) => {
                                   size="small"
                                   onClick={() => handleRemoveFile(i)}
                                   aria-label={`Xóa ảnh ${item.name}`}
-                                  sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
+                                  sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.😎', '&:hover': { bgcolor: 'white' } }}
                                 >
                                   <CloseIcon fontSize="small" />
                                 </IconButton>
@@ -735,7 +1271,6 @@ function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupK
         </Typography>
         <Stack direction="row" spacing={2} alignItems="center">
             <LocalizationProvider dateAdapter={AdapterDayjs}>
-                {/* From Date Picker */}
                 <DatePicker
                     label={`Từ ${startLabel}`}
                     views={['month', 'year']}
@@ -744,7 +1279,6 @@ function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupK
                     onChange={(date) => handleDateChange('start', date)}
                     slotProps={{ textField: { size: 'small', sx: { flexGrow: 1 } } }}
                 />
-                {/* To Date Picker */}
                 <DatePicker
                     label={`Đến ${endLabel}`}
                     views={['month', 'year']}
@@ -756,7 +1290,6 @@ function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupK
             </LocalizationProvider>
         </Stack>
 
-        {/* Số tuần bị đợt này (Tự động tính) */}
         <TextField
             size="small"
             label="Số tuần bị đợt này"
@@ -768,18 +1301,17 @@ function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupK
   );
 }
 function EpisodeInfoRenderer({ indicator, value, onChange, groupLabelMap }) {
-  const groups = Array.isArray(indicator.valueOptions?.group) ? indicator.valueOptions.group : [];
-  if (!groups.length) return null;
-  const MAIN_LABEL = groupLabelMap?.[indicator.groupId] || '';
-  const valObj = value?.value || {};
-  const mainGroup = valObj[MAIN_LABEL] || {};
+  const groups = Array.isArray(indicator.valueOptions?.group) ? indicator.valueOptions.group : [];
+  if (!groups.length) return null;
+  const MAIN_LABEL = groupLabelMap?.[indicator.groupId] || '';
+  const valObj = value?.value || {};
+  const mainGroup = valObj[MAIN_LABEL] || {};
 
-  const setKV = useCallback((g, k, v) => {
-    const current = value?.value || {};
-    onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
-  }, [onChange, value]);
+  const setKV = useCallback((g, k, v) => {
+    const current = value?.value || {};
+    onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
+  }, [onChange, value]);
   
-  // Lấy các nhãn trường cần thiết theo JSON mới
   const labelMap = {
       MAIN_RANGE: 'Đợt này: Từ tháng...năm...đến tháng...năm...',
       MAIN_CO_DIEU_TRI: 'Đợt bệnh này bạn đã điều trị hay chưa? (1 đợt bệnh liên tục có nghĩa là bị ít nhất 2 ngày/tuần)',
@@ -791,35 +1323,30 @@ function EpisodeInfoRenderer({ indicator, value, onChange, groupLabelMap }) {
       TRIEU_CHUNG: 'Triệu chứng Giảm xuống/ Nặng lên là gì?'
   };
 
-  const fieldsMain = groups[0].field || groups[0].fields || [];
-  const opt = (label) => fieldsMain.find((f) => f.label === label)?.option || [];
-  const coDieuTri = mainGroup[labelMap.MAIN_CO_DIEU_TRI];
-  const tinhTrang = mainGroup[labelMap.TINH_TRANG];
-  const daBiDotTuongTu = mainGroup[labelMap.MAIN_DA_BI_DOT_TUONG_TU];
-  
-  // Chuyển đổi "1 đợt" -> 1 để tính số lần lặp
-  const soDotBiStr = mainGroup[labelMap.MAIN_SO_DOT] || '0 đợt';
+  const fieldsMain = groups[0].field || groups[0].fields || [];
+  const opt = (label) => fieldsMain.find((f) => f.label === label)?.option || [];
+  const coDieuTri = mainGroup[labelMap.MAIN_CO_DIEU_TRI];
+  const tinhTrang = mainGroup[labelMap.TINH_TRANG];
+  const daBiDotTuongTu = mainGroup[labelMap.MAIN_DA_BI_DOT_TUONG_TU];
+  
+  const soDotBiStr = mainGroup[labelMap.MAIN_SO_DOT] || '0 đợt';
   const soDotBi = parseInt(soDotBiStr.split(' ')[0], 10) || 0;
 
-  const renderEpisodeGroup = (group, index) => {
-    const gKey = group.label; // Thông tin đợt 1, Thông tin đợt 2, ...
-    const groupNum = index; // 1, 2, 3...
-    const gVal = valObj[gKey] || {};
-    const flds = group.field || group.fields || [];
-    const optEp = (label) => flds.find((f) => f.label === label)?.option || [];
-    const epCoDieuTri = gVal['Có điều trị hay không?'];
-    const epTinhTrang = gVal[labelMap.TINH_TRANG];
+  const renderEpisodeGroup = (group, index) => {
+    const gKey = group.label; 
+    const groupNum = index; 
+    const gVal = valObj[gKey] || {};
+    const flds = group.field || group.fields || [];
+    const optEp = (label) => flds.find((f) => f.label === label)?.option || [];
+    const epCoDieuTri = gVal['Có điều trị hay không?'];
+    const epTinhTrang = gVal[labelMap.TINH_TRANG];
     
-    // Tìm nhãn range cho đợt con
-    const rangeField = flds.find(f => f.type === 'range');
-    const rangeLabel = rangeField?.label || `Đợt ${groupNum}: Từ tháng...năm... đến tháng...năm...`;
+    const rangeLabel = `rangeField?.label || Đợt ${groupNum}: Từ tháng...năm... đến tháng...năm...`;
     const rangeKeyPrefix = `Đợt ${groupNum}`;
     
-    return (
-      <Box key={gKey} sx={{ mt: 2, borderLeft: 3, borderColor: 'divider', pl: 2 }}>
-        {gKey && <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>}
-        
-        {/* 1. Range Picker & Calculator */}
+    return (
+      <Box key={gKey} sx={{ mt: 2, borderLeft: 3, borderColor: 'divider', pl: 2 }}>
+        {gKey && <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>}
         <MonthRangeAndWeekCalculator
             label={rangeLabel}
             keyPrefix={rangeKeyPrefix}
@@ -828,54 +1355,54 @@ function EpisodeInfoRenderer({ indicator, value, onChange, groupLabelMap }) {
             groupKey={gKey}
         />
 
-        {/* 2. Có điều trị hay không? */}
+        {/* 2. Có điều trị hay không? */}
         <ClearableSelect
-          label="Có điều trị hay không?"
-          value={epCoDieuTri ?? ''}
-          options={optEp('Có điều trị hay không?')}
-          onChange={(v) => setKV(gKey, 'Có điều trị hay không?', v)}
-        />
+          label="Có điều trị hay không?"
+          value={epCoDieuTri ?? ''}
+          options={optEp('Có điều trị hay không?')}
+          onChange={(v) => setKV(gKey, 'Có điều trị hay không?', v)}
+        />
         
-        {epCoDieuTri === 'Có' && (
-          <Stack spacing={1} sx={{ mt: 1, ml: 1 }}>
-            <TextField size="small" label={labelMap.TEN_THUOC} value={gVal[labelMap.TEN_THUOC] ?? ''} onChange={(e) => setKV(gKey, labelMap.TEN_THUOC, e.target.value)} />
-            <TextField size="small" label={labelMap.LIEU_THUOC} value={gVal[labelMap.LIEU_THUOC] ?? ''} onChange={(e) => setKV(gKey, labelMap.LIEU_THUOC, e.target.value)} />
+        {epCoDieuTri === 'Có' && (
+          <Stack spacing={1} sx={{ mt: 1, ml: 1 }}>
+            <TextField size="small" label={labelMap.TEN_THUOC} value={gVal[labelMap.TEN_THUOC] ?? ''} onChange={(e) => setKV(gKey, labelMap.TEN_THUOC, e.target.value)} />
+            <TextField size="small" label={labelMap.LIEU_THUOC} value={gVal[labelMap.LIEU_THUOC] ?? ''} onChange={(e) => setKV(gKey, labelMap.LIEU_THUOC, e.target.value)} />
             
-            <ClearableSelect
-              label={labelMap.TINH_TRANG}
-              value={epTinhTrang ?? ''}
-              options={optEp(labelMap.TINH_TRANG)}
-              onChange={(v) => setKV(gKey, labelMap.TINH_TRANG, v)}
-            />
+            <ClearableSelect
+              label={labelMap.TINH_TRANG}
+              value={epTinhTrang ?? ''}
+              options={optEp(labelMap.TINH_TRANG)}
+              onChange={(v) => setKV(gKey, labelMap.TINH_TRANG, v)}
+            />
             
-            {(epTinhTrang === 'Giảm xuống' || epTinhTrang === 'Nặng lên') && (
-              <ClearableSelect
-                label={labelMap.TRIEU_CHUNG}
-                value={gVal[labelMap.TRIEU_CHUNG] ?? ''}
-                options={optEp(labelMap.TRIEU_CHUNG)}
-                onChange={(v) => setKV(gKey, labelMap.TRIEU_CHUNG, v)}
-              />
-            )}
-          </Stack>
-        )}
-      </Box>
-    );
-  };
+            {(epTinhTrang === 'Giảm xuống' || epTinhTrang === 'Nặng lên') && (
+              <ClearableSelect
+                label={labelMap.TRIEU_CHUNG}
+                value={gVal[labelMap.TRIEU_CHUNG] ?? ''}
+                options={optEp(labelMap.TRIEU_CHUNG)}
+                onChange={(v) => setKV(gKey, labelMap.TRIEU_CHUNG, v)}
+              />
+            )}
+          </Stack>
+        )}
+      </Box>
+    );
+  };
 
-  return (
-    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-      <Typography
-        variant="subtitle1"
-        gutterBottom
-        fontWeight="bold"
-        component="div"
-        dangerouslySetInnerHTML={{ __html: indicator.name }}
-      />
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+      <Typography
+        variant="subtitle1"
+        gutterBottom
+        fontWeight="bold"
+        component="div"
+        dangerouslySetInnerHTML={{ __html: indicator.name }}
+      />
       {/* KHỐI CÂU HỎI CHÍNH (MAIN GROUP) */}
-      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
-        <Box>
-          {(MAIN_LABEL || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{MAIN_LABEL}</Typography>}
-          <Stack spacing={2}>
+      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
+        <Box>
+          {(MAIN_LABEL || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{MAIN_LABEL}</Typography>}
+          <Stack spacing={2}>
             
             {/* 1. Range Picker & Calculator (MAIN) */}
             <MonthRangeAndWeekCalculator
@@ -886,61 +1413,61 @@ function EpisodeInfoRenderer({ indicator, value, onChange, groupLabelMap }) {
                 groupKey={MAIN_LABEL}
             />
 
-            {/* 2. Đợt bệnh này bạn đã điều trị hay chưa? */}
-            <ClearableSelect
-              label={labelMap.MAIN_CO_DIEU_TRI}
-              value={coDieuTri ?? ''}
-              options={opt(labelMap.MAIN_CO_DIEU_TRI)}
-              onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_CO_DIEU_TRI, v)}
-            />
+            {/* 2. Đợt bệnh này bạn đã điều trị hay chưa? */}
+            <ClearableSelect
+              label={labelMap.MAIN_CO_DIEU_TRI}
+              value={coDieuTri ?? ''}
+              options={opt(labelMap.MAIN_CO_DIEU_TRI)}
+              onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_CO_DIEU_TRI, v)}
+            />
             
-            {coDieuTri === 'Có' && (
-              <Stack spacing={1} sx={{ ml: 1 }}>
-                <TextField size="small" label={labelMap.TEN_THUOC} value={mainGroup[labelMap.TEN_THUOC] ?? ''} onChange={(e) => setKV(MAIN_LABEL, labelMap.TEN_THUOC, e.target.value)} />
-                <TextField size="small" label={labelMap.LIEU_THUOC} value={mainGroup[labelMap.LIEU_THUOC] ?? ''} onChange={(e) => setKV(MAIN_LABEL, labelMap.LIEU_THUOC, e.target.value)} />
-                <ClearableSelect
-                  label={labelMap.TINH_TRANG}
-                  value={tinhTrang ?? ''}
-                  options={opt(labelMap.TINH_TRANG)}
-                  onChange={(v) => setKV(MAIN_LABEL, labelMap.TINH_TRANG, v)}
-                />
-                {(tinhTrang === 'Giảm xuống' || tinhTrang === 'Nặng lên') && (
-                  <ClearableSelect
-                    label={labelMap.TRIEU_CHUNG}
-                    value={mainGroup[labelMap.TRIEU_CHUNG] ?? ''}
-                    options={opt(labelMap.TRIEU_CHUNG)}
-                    onChange={(v) => setKV(MAIN_LABEL, labelMap.TRIEU_CHUNG, v)}
-                  />
-                )}
-              </Stack>
-            )}
+            {coDieuTri === 'Có' && (
+              <Stack spacing={1} sx={{ ml: 1 }}>
+                <TextField size="small" label={labelMap.TEN_THUOC} value={mainGroup[labelMap.TEN_THUOC] ?? ''} onChange={(e) => setKV(MAIN_LABEL, labelMap.TEN_THUOC, e.target.value)} />
+                <TextField size="small" label={labelMap.LIEU_THUOC} value={mainGroup[labelMap.LIEU_THUOC] ?? ''} onChange={(e) => setKV(MAIN_LABEL, labelMap.LIEU_THUOC, e.target.value)} />
+                <ClearableSelect
+                  label={labelMap.TINH_TRANG}
+                  value={tinhTrang ?? ''}
+                  options={opt(labelMap.TINH_TRANG)}
+                  onChange={(v) => setKV(MAIN_LABEL, labelMap.TINH_TRANG, v)}
+                />
+                {(tinhTrang === 'Giảm xuống' || tinhTrang === 'Nặng lên') && (
+                  <ClearableSelect
+                    label={labelMap.TRIEU_CHUNG}
+                    value={mainGroup[labelMap.TRIEU_CHUNG] ?? ''}
+                    options={opt(labelMap.TRIEU_CHUNG)}
+                    onChange={(v) => setKV(MAIN_LABEL, labelMap.TRIEU_CHUNG, v)}
+                  />
+                )}
+              </Stack>
+            )}
             
             {/* 3. Lịch sử đợt bệnh (Câu hỏi điều kiện) */}
-            <Box sx={{ mt: 2 }}>
-              <ClearableSelect
-                label={labelMap.MAIN_DA_BI_DOT_TUONG_TU}
-                value={daBiDotTuongTu ?? ''}
-                options={opt(labelMap.MAIN_DA_BI_DOT_TUONG_TU)}
-                onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_DA_BI_DOT_TUONG_TU, v)}
-              />
-              {daBiDotTuongTu === 'Có' && (
-                <Box sx={{ mt: 1 }}>
-                  <ClearableSelect
-                    label={labelMap.MAIN_SO_DOT}
-                    value={soDotBiStr}
-                    options={['1 đợt', '2 đợt', '3 đợt']}
-                    onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_SO_DOT, v)}
-                  />
-                </Box>
-              )}
-            </Box>
-          </Stack>
-        </Box>
-      </Box>
+            <Box sx={{ mt: 2 }}>
+              <ClearableSelect
+                label={labelMap.MAIN_DA_BI_DOT_TUONG_TU}
+                value={daBiDotTuongTu ?? ''}
+                options={opt(labelMap.MAIN_DA_BI_DOT_TUONG_TU)}
+                onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_DA_BI_DOT_TUONG_TU, v)}
+              />
+              {daBiDotTuongTu === 'Có' && (
+                <Box sx={{ mt: 1 }}>
+                  <ClearableSelect
+                    label={labelMap.MAIN_SO_DOT}
+                    value={soDotBiStr}
+                    options={['1 đợt', '2 đợt', '3 đợt']}
+                    onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_SO_DOT, v)}
+                  />
+                </Box>
+              )}
+            </Box>
+          </Stack>
+        </Box>
+      </Box>
       {/* KHỐI CÂU HỎI ĐỢT CON */}
-      {daBiDotTuongTu === 'Có' && Array.isArray(groups) && groups.slice(1, 1 + soDotBi).map((g, i) => renderEpisodeGroup(g, i + 1))}
-    </Paper>
-  );
+      {daBiDotTuongTu === 'Có' && Array.isArray(groups) && groups.slice(1, 1 + soDotBi).map((g, i) => renderEpisodeGroup(g, i + 1))}
+    </Paper>
+  );
 }
 function Q4MultiSelect({ indicator, value, onChange }) {
   const arr = Array.isArray(value?.value) ? value.value : [];
@@ -974,6 +1501,7 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
   if (EPISODE_IDS.has(indicator.id) || EPISODE_CODES.has(indicator.code)) {
     return <EpisodeInfoRenderer indicator={indicator} value={value} onChange={onChange} groupLabelMap={groupLabelMap} />;
   }
+
   if (Q4_IDS.has(indicator.id) && indicator.valueType === 'multi_selection') {
     return (
       <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
@@ -1063,7 +1591,7 @@ const QuestionRendererMUI = React.memo(function QuestionRendererMUI({
                     {previews.map((item, i) => (
                       <Box key={`img-prev-${i}`} sx={{ position: 'relative' }}>
                         <Box component="img" src={item.src} alt={item.name} onClick={() => onOpenPreview && onOpenPreview(item.src)} sx={{ width: 80, height: 80, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }} />
-                        <IconButton size="small" onClick={() => handleRemoveFile(i)} aria-label={`Xóa ảnh ${item.name}`} sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}>
+                        <IconButton size="small" onClick={() => handleRemoveFile(i)} aria-label={`Xóa ảnh ${item.name}`} sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.😎', '&:hover': { bgcolor: 'white' } }}>
                           <CloseIcon fontSize="small" />
                         </IconButton>
                       </Box>
@@ -1098,7 +1626,8 @@ export function RecordDetailView() {
   const [templateName, setTemplateName] = useState('');
   const [initialErrors, setInitialErrors] = useState({ patientId: '', diagnosis: '', symptoms: '' });
   const [snackMsg, setSnackMsg] = useState('');
-
+  const [openPatientDialog, setOpenPatientDialog] = useState(false); 
+  const [selectedPatientName, setSelectedPatientName] = useState('');
   const [previewSrc, setPreviewSrc] = useState(null);
   const [uploadProgressMap, setUploadProgressMap] = useState({});
   const updateProgress = (key, pct) => setUploadProgressMap((m) => ({ ...m, [key]: pct }));
@@ -1149,11 +1678,33 @@ export function RecordDetailView() {
           } catch { return null; }
         }));
         const groups = resGroups.filter(Boolean);
-        setVitalGroups(groups);
+        const UAS7_GROUP_MOCK = {
+          id: 9999,
+          name: 'Theo dõi UAS7',
+          indicators: [
+            { 
+              id: 999901, // ID chỉ số UAS7
+              code: 'UAS7_TRACKER', 
+              name: 'Bảng theo dõi UAS7', 
+              valueType: 'uas7_tracker', // Loại custom mới
+              groupId: 9999
+            }
+          ]
+        };
+        let finalGroups = [...groups];
+        const targetGroupIdToInsertAfter = 31; 
+        const indexToInsert = finalGroups.findIndex(g => g.id === targetGroupIdToInsertAfter);
 
-        const gmap = {};
-        groups.forEach((g) => { gmap[g.id] = (g.label && typeof g.label === 'string') ? g.label.trim() : ''; });
-        setGroupLabelMap(gmap);
+        if (indexToInsert !== -1) {
+            finalGroups.splice(indexToInsert + 1, 0, UAS7_GROUP_MOCK);
+        }
+
+        const finalGroupsToSet = isChronic1Template ? finalGroups : groups;
+        setVitalGroups(finalGroups);
+
+        const gmap = {};
+        finalGroups.forEach((g) => { gmap[g.id] = (g.label && typeof g.label === 'string') ? g.label.trim() : ''; });
+        setGroupLabelMap(gmap);
 
         setSelectedQ192(null);
         setSelectedQ62(null);
@@ -1192,7 +1743,14 @@ export function RecordDetailView() {
     const total = steps.length;
     setActiveStep(prev => (prev >= total ? Math.max(0, total - 1) : prev));
   }, [steps.length]);
-
+  const handlePatientSelect = useCallback((id, name) => {
+    setFormData((prev) => ({
+      ...prev,
+      initialInfo: { ...prev.initialInfo, patientId: String(id) }
+    }));
+    setSelectedPatientName(name);
+    setInitialErrors((s) => ({ ...s, patientId: '' }));
+  }, []);
   const handleInitialInfoChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -1268,8 +1826,8 @@ export function RecordDetailView() {
         const so = obj[labelMap.SO_DOT];
         const soTuan = obj[labelMap.SO_TUAN];
 
-        const value = {};
-        const put = (k, v) => { if (!isNilOrEmpty2(v)) value[k] = v; };
+        const value = {};
+        const put = (k, v) => { if (!isNilOrEmpty2(v)) value[k] = v; };
         
         // Đặt Range và Số tuần đã tính (rangeValue là string gộp)
         if (isMainGroup) {
@@ -1282,46 +1840,51 @@ export function RecordDetailView() {
              put(labelMap.SO_TUAN, soTuan);
         }
         
-        put(labelMap.CO_DIEU_TRI, co);
-        if (co === 'Có') {
-          put(labelMap.TEN_THUOC, obj[labelMap.TEN_THUOC]);
-          put(labelMap.LIEU_THUOC, obj[labelMap.LIEU_THUOC]);
-          put(labelMap.TINH_TRANG, tt);
-          if (tt === 'Giảm xuống' || tt === 'Nặng lên') {
-            put(labelMap.TRIEU_CHUNG, obj[labelMap.TRIEU_CHUNG]);
-          }
-        }
+        put(labelMap.CO_DIEU_TRI, co);
+        if (co === 'Có') {
+          put(labelMap.TEN_THUOC, obj[labelMap.TEN_THUOC]);
+          put(labelMap.LIEU_THUOC, obj[labelMap.LIEU_THUOC]);
+          put(labelMap.TINH_TRANG, tt);
+          if (tt === 'Giảm xuống' || tt === 'Nặng lên') {
+            put(labelMap.TRIEU_CHUNG, obj[labelMap.TRIEU_CHUNG]);
+          }
+        }
         
         // Chỉ đặt câu hỏi lịch sử đợt bệnh ở nhóm chính
         if (isMainGroup) {
-            if (da) put(labelMap.DA_BI_DOT_TUONG_TU, da);
-            if (so) put(labelMap.SO_DOT, so);
+            if (da) put(labelMap.DA_BI_DOT_TUONG_TU, da);
+            if (so) put(labelMap.SO_DOT, so);
         }
-        return value;
-    };
+        return value;
+    };
     const main = raw[MAIN_LABEL] || {};
     const result = { [MAIN_LABEL]: buildGroup(main, true) };
     const soDotBiStr = main[labelMap.SO_DOT] || '0 đợt';
     const soDotBi = parseInt(soDotBiStr.split(' ')[0], 10) || 0;
     
     // Xử lý các đợt con
-    for (let i = 1; i <= soDotBi; i += 1) {
-      const lbl = `Thông tin đợt ${i}`;
-      const g = raw[lbl] || {};
+    for (let i = 1; i <= soDotBi; i += 1) {
+      const lbl = `Thông tin đợt ${i}`;
+      const g = raw[lbl] || {};
       // Gán keyPrefix cho range picker để buildGroup biết cách truy cập date
       g['__group_label_for_range_prefix'] = `Đợt ${i}`; 
-      const sub = buildGroup(g, false);
-      if (!isNilOrEmpty2(sub)) {
-        result[MAIN_LABEL][lbl] = sub;
-      }
-    }
+      const sub = buildGroup(g, false);
+      if (!isNilOrEmpty2(sub)) {
+        result[MAIN_LABEL][lbl] = sub;
+      }
+    }
     
-    if (isNilOrEmpty2(result[MAIN_LABEL])) return null;
-    return result;
+    if (isNilOrEmpty2(result[MAIN_LABEL])) return null;
+    return result;
 };
 
   const innerForApi = (indicator, stored) => {
     if (!indicator) return null;
+    if (indicator.code === 'UAS7_TRACKER') {
+        const inner = stored?.value;
+        if (!Array.isArray(inner) || inner.length === 0) return null;
+        return inner; 
+    }
     if (EPISODE_IDS.has(indicator.id) || EPISODE_CODES.has(indicator.code)) {
       return innerOfEpisodeQuestion(indicator, stored);
     }
@@ -1332,10 +1895,13 @@ export function RecordDetailView() {
       const { patientId, diagnosis, symptoms } = formData.initialInfo;
       return !!patientId && !!diagnosis?.trim() && !!symptoms?.trim();
     }
-
+    
     const group = filteredVitalGroups[stepIdx];
     if (!group) return false;
-
+    if (group.id === 9999) {
+        const val = formData.vitalValues[999901];
+        return Array.isArray(val?.value) && val.value.length === 7;
+    }
     return group.indicators.every((indicator) => {
       const val = formData.vitalValues[indicator.id];
       const inner = val?.value;
@@ -1346,7 +1912,20 @@ export function RecordDetailView() {
     if (stepIdx === steps.length - 1) {
       return (
         <Stack spacing={3}>
-          <TextField label="Mã bệnh nhân" name="patientId" type="number" value={formData.initialInfo.patientId} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.patientId)} helperText={initialErrors.patientId} />
+          <Stack direction="row" spacing={1} alignItems="flex-end">
+            <TextField
+              label="Mã bệnh nhân"
+              name="patientId"
+              type="number"
+              value={formData.initialInfo.patientId}
+              onChange={handleInitialInfoChange}
+              onClick={() => setOpenPatientDialog(true)}
+              required
+              error={Boolean(initialErrors.patientId)}
+              helperText={initialErrors.patientId || selectedPatientName}
+              sx={{ flexGrow: 1 }}
+            />
+          </Stack>
           <TextField label="Chẩn đoán" name="diagnosis" multiline rows={3} value={formData.initialInfo.diagnosis} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.diagnosis)} helperText={initialErrors.diagnosis} />
           <TextField label="Triệu chứng" name="symptoms" multiline rows={3} value={formData.initialInfo.symptoms} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.symptoms)} helperText={initialErrors.symptoms} />
           <TextField label="Ghi chúº" name="notes" multiline rows={2} value={formData.initialInfo.notes} onChange={handleInitialInfoChange} />
@@ -1358,7 +1937,18 @@ export function RecordDetailView() {
 
     const group = filteredVitalGroups[stepIdx];
     if (!group) return null;
-
+    if (group.id === 9999) {
+      const uas7Indicator = group.indicators.find(i => i.code === 'UAS7_TRACKER');
+      if (!uas7Indicator) return <Alert severity="error">Không tìm thấy chỉ số UAS7 Tracker.</Alert>;
+      
+      return (
+        <UAS7TrackerTable
+          indicatorId={uas7Indicator.id}
+          value={formData.vitalValues[uas7Indicator.id]}
+          onChange={(val) => handleVitalValueChange(uas7Indicator.id, val)}
+        />
+      );
+    }
     if (isAcuteTemplate && group.id === 12) {
       const q192 = group.indicators.find((i) => i.id === 192);
       const others = group.indicators.filter((i) => i.id !== 192);
@@ -1406,7 +1996,28 @@ export function RecordDetailView() {
         </Stack>
       );
     }
+    if (group.id === 23) {
+      return (
+        <LabResultTable
+          indicators={group.indicators}
+          values={formData.vitalValues}
+          onChange={handleVitalValueChange}
+        />
+      );
+    }
+    if (group.id === 34) {
+      const numberIndicators = group.indicators.filter(i => i.valueType === "number");
+      const extraIndicators = group.indicators.filter(i => i.valueType !== "number");
 
+      return (
+        <LabResultTable
+          indicators={numberIndicators}
+          extraQuestions={extraIndicators}
+          values={formData.vitalValues}
+          onChange={handleVitalValueChange}
+        />
+      );
+    }
     return (
       <Stack spacing={2}>
         {group.indicators.map((indicator) => (
@@ -1547,7 +2158,11 @@ export function RecordDetailView() {
           Tạo bệnh án: {templateName}
         </Typography>
       </Box>
-
+      <PatientSearchDialog
+        open={openPatientDialog}
+        onClose={() => setOpenPatientDialog(false)}
+        onSelect={handlePatientSelect}
+      />
       {Object.keys(uploadProgressMap).length > 0 && (
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="subtitle2" gutterBottom aria-live="polite">Đang tải ảnh...</Typography>

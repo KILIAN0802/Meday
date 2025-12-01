@@ -87,6 +87,10 @@ export const endpoints = {
 
   },
 
+  staff_patientManagerment:{
+    getPatient:'/api/v1/staff/patients',
+  },
+
   vitals:{
     getAllGroup: '/api/v1/vitals/groups',
     getIDGroup: (id) => `/api/v1/vitals/groups/${id}`,

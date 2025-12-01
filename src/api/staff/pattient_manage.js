@@ -1,1 +1,0 @@
-import axiosInstance, { endpoints } from 'src/lib/axios';

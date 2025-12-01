@@ -111,7 +111,7 @@ export function RecordCreateButtons() {
                 },
               }}
             >
-              Tạo lịch hẹn
+              Lịch hẹn
             </Button>
           </>
         ) : (
