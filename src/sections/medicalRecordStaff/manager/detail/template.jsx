@@ -26,10 +26,16 @@ import {
   Radio,
   RadioGroup,
   Checkbox,
-  FormGroup
+  FormGroup,
+  TableContainer,
+  Table, TableHead, TableRow, TableCell, TableBody, TablePagination
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
+import SortIcon from '@mui/icons-material/Sort';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import { getPatient } from 'src/api/staff/patient_manage';
 import { getMedicalRecordTemplateById } from 'src/api/medical-record-templates-staff';
 import { getVitalGroupById } from 'src/api/vitals';
 import { createMedicalRecord, updateVitalMedicalRecordById } from 'src/api/medical-record-staff';
@@ -51,6 +57,255 @@ const Q5_IDS = new Set([196, 66]);
 const Q11_IDS = new Set([185, 71, 41, 81]);
 const CONDITIONAL_TEXT_IDS = new Set([204, 209]);
 const SHAPE_IDS = new Set([182, 69]); // 9. Hình dạng
+
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
+
+export default function PatientSelectDialog({ open, onClose, onSelect }) {
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
+  
+  // State cho bộ lọc
+  const [filters, setFilters] = useState({
+    id: '',
+    fullname: '',
+    gender: '', // Bạn có thể đổi thành Select nếu muốn, ở đây để Text theo ảnh
+    birthday: '',
+    phone: '',
+    email: '',
+    identityNumber: ''
+  });
+  const [sortDirection, setSortDirection] = useState(null); 
+  const debouncedFilters = useDebounce(filters, 500); 
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedFilters]);
+
+  const fetchPatients = useCallback(async () => {
+  setLoading(true);
+  try {
+    const cleanFilters = { ...debouncedFilters };
+    if (cleanFilters.phone && cleanFilters.phone.trim().startsWith('0')) {
+      cleanFilters.phone = cleanFilters.phone.trim().substring(1);
+    }
+    const params = {
+      page: page + 1,
+      limit: rowsPerPage,
+      ...cleanFilters, // Truyền bộ lọc đã được xử lý (đã bỏ số 0)
+    };
+
+    if (sortDirection) {
+      params.sort = `fullname:${sortDirection}`;
+    }
+
+    const res = await getPatient(params);
+    
+    // Xử lý dữ liệu trả về (code fix lỗi mảng trước đó)
+    if (res && res.data && Array.isArray(res.data.data)) {
+      setPatients(res.data.data);
+      setTotal(res.total || 0);
+    } else if (res && Array.isArray(res.data)) {
+      setPatients(res.data);
+      setTotal(res.total || res.length || 0);
+    } else {
+      setPatients([]);
+    }
+
+  } catch (error) {
+    console.error(error);
+    setPatients([]);
+  } finally {
+    setLoading(false);
+  }
+}, [debouncedFilters, sortDirection, page, rowsPerPage]);
+
+  useEffect(() => {
+    if (open) {
+      fetchPatients();
+    }
+  }, [open, fetchPatients]);
+
+  // Xử lý thay đổi input filter
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Xử lý click nút sort fullname
+  const handleSortClick = () => {
+    if (sortDirection === null) setSortDirection('ASC');
+    else if (sortDirection === 'ASC') setSortDirection('DESC');
+    else setSortDirection(null);
+  };
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0); // Reset về trang đầu khi đổi limit
+  };
+  const formatGender = (gender) => {
+    if (gender === 'MALE') return 'Nam';
+    if (gender === 'FEMALE') return 'Nữ';
+    return '';
+  };
+
+  // Xử lý hiển thị SĐT (thêm số 0)
+  const formatPhone = (phone) => {
+    if (!phone) return '';
+    return phone.startsWith('0') ? phone : `0${phone}`;
+  };
+
+  // Style chung cho đường kẻ đen ngăn cách cột
+  const borderStyle = { borderRight: '1px solid rgba(0,0,0,0.12)' };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        Chọn bệnh nhân
+        <IconButton onClick={onClose}><CloseIcon /></IconButton>
+      </DialogTitle>
+      
+      <DialogContent sx={{ p: 0 }}> 
+        {/* p:0 để bảng sát lề, scrollbar sẽ là của DialogContent */}
+        <TableContainer>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                {/* 1. Cột ID */}
+                <TableCell sx={{ ...borderStyle, width: 80, bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">ID</Typography>
+                  <TextField 
+                    size="small" variant="standard" placeholder="Lọc..." 
+                    value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)}
+                  />
+                </TableCell>
+
+                {/* 2. Cột Họ và tên (Có Sort) */}
+                <TableCell sx={{ ...borderStyle, minWidth: 200, bgcolor: 'background.paper' }}>
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <Typography variant="subtitle2">Họ và Tên</Typography>
+                    <IconButton size="small" onClick={handleSortClick}>
+                       {!sortDirection && <SortIcon fontSize="inherit" />}
+                       {sortDirection === 'ASC' && <ArrowUpwardIcon fontSize="inherit" color="primary" />}
+                       {sortDirection === 'DESC' && <ArrowDownwardIcon fontSize="inherit" color="primary" />}
+                    </IconButton>
+                  </Stack>
+                  <TextField 
+                    size="small" variant="standard" placeholder="Lọc tên..." fullWidth
+                    value={filters.fullname} onChange={(e) => handleFilterChange('fullname', e.target.value)}
+                  />
+                </TableCell>
+
+                {/* 3. Cột Giới tính */}
+                <TableCell sx={{ ...borderStyle, width: 100, bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">Giới tính</Typography>
+                   <TextField 
+                    size="small" variant="standard" placeholder="Nam/Nữ" 
+                    value={filters.gender} onChange={(e) => handleFilterChange('gender', e.target.value)}
+                  />
+                </TableCell>
+
+                {/* 4. Cột Ngày sinh */}
+                <TableCell sx={{ ...borderStyle, width: 120, bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">Ngày sinh</Typography>
+                   <TextField 
+                    size="small" variant="standard" placeholder="yyyy-mm-dd" 
+                    value={filters.birthday} onChange={(e) => handleFilterChange('birthday', e.target.value)}
+                  />
+                </TableCell>
+
+                {/* 5. Cột SĐT */}
+                <TableCell sx={{ ...borderStyle, width: 120, bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">SĐT</Typography>
+                  <TextField 
+                    size="small" variant="standard" placeholder="Lọc SĐT..." 
+                    value={filters.phone} onChange={(e) => handleFilterChange('phone', e.target.value)}
+                  />
+                </TableCell>
+
+                {/* 6. Cột Email */}
+                <TableCell sx={{ ...borderStyle, minWidth: 150, bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">Email</Typography>
+                   <TextField 
+                    size="small" variant="standard" placeholder="Lọc email..." fullWidth
+                    value={filters.email} onChange={(e) => handleFilterChange('email', e.target.value)}
+                  />
+                </TableCell>
+
+                {/* 7. Cột CMND/CCCD */}
+                <TableCell sx={{ bgcolor: 'background.paper' }}>
+                  <Typography variant="subtitle2">CMND/CCCD</Typography>
+                   <TextField 
+                    size="small" variant="standard" placeholder="Lọc..." 
+                    value={filters.identityNumber} onChange={(e) => handleFilterChange('identityNumber', e.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                    <CircularProgress />
+                  </TableCell>
+                </TableRow>
+              ) : patients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                    Không tìm thấy bệnh nhân
+                  </TableCell>
+                </TableRow>
+              ) : (
+                patients.map((patient) => (
+                  <TableRow 
+                    key={patient.id} 
+                    hover 
+                    onClick={() => onSelect(patient)} // Tự động chọn khi click vào hàng
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell sx={borderStyle}>{patient.id}</TableCell>
+                    <TableCell sx={borderStyle} style={{ fontWeight: 600 }}>{patient.fullname}</TableCell>
+                    <TableCell sx={borderStyle}>{formatGender(patient.gender)}</TableCell>
+                    <TableCell sx={borderStyle}>
+                      {patient.birthday ? dayjs(patient.birthday).format('DD/MM/YYYY') : ''}
+                    </TableCell>
+                    <TableCell sx={borderStyle}>{formatPhone(patient._phone || patient.phone)}</TableCell>
+                    <TableCell sx={borderStyle}>{patient.email}</TableCell>
+                    <TableCell>{patient.identityNumber}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={total} // Tổng số bản ghi (lấy từ API)
+          page={page}   // Trang hiện tại (0-based)
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage} // Giới hạn số dòng
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50]} // Các tùy chọn limit
+          labelRowsPerPage="Số dòng:"
+          labelDisplayedRows={({ from, to, count }) => 
+            `${from}–${to} trong số ${count !== -1 ? count : `hơn ${to}`}`
+          }
+          sx={{ borderTop: '1px solid rgba(0,0,0,0.12)' }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const lsSafeParse = (s, fb) => {
   try { return JSON.parse(s); } catch { return fb; }
@@ -1176,7 +1431,8 @@ export function RecordDetailView() {
   const [templateName, setTemplateName] = useState('');
   const [initialErrors, setInitialErrors] = useState({ patientId: '', diagnosis: '', symptoms: '' });
   const [snackMsg, setSnackMsg] = useState('');
-
+  const [openPatientDialog, setOpenPatientDialog] = useState(false);
+  const [patientNameDisplay, setPatientNameDisplay] = useState('');
   const [previewSrc, setPreviewSrc] = useState(null);
   const [uploadProgressMap, setUploadProgressMap] = useState({});
   const updateProgress = (key, pct) => setUploadProgressMap((m) => ({ ...m, [key]: pct }));
@@ -1420,11 +1676,32 @@ export function RecordDetailView() {
       return inner !== undefined && inner !== null && inner !== '' && !(Array.isArray(inner) && inner.length === 0);
     });
   };
+  const handleSelectPatient = (patient) => {
+      setFormData((prev) => ({
+        ...prev,
+        initialInfo: { ...prev.initialInfo, patientId: patient.id }
+      }));
+      setPatientNameDisplay(patient.fullname);
+      setInitialErrors((prev) => ({ ...prev, patientId: '' }));
+      setOpenPatientDialog(false);
+    };
   const renderStepContent = (stepIdx) => {
     if (stepIdx === steps.length - 1) {
       return (
         <Stack spacing={3}>
-          <TextField label="Mã bệnh nhân" name="patientId" type="number" value={formData.initialInfo.patientId} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.patientId)} helperText={initialErrors.patientId} />
+          <TextField 
+            label="Bệnh nhân" // Label hiển thị
+            name="patientId" 
+            value={patientNameDisplay || formData.initialInfo.patientId || ''} // Ưu tiên hiện tên, nếu không có thì hiện ID
+            onClick={() => setOpenPatientDialog(true)} // Mở dialog khi click
+            InputProps={{ 
+              readOnly: true, // Không cho sửa tay
+              style: { cursor: 'pointer' } // Hiển thị con trỏ tay để biết là click được
+            }} 
+            required 
+            error={Boolean(initialErrors.patientId)} 
+            helperText={initialErrors.patientId || "Nhấn để chọn bệnh nhân từ danh sách"}
+          />
           <TextField label="Chẩn đoán" name="diagnosis" multiline rows={3} value={formData.initialInfo.diagnosis} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.diagnosis)} helperText={initialErrors.diagnosis} />
           <TextField label="Triệu chứng" name="symptoms" multiline rows={3} value={formData.initialInfo.symptoms} onChange={handleInitialInfoChange} required error={Boolean(initialErrors.symptoms)} helperText={initialErrors.symptoms} />
           <TextField label="Ghi chúº" name="notes" multiline rows={2} value={formData.initialInfo.notes} onChange={handleInitialInfoChange} />
@@ -1433,7 +1710,7 @@ export function RecordDetailView() {
         </Stack>
       );
     }
-
+    
     const group = filteredVitalGroups[stepIdx];
     if (!group) return null;
 
@@ -1636,7 +1913,7 @@ export function RecordDetailView() {
       </Container>
     );
   }
-
+  
   return (
     <Container maxWidth="md" sx={{ my: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -1709,6 +1986,11 @@ export function RecordDetailView() {
       </Dialog>
 
       <Snackbar open={Boolean(snackMsg)} autoHideDuration={2000} onClose={() => setSnackMsg('')} message={snackMsg} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
+      <PatientSelectDialog 
+        open={openPatientDialog}
+        onClose={() => setOpenPatientDialog(false)}
+        onSelect={handleSelectPatient}
+      />
     </Container>
   );
 }
