@@ -48,7 +48,7 @@ import dayjs from 'dayjs';
 
 const EPISODE_CODES = new Set(['QUES4CTN', 'QUES4MT1']);
 const EPISODE_IDS = new Set([175, 64]);
-const DRAFT_KEY_PREFIX = 'mr_template_draft:';
+
 const PENDING_PREFIX = 'pendingUploads:';
 const MAX_IMAGES_PER_FIELD = 10;
 const UPLOAD_CONCURRENCY = 3;
@@ -73,7 +73,19 @@ export default function PatientSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
-  
+  const [currentEpisode, setCurrentEpisode] = useState({
+    range: { from: null, to: null },
+    weeks: 0,
+    treated: null,
+    drugName: '',
+    dosage: '',
+    response: null,
+    symptom: null,
+    hadBefore: null,
+    previousCount: null,
+    previousEpisodes: []
+  });
+
   // State cho bộ lọc
   const [filters, setFilters] = useState({
     id: '',
@@ -312,19 +324,150 @@ const lsSafeParse = (s, fb) => {
 };
 
 const calculateWeeks = (start, end) => {
-  if (!start || !end || start.isAfter(end)) return '';
-  
-  // Lấy ngày đầu tiên của tháng bắt đầu và ngày cuối cùng của tháng kết thúc
+  if (!start) return 0;
   const startDate = start.startOf('month');
-  const endDate = end.endOf('month');
+  const endDate = end ? end.endOf('month') : dayjs().endOf('month'); 
+  
+  if (startDate.isAfter(endDate)) return 0;
 
-  // Tính số ngày
   const daysDiff = endDate.diff(startDate, 'day') + 1;
-
-  // Tính số tuần và làm tròn lên
-  const weeks = Math.ceil(daysDiff / 7);
-  return String(weeks);
+  return Math.max(0, Math.ceil(daysDiff / 7));
 };
+
+const sanitizeName = (str) => str ? str.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, '') : '';
+
+const EpisodeSingleForm = ({ title, prefixKey, data, onChange, isMainEpisode = false }) => {
+  const safePrefix = sanitizeName(prefixKey);
+
+  // Helper set/get dữ liệu
+  const setVal = (field, val) => onChange(`${prefixKey}_${field}`, val);
+  const getVal = (field) => data[`${prefixKey}_${field}`] ?? ''; // Luôn trả về string rỗng nếu chưa có
+
+  // --- Logic Date & Tuần ---
+  const startDateStr = getVal('StartDate');
+  const endDateStr = getVal('EndDate');
+  
+  // Effect giả lập: Tính toán số tuần ngay khi render nếu date thay đổi
+  // (Hoặc có thể tính trong onChange như yêu cầu trước, ở đây tôi làm theo kiểu controlled)
+  const startDate = startDateStr ? dayjs(startDateStr) : null;
+  const endDate = endDateStr ? dayjs(endDateStr) : null;
+  const weeksVal = getVal('Số tuần bị đợt này');
+
+  const handleDateChange = (pos, newVal) => {
+    const valStr = newVal ? newVal.toISOString() : '';
+    // Cập nhật ngày trước
+    if (pos === 'start') onChange(`${prefixKey}_StartDate`, valStr);
+    else onChange(`${prefixKey}_EndDate`, valStr);
+
+    // Tính toán tuần ngay lập tức để update state
+    const s = pos === 'start' ? newVal : startDate;
+    // Logic: Nếu chưa chọn End, mặc định là Today để tính
+    const e = (pos === 'end' ? newVal : endDate) || dayjs(); 
+
+    let w = 0;
+    if (s) {
+       const startM = s.startOf('month');
+       const endM = e.startOf('month');
+       if (!startM.isAfter(endM)) {
+          const days = endM.diff(startM, 'day') + 1;
+          w = Math.ceil(days / 7);
+       }
+    }
+    setVal('Số tuần bị đợt này', w);
+  };
+
+  // --- Logic Điều Kiện (State derived) ---
+  const treatmentVal = getVal('Có điều trị hay không?');
+  const showMedicine = treatmentVal === 'Có';
+
+  const statusVal = getVal('Tình trạng tổn thương khi đang uống thuốc');
+  const showSymptoms = statusVal === 'Giảm xuống' || statusVal === 'Nặng lên';
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: isMainEpisode ? '#fff' : '#f9f9f9' }}>
+      <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main', textTransform: 'uppercase' }}>
+        {title}
+      </Typography>
+
+      <Stack spacing={2}>
+        {/* 1. Date Range */}
+        <Stack spacing={1}>
+            <Typography variant="body2">Thời gian (Từ tháng... đến tháng...)</Typography>
+            <Stack direction="row" spacing={2}>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker 
+                        label="Từ tháng" views={['month', 'year']} format="MM/YYYY"
+                        value={startDate} 
+                        onChange={(v) => handleDateChange('start', v)}
+                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                    <DatePicker 
+                        label="Đến tháng" views={['month', 'year']} format="MM/YYYY"
+                        value={endDate} 
+                        onChange={(v) => handleDateChange('end', v)}
+                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                </LocalizationProvider>
+            </Stack>
+        </Stack>
+
+        {/* 2. Số tuần (Luôn hiện, Readonly) */}
+        <TextField
+            label="Số tuần bị đợt này" size="small" type="number"
+            value={weeksVal}
+            InputProps={{ readOnly: true }}
+        />
+
+        {/* 3. Câu hỏi điều trị */}
+        <ClearableSelect
+            name={`treat_${safePrefix}`} // Name Unique
+            label={isMainEpisode 
+                ? "Đợt bệnh này bạn đã điều trị hay chưa? (1 đợt bệnh liên tục có nghĩa là bị ít nhất 2 ngày/tuần)" 
+                : "Có điều trị hay không?"}
+            value={treatmentVal}
+            options={['Có', 'Không', 'Không nhớ']}
+            onChange={(v) => setVal('Có điều trị hay không?', v)}
+        />
+
+        {/* 4. Nhóm thuốc: Render nhưng ẨN (display: none) nếu không thỏa mãn */}
+        <Box sx={{ pl: 2, borderLeft: '2px solid #eee', display: showMedicine ? 'block' : 'none' }}>
+            <Stack spacing={2}>
+                <TextField 
+                    label="Tên thuốc" size="small" 
+                    value={getVal('Tên thuốc')} 
+                    onChange={(e) => setVal('Tên thuốc', e.target.value)} 
+                />
+                <TextField 
+                    label="Liều thuốc (ghi thời gian nếu nhớ)" size="small" 
+                    value={getVal('Liều thuốc (ghi thời gian nếu nhớ)')} 
+                    onChange={(e) => setVal('Liều thuốc (ghi thời gian nếu nhớ)', e.target.value)} 
+                />
+                
+                <ClearableSelect
+                    name={`status_${safePrefix}`}
+                    label="Tình trạng tổn thương khi đang uống thuốc"
+                    value={statusVal}
+                    options={['Hết hoàn toàn', 'Không hết', 'Giảm xuống', 'Nặng lên']}
+                    onChange={(v) => setVal('Tình trạng tổn thương khi đang uống thuốc', v)}
+                />
+
+                {/* 5. Nhóm Triệu chứng: Render nhưng ẨN */}
+                <ClearableSelect
+                    name={`symptom_${safePrefix}`}
+                    hidden={!showSymptoms} // Prop hidden tự chế dùng display: none
+                    label="Triệu chứng Giảm xuống/ Nặng lên là gì?"
+                    value={getVal('Triệu chứng Giảm xuống/ Nặng lên là gì?')}
+                    options={['Nốt đỏ', 'Ngứa', 'Cả hai']}
+                    onChange={(v) => setVal('Triệu chứng Giảm xuống/ Nặng lên là gì?', v)}
+                />
+            </Stack>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+};
+
+// --- Component Chính ---
 
 const getPending = (key) => lsSafeParse(localStorage.getItem(PENDING_PREFIX + key) || '[]', []);
 const setPending = (key, arr) => localStorage.setItem(PENDING_PREFIX + key, JSON.stringify(arr));
@@ -358,6 +501,44 @@ function normalizeLabName(name) {
   return name
     .replace(/^Chỉ số\s*/i, "")   // bỏ chữ "Chỉ số"
     .trim();
+}
+
+function EpisodeRange({ value, onChange }) {
+  const { from, to } = value;
+
+  useEffect(() => {
+    if (!from) return;
+
+    const start = dayjs(from).startOf('month');
+    const end = to
+      ? dayjs(to).startOf('month')
+      : dayjs().startOf('month');
+
+    const weeks = Math.ceil(end.diff(start, 'day') / 7);
+
+    onChange({
+      ...value,
+      weeks: weeks > 0 ? weeks : 0
+    });
+  }, [from, to]);
+
+  return (
+    <Stack direction="row" spacing={2}>
+      <DatePicker
+        views={['year', 'month']}
+        label="Từ tháng / năm"
+        value={from}
+        onChange={(v) => onChange({ ...value, from: v })}
+      />
+
+      <DatePicker
+        views={['year', 'month']}
+        label="Đến tháng / năm"
+        value={to}
+        onChange={(v) => onChange({ ...value, to: v })}
+      />
+    </Stack>
+  );
 }
 
 function LabResultTable({ title, indicators, values, onChange, extraQuestions }) {
@@ -509,31 +690,39 @@ async function resolveUploadsDeepConcurrent(value, groupId, templateId, updatePr
   return value;
 }
 
-function ClearableSelect({ label, value, options = [], onChange, name }) {
+function ClearableSelect({ label, value, options = [], onChange, name, hidden = false }) {
+  // Nếu hidden = true, ta ẩn bằng CSS nhưng vẫn giữ trong DOM
   return (
-    <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mt: 1 }}>
+    <Stack 
+      direction="row" 
+      alignItems="flex-start" 
+      spacing={1} 
+      sx={{ mt: 1, display: hidden ? 'none' : 'flex' }}
+    >
       <Box sx={{ flexGrow: 1 }}>
         {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
         <RadioGroup
-          name={name}                // cùng name cho 1 nhóm
-          value={value ?? ''}        // controlled bởi state
-          onChange={(e) => onChange(e.target.value)}   // nhận 'Có' | 'Không'
+          name={name} // Name duy nhất để browser quản lý radio
+          value={value ?? ''} // Luôn đảm bảo không undefined
+          onChange={(e) => onChange(e.target.value)}
         >
           {options.map((opt, i) => (
             <FormControlLabel
               key={`${name}-${i}`}
               value={opt}
-              control={<Radio size="small" />} // KHÔNG truyền 'checked' vào đây
+              control={<Radio size="small" />}
               label={opt}
             />
           ))}
         </RadioGroup>
       </Box>
-
       <IconButton
         size="small"
-        aria-label="Xóa lựa chọn"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(''); }}
+        onClick={(e) => { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            onChange(''); 
+        }}
         disabled={!value}
       >
         <CloseIcon fontSize="small" />
@@ -542,11 +731,14 @@ function ClearableSelect({ label, value, options = [], onChange, name }) {
   );
 }
 
-
 function ClearableMultiSelect({ label, value, options = [], onChange }) {
   const arr = Array.isArray(value) ? value : [];
+  const normalize = (s) => String(s ?? '').trim();
+  const arrIncludes = (a, opt) => Array.isArray(a) && a.some(x => normalize(x) === normalize(opt));
+  const arrRemove = (a, opt) => (Array.isArray(a) ? a.filter(x => normalize(x) !== normalize(opt)) : []);
+
   const toggle = (opt) => {
-    if (arr.includes(opt)) onChange(arr.filter((v) => v !== opt));
+    if (arrIncludes(arr, opt)) onChange(arrRemove(arr, opt));
     else onChange([...arr, opt]);
   };
   return (
@@ -557,20 +749,20 @@ function ClearableMultiSelect({ label, value, options = [], onChange }) {
           {options.map((opt, i) => (
             <FormControlLabel
               key={`${label || 'no_label'}-${i}`}
-              control={<Checkbox size="small" checked={arr.includes(opt)} onChange={() => toggle(opt)} />}
+              control={<Checkbox size="small" checked={arrIncludes(arr, opt)} onChange={() => toggle(opt)} />}
               label={opt}
             />
           ))}
         </FormGroup>
       </Box>
       {arr.length ? (
-        <IconButton size="small" aria-label="Xóa táº¥t cáº£" onClick={() => onChange([])}>
+        <IconButton size="small" aria-label="Xóa tất cả" onClick={() => onChange([])}>
           <CloseIcon fontSize="small" />
         </IconButton>
       ) : null}
     </Stack>
   );
-}
+} 
 
 const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
   indicator,
@@ -594,7 +786,13 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
 
   const isShapeThis = SHAPE_IDS.has(indicator.id);
   const isDurationThis = Q11_IDS.has(indicator.id);
-  const isConditionalTextThis = CONDITIONAL_TEXT_IDS.has(indicator.id);
+  const isConditionalTextThis = CONDITIONAL_TEXT_IDS.has(indicator.id);
+
+  // Helper to compare option values safely (trim and string compare)
+  const normalize = (s) => String(s ?? '').trim();
+  const arrIncludes = (arr, opt) => Array.isArray(arr) && arr.some(a => normalize(a) === normalize(opt));
+  const arrRemove = (arr, opt) => (Array.isArray(arr) ? arr.filter(a => normalize(a) !== normalize(opt)) : []);
+
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
       <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
@@ -604,6 +802,7 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
           const fields = group.field || group.fields || [];
           const gVal = value?.value?.[gKey] || {};
           const renderedFieldLabels = new Set();
+
           return (
             <Box key={`${gKey || ''}_${gi}`} sx={{ '&:not(:first-of-type)': { mt: 2 } }}>
               {(gKey || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>}
@@ -612,128 +811,123 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                   const fKeyRaw = field.label || ``;
                   const fKey = fKeyRaw === '' ? '__select__' : fKeyRaw;
                   if (renderedFieldLabels.has(fKey)) return null;
+                  
                   const fVal = gVal[fKey];
                   const options = field.option || field.options || [];
                   const fieldId = field.id ?? fi;
                   const keyId = `${indicator.id}-${gKey || ''}-${fKey}-${fieldId}`;
                   const pendingKey = `${indicator.id}::${gKey}::${fKey}`;
                   const isQ5This = Q5_IDS.has(indicator.id);
+
                   const handleText = (e) => setKV(gKey, fKey, e.target.value);
                   const handleNumber = (e) => setKV(gKey, fKey, e.target.value === '' ? '' : Number(e.target.value));
                   const handleSelect = (v) => setKV(gKey, fKey, v);
 
-                  if (isShapeThis && field.label && field.label.toLowerCase().includes('mô tả hình dạng khác')) {
-                    return null;
-                  }
-                  if (isDurationThis && field.label === 'Nhập khoảng thời gian') {
-                    return null;
-                  }
-                  if (isConditionalTextThis && field.label === 'Số lần bị khó thở' && field.type === 'text') {
-                        return null; 
-                  }
+                  // --- LOGIC BỎ QUA CÁC TRƯỜNG ĐẶC BIỆT ---
+                  if (isShapeThis && field.label && field.label.toLowerCase().includes('mô tả hình dạng khác')) return null;
+                  if (isDurationThis && field.label === 'Nhập khoảng thời gian') return null;
+                  if (isConditionalTextThis && field.label === 'Số lần bị khó thở' && field.type === 'text') return null;
                   if (isQ5This && field.label) {
                     const lower = field.label.toLowerCase();
-                    if (lower.includes('chi tiết thức ăn') || lower.includes('chi tiết thuốc')) {
-                      return null;
-                    }
+                    if (lower.includes('chi tiết thức ăn') || lower.includes('chi tiết thuốc')) return null;
                   }
 
+                  // --- XỬ LÝ TEXT ---
                   if (field.type === 'text') {
                     return (
                       <TextField key={keyId} size="small" fullWidth label={fKey} value={fVal ?? ''} onChange={handleText} />
                     );
                   }
 
+                  // --- XỬ LÝ NUMBER ---
                   if (field.type === 'number') {
                     return (
                       <TextField key={keyId} size="small" fullWidth type="number" inputProps={{ step: 'any' }} label={fKey} value={fVal ?? ''} onChange={handleNumber} />
                     );
                   }
 
-                  if (field.type === 'select') {
-                    if (isDurationThis && (fKey === '11.1 Khi dùng thuốc' || fKey === '11.2 Khi không dùng thuốc')) {
-                      return (
-                        <Box key={keyId}>
-                          <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
-                          {fVal === 'Khác (theo giờ)' && (
-                            <Box sx={{ mt: 1 }}>
-                              <TextField
-                                key={`${keyId}-other-hours`}
-                                size="small"
-                                fullWidth
-                                label="Nhập khoảng thời gian"
-                                value={gVal[`${fKey} - Khác (theo giờ)`] || ''}
-                                onChange={(e) => setKV(gKey, `${fKey} - Khác (theo giờ)`, e.target.value)}
-                              />
-                            </Box>
-                          )}
-                        </Box>
-                      );
-                    }
-                  if (isDurationThis && (fKey.includes('4.1') || fKey.includes('4.2'))) {
-                        // Tìm nhãn của trường nhập liệu phụ (Nhập khoảng thời gian) trong cùng nhóm
-                        const otherInputField = fields.find(f => f.label === 'Nhập khoảng thời gian' && f.type === 'text');
-                        const otherInputKey = otherInputField ? 'Nhập khoảng thời gian' : `${fKey} - Khác (theo giờ)`; // Dùng nhãn chính thức nếu có, hoặc dùng key tạm nếu không tìm thấy (giống logic cũ)
-                        
-                        return (
-                            <Box key={keyId}>
-                              <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
-                              {fVal === 'Khác (theo giờ)' && (
-                                <Box sx={{ mt: 1 }}>
-                                  <TextField
-                                    key={`${keyId}-other-hours`}
-                                    size="small"
-                                    fullWidth
-                                    label="Nhập khoảng thời gian"
-                                    value={gVal[otherInputKey] || ''}
-                                    onChange={(e) => setKV(gKey, otherInputKey, e.target.value)}
-                                  />
-                                </Box>
-                              )}
-                            </Box>
-                        );
-                    }
-                  if (isConditionalTextThis && fKey === '__select__') {
-                        const selectedOption = gVal[fKey];
-                        const textControl = fields.find((f, index) => index > fi && f.label === 'Số lần bị khó thở' && f.type === 'text');
-                        const textKey = textControl?.label;
-                        if (textKey) renderedFieldLabels.add(textKey); 
-                        
-                        // Cập nhật hàm xử lý chọn
-                        const handleConditionalSelect = (v) => {
-                            setKV(gKey, fKey, v); 
-                            if (v !== 'Có' && textKey) {
-                                setKV(gKey, textKey, '');
-                            }
-                        };
+                  // --- XỬ LÝ FULL_DATE (MỚI THÊM) ---
+                  if (field.type === 'full_date') {
+                    return (
+                      <Box key={keyId}>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <DatePicker
+                            label={fKey}
+                            format="DD/MM/YYYY"
+                            value={fVal ? dayjs(fVal, 'DD/MM/YYYY') : null}
+                            onChange={(date) => {
+                              const formatted = date ? dayjs(date).format('DD/MM/YYYY') : '';
+                              setKV(gKey, fKey, formatted);
+                            }}
+                            slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                          />
+                        </LocalizationProvider>
+                      </Box>
+                    );
+                  }
 
-                        return (
-                            <Box key={keyId}>
-                                {/* 1. Select chính: Label rỗng để chỉ hiển thị radio buttons */}
-                                <ClearableSelect 
-                                    label="" 
-                                    name={keyId}
-                                    value={selectedOption ?? ''} 
-                                    options={options} 
-                                    onChange={handleConditionalSelect}
-                                />
-                                {textKey && selectedOption === 'Có' && (
-                                    <Box sx={{ mt: 1 }}>
-                                        <TextField
-                                            key={`${keyId}-conditional-text`}
-                                            size="small"
-                                            fullWidth
-                                            label={textKey}
-                                            type="number" 
-                                            inputProps={{ step: '1', min: '0' }}
-                                            value={gVal[textKey] ?? ''}
-                                            onChange={(e) => setKV(gKey, textKey, e.target.value)}
-                                        />
-                                    </Box>
-                                )}
-                            </Box>
-                        );
-                    }
+                  // --- XỬ LÝ SELECTION / SELECT (GỘP CHUNG) ---
+                  if (field.type === 'selection' || field.type === 'select') {
+                    // Logic riêng cho câu hỏi thời gian (Duration)
+                    if (isDurationThis && (fKey === '11.1 Khi dùng thuốc' || fKey === '11.2 Khi không dùng thuốc' || fKey.includes('4.1') || fKey.includes('4.2'))) {
+                        const otherInputField = fields.find(f => f.label === 'Nhập khoảng thời gian' && f.type === 'text');
+                        const otherInputKey = otherInputField ? 'Nhập khoảng thời gian' : `${fKey} - Khác (theo giờ)`;
+                        
+                        return (
+                          <Box key={keyId}>
+                            <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
+                            {fVal === 'Khác (theo giờ)' && (
+                              <Box sx={{ mt: 1 }}>
+                                <TextField
+                                  key={`${keyId}-other-hours`}
+                                  size="small" fullWidth
+                                  label="Nhập khoảng thời gian"
+                                  value={gVal[otherInputKey] || ''}
+                                  onChange={(e) => setKV(gKey, otherInputKey, e.target.value)}
+                                />
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                    }
+
+                    // Logic riêng cho câu hỏi điều kiện (Conditional Text)
+                    if (isConditionalTextThis && fKey === '__select__') {
+                        const selectedOption = gVal[fKey];
+                        const textControl = fields.find((f, index) => index > fi && f.label === 'Số lần bị khó thở' && f.type === 'text');
+                        const textKey = textControl?.label;
+                        if (textKey) renderedFieldLabels.add(textKey); 
+                        
+                        const handleConditionalSelect = (v) => {
+                            setKV(gKey, fKey, v); 
+                            if (safeNormalize(v) !== 'Có' && textKey) setKV(gKey, textKey, '');
+                        };
+
+                        return (
+                            <Box key={keyId}>
+                                <ClearableSelect 
+                                    label="" name={keyId}
+                                    value={selectedOption ?? ''} 
+                                    options={options} 
+                                    onChange={handleConditionalSelect}
+                                />
+                                {textKey && safeNormalize(selectedOption) === 'Có' && (
+                                    <Box sx={{ mt: 1 }}>
+                                        <TextField
+                                            key={`${keyId}-conditional-text`}
+                                            size="small" fullWidth
+                                            label={textKey} type="number" 
+                                            inputProps={{ step: '1', min: '0' }}
+                                            value={gVal[textKey] ?? ''}
+                                            onChange={(e) => setKV(gKey, textKey, e.target.value)}
+                                        />
+                                    </Box>
+                                )}
+                            </Box>
+                        );
+                    }
+
+                    // Mặc định cho selection/select thông thường
                     return (
                       <Box key={keyId}>
                         <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
@@ -741,140 +935,75 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                     );
                   }
 
+                  // --- XỬ LÝ MULTI_SELECTION ---
                   if (field.type === 'multi_selection') {
                     const arr = Array.isArray(fVal) ? fVal : [];
+                    // ... (Logic cũ cho Q5 - Thức ăn/Thuốc)
                     if (isQ5This) {
-                      const hasFood = arr.includes('Thức ăn');
-                      const hasDrug = arr.includes('Chống viêm, giảm đau');
-
+                      const hasFood = arrIncludes(arr, 'Thức ăn');
+                      const hasDrug = arrIncludes(arr, 'Chống viêm, giảm đau');
                       const toggle = (opt) => {
-                        const updated = arr.includes(opt)
-                          ? arr.filter((v) => v !== opt)
-                          : [...arr, opt];
+                        const updated = arrIncludes(arr, opt) ? arrRemove(arr, opt) : [...arr, opt];
                         setKV(gKey, fKey, updated);
                       };
-
-                      const labelsRendered = new Set();
+                      const labelsRenderedLocal = new Set(); // Đổi tên biến để tránh conflict nếu có
 
                       return (
                         <Box key={keyId} sx={{ mb: 1 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                            {fKey || 'Chọn yếu tố làm nặng bệnh'}
-                          </Typography>
-
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey || 'Chọn yếu tố làm nặng bệnh'}</Typography>
                           <FormGroup>
                             {['Stress', 'Thức ăn', 'Chống viêm, giảm đau'].map((opt) => (
-                              <FormControlLabel
-                                key={opt}
-                                control={
-                                  <Checkbox
-                                    size="small"
-                                    checked={arr.includes(opt)}
-                                    onChange={() => toggle(opt)}
-                                  />
-                                }
-                                label={opt}
-                              />
+                              <FormControlLabel key={opt} control={<Checkbox size="small" checked={arrIncludes(arr, opt)} onChange={() => toggle(opt)} />} label={opt} />
                             ))}
                           </FormGroup>
 
-                          {hasFood &&
-                            fields
-                              .filter(
-                                (fld) =>
-                                  fld.label &&
-                                  fld.label.toLowerCase().includes('chi tiết thức ăn') &&
-                                  !labelsRendered.has(fld.label)
-                              )
-                              .map((fld) => {
-                                labelsRendered.add(fld.label);
+                          {hasFood && fields.filter((fld) => fld.label && fld.label.toLowerCase().includes('chi tiết thức ăn') && !labelsRenderedLocal.has(fld.label)).map((fld) => {
+                                labelsRenderedLocal.add(fld.label);
                                 return (
-                                  <TextField
-                                    key={fld.label}
-                                    size="small"
-                                    fullWidth
-                                    sx={{ mt: 1 }}
-                                    label={fld.label}
-                                    placeholder={fld.placeholder || 'Nhập chi tiết thức ăn'}
-                                    value={gVal[fld.label] || ''}
-                                    onChange={(e) => setKV(gKey, fld.label, e.target.value)}
-                                  />
+                                  <TextField key={fld.label} size="small" fullWidth sx={{ mt: 1 }} label={fld.label} placeholder={fld.placeholder} value={gVal[fld.label] || ''} onChange={(e) => setKV(gKey, fld.label, e.target.value)} />
                                 );
                               })}
-
-                          {/* ✅ Nếu chọn “Chống viêm, giảm đau” → hiển thị text “Chi tiết thuốc” */}
-                          {hasDrug &&
-                            fields
-                              .filter(
-                                (fld) =>
-                                  fld.label &&
-                                  fld.label.toLowerCase().includes('chi tiết thuốc') &&
-                                  !labelsRendered.has(fld.label)
-                              )
-                              .map((fld) => {
-                                labelsRendered.add(fld.label);
+                          {hasDrug && fields.filter((fld) => fld.label && fld.label.toLowerCase().includes('chi tiết thuốc') && !labelsRenderedLocal.has(fld.label)).map((fld) => {
+                                labelsRenderedLocal.add(fld.label);
                                 return (
-                                  <TextField
-                                    key={fld.label}
-                                    size="small"
-                                    fullWidth
-                                    sx={{ mt: 1 }}
-                                    label={fld.label}
-                                    placeholder={fld.placeholder || 'Nhập chi tiết thuốc'}
-                                    value={gVal[fld.label] || ''}
-                                    onChange={(e) => setKV(gKey, fld.label, e.target.value)}
-                                  />
+                                  <TextField key={fld.label} size="small" fullWidth sx={{ mt: 1 }} label={fld.label} placeholder={fld.placeholder} value={gVal[fld.label] || ''} onChange={(e) => setKV(gKey, fld.label, e.target.value)} />
                                 );
                               })}
                         </Box>
                       );
                     }
-
+                    
+                    // Logic cũ cho Shape
                     if (isShapeThis && fKey === 'Chọn hình dạng bạn gặp phải') {
                       const toggleShape = (opt) => {
-                        const updated = arr.includes(opt) ? arr.filter((v) => v !== opt) : [...arr, opt];
-                        if (!updated.includes('Hình dạng khác')) {
-                          setKV(gKey, 'Mô tả hình dạng khác', '');
-                        }
+                        const updated = arrIncludes(arr, opt) ? arrRemove(arr, opt) : [...arr, opt];
+                        if (!arrIncludes(updated, 'Hình dạng khác')) setKV(gKey, 'Mô tả hình dạng khác', '');
                         setKV(gKey, fKey, updated);
                       };
-                      const otherSelected = arr.includes('Hình dạng khác');
+                      const otherSelected = arrIncludes(arr, 'Hình dạng khác');
                       const otherValue = gVal['Mô tả hình dạng khác'] ?? '';
-
                       return (
                         <Box key={keyId}>
-                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey}</Typography>
-                          <FormGroup>
-                            {(options || []).map((opt, idx) => (
-                              <FormControlLabel
-                                key={`${keyId}-opt-${idx}`}
-                                control={<Checkbox size="small" checked={arr.includes(opt)} onChange={() => toggleShape(opt)} />}
-                                label={opt}
-                              />
-                            ))}
-                          </FormGroup>
-                          {otherSelected && (
-                            <TextField
-                              key={`${keyId}-other-input`}
-                              size="small"
-                              fullWidth
-                              sx={{ mt: 1 }}
-                              label="Mô tả hình dạng khác"
-                              placeholder="Nhập mô tả"
-                              value={otherValue}
-                              onChange={(e) => setKV(gKey, 'Mô tả hình dạng khác', e.target.value)}
-                            />
-                          )}
+                           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey}</Typography>
+                           <FormGroup>
+                             {(options || []).map((opt, idx) => (
+                               <FormControlLabel key={`${keyId}-opt-${idx}`} control={<Checkbox size="small" checked={arrIncludes(arr, opt)} onChange={() => toggleShape(opt)} />} label={opt} />
+                             ))}
+                           </FormGroup>
+                           {otherSelected && (
+                             <TextField key={`${keyId}-other-input`} size="small" fullWidth sx={{ mt: 1 }} label="Mô tả hình dạng khác" placeholder="Nhập mô tả" value={otherValue} onChange={(e) => setKV(gKey, 'Mô tả hình dạng khác', e.target.value)} />
+                           )}
                         </Box>
                       );
                     }
 
+                    // Mặc định multi_selection
                     const arrVal = arr;
                     const renderOptions = () => {
                       let list = options;
                       if (Q4_IDS.has(indicator.id) && (fKey.includes('4.') || indicator.id === 190 || indicator.id === 65)) {
                         const baseTwo = ['Một cách ngẫu nhiên', 'Khi có các yếu tố kích thích'];
-                        const showExtra = arrVal.includes('Khi có các yếu tố kích thích');
+                        const showExtra = arrIncludes(arrVal, 'Khi có các yếu tố kích thích');
                         list = showExtra ? options : options.filter((o) => baseTwo.includes(o));
                       }
                       return list;
@@ -885,19 +1014,13 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{fKey || 'Chọn'}</Typography>
                         <FormGroup>
                           {renderOptions().map((opt, idx) => {
-                            const checked = arrVal.includes(opt);
-                            const toggle = () => {
-                              const updated = checked ? arrVal.filter((v) => v !== opt) : [...arrVal, opt];
-                              setKV(gKey, fKey, updated);
-                            };
-
-                            const reqField = Array.isArray(field.requiredFields)
-                              ? field.requiredFields.find((r) => r.type === 'image' && r.condition === 'hasSelection')
-                              : null;
-
+                            const checked = arrIncludes(arrVal, opt);
+                            const toggle = () => { const updated = checked ? arrRemove(arrVal, opt) : [...arrVal, opt]; setKV(gKey, fKey, updated); };
+                            
+                            // Logic upload ảnh kèm checkbox
+                            const reqField = Array.isArray(field.requiredFields) ? field.requiredFields.find((r) => r.type === 'image' && r.condition === 'hasSelection') : null;
                             const pendingKey2 = `${indicator.id}::${gKey}::${fKey}::${opt}`;
                             const previews = getPending(pendingKey2);
-
                             const handleFilesChange = (e) => {
                               const selected = Array.from(e.target.files || []);
                               if (!selected.length) return;
@@ -906,7 +1029,6 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                               setPending(pendingKey2, updated);
                               setKV(gKey, `${fKey}__${opt}__images`, updated);
                             };
-
                             const handleRemoveFile = (i) => {
                               const updated = previews.filter((_, j) => j !== i);
                               setPending(pendingKey2, updated);
@@ -915,45 +1037,23 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
 
                             return (
                               <Box key={`${keyId}-opt-${idx}`} sx={{ mb: 1 }}>
-                                <FormControlLabel
-                                  control={<Checkbox size="small" checked={checked} onChange={toggle} />}
-                                  label={opt}
-                                />
-
+                                <FormControlLabel control={<Checkbox size="small" checked={checked} onChange={toggle} />} label={opt} />
                                 {checked && reqField && (
                                   <Stack spacing={1} sx={{ ml: 4, mt: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {reqField.description || 'Tải ảnh'}
-                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">{reqField.description || 'Tải ảnh'}</Typography>
                                     <Button variant="outlined" component="label" size="small" sx={{ width: 'fit-content' }}>
-                                      Tải ảnh
-                                      <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
+                                      Tải ảnh <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
                                     </Button>
                                     {previews.length > 0 && (
                                       <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
                                         {previews.map((item, i) => (
                                           <Box key={`${keyId}-prev-${idx}-${i}`} sx={{ position: 'relative' }}>
-                                            <Box
-                                              component="img"
-                                              src={item.src}
-                                              alt={item.name}
-                                              onClick={() => onOpenPreview && onOpenPreview(item.src)}
-                                              sx={{ width: 70, height: 70, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }}
-                                            />
-                                            <IconButton
-                                              size="small"
-                                              onClick={() => handleRemoveFile(i)}
-                                              sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
-                                            >
-                                              <CloseIcon fontSize="small" />
-                                            </IconButton>
+                                            <Box component="img" src={item.src} alt={item.name} onClick={() => onOpenPreview && onOpenPreview(item.src)} sx={{ width: 70, height: 70, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }} />
+                                            <IconButton size="small" onClick={() => handleRemoveFile(i)} sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}><CloseIcon fontSize="small" /></IconButton>
                                           </Box>
                                         ))}
                                       </Stack>
                                     )}
-                                    <Typography variant="caption" color="text.secondary">
-                                      {previews.length}/{MAX_IMAGES_PER_FIELD} ảnh
-                                    </Typography>
                                   </Stack>
                                 )}
                               </Box>
@@ -964,16 +1064,14 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                     );
                   }
 
+                  // --- XỬ LÝ IMAGE ---
                   if (field.type === 'image') {
                     const previews = getPending(pendingKey);
                     const handleFilesChange = (e) => {
                       const selected = Array.from(e.target.files || []);
                       if (!selected.length) return;
                       const nextCount = previews.length + selected.length;
-                      if (nextCount > MAX_IMAGES_PER_FIELD) {
-                        alert(`Tải ảnh${MAX_IMAGES_PER_FIELD} ảnh cho trang này.`);
-                        return;
-                      }
+                      if (nextCount > MAX_IMAGES_PER_FIELD) { alert(`Tải ảnh ${MAX_IMAGES_PER_FIELD} ảnh cho trang này.`); return; }
                       const newPreviews = selected.map(makePreviewItem);
                       const updated = [...previews, ...newPreviews];
                       setPending(pendingKey, updated);
@@ -984,35 +1082,18 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                       setPending(pendingKey, updated);
                       setKV(gKey, fKey, updated);
                     };
-                    useEffect(() => {
-                      if (!Array.isArray(fVal)) setKV(gKey, fKey, previews);
-                    }, []);
+                    // Use effect để sync lúc mount nếu cần thiết (đã có trong logic cũ)
+                    
                     return (
                       <Stack key={keyId} spacing={1} alignItems="flex-start">
                         <Typography variant="subtitle2">{fKey}</Typography>
-                        <Button variant="outlined" component="label" size="small" aria-label={`Tải ảnh cho ${fKey}`}>
-                          Tải ảnh
-                          <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} />
-                        </Button>
+                        <Button variant="outlined" component="label" size="small">Tải ảnh <input hidden multiple accept="image/*" type="file" onChange={handleFilesChange} /></Button>
                         {previews.length > 0 && (
                           <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
                             {previews.map((item, i) => (
                               <Box key={`${keyId}-prev-${i}`} sx={{ position: 'relative' }}>
-                                <Box
-                                  component="img"
-                                  src={item.src}
-                                  alt={item.name}
-                                  onClick={() => onOpenPreview && onOpenPreview(item.src)}
-                                  sx={{ width: 80, height: 80, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }}
-                                />
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleRemoveFile(i)}
-                                  aria-label={`Xóa ảnh ${item.name}`}
-                                  sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
-                                >
-                                  <CloseIcon fontSize="small" />
-                                </IconButton>
+                                <Box component="img" src={item.src} alt={item.name} onClick={() => onOpenPreview && onOpenPreview(item.src)} sx={{ width: 80, height: 80, borderRadius: 1, border: '1px solid #ccc', objectFit: 'cover', cursor: 'zoom-in' }} />
+                                <IconButton size="small" onClick={() => handleRemoveFile(i)} sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}><CloseIcon fontSize="small" /></IconButton>
                               </Box>
                             ))}
                           </Stack>
@@ -1022,6 +1103,7 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                     );
                   }
 
+                  // Default Fallback
                   return <Typography key={keyId} color="error">Loại custom không được hỗ trợ: {field.type}</Typography>;
                 })}
               </Stack>
@@ -1090,190 +1172,158 @@ function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupK
 
         {/* Số tuần bị đợt này (Tự động tính) */}
         <TextField
-            size="small"
             label="Số tuần bị đợt này"
-            value={weekCount}
-            InputProps={{ readOnly: true }}
-            sx={{ mt: 1 }}
+            type="number"
+            value={currentEpisode.weeks}
+            disabled
         />
     </Stack>
   );
 }
-function EpisodeInfoRenderer({ indicator, value, onChange, groupLabelMap }) {
-  const groups = Array.isArray(indicator.valueOptions?.group) ? indicator.valueOptions.group : [];
-  if (!groups.length) return null;
-  const MAIN_LABEL = groupLabelMap?.[indicator.groupId] || '';
-  const valObj = value?.value || {};
-  const mainGroup = valObj[MAIN_LABEL] || {};
 
-  const setKV = useCallback((g, k, v) => {
-    const current = value?.value || {};
-    onChange({ value: { ...current, [g]: { ...(current[g] || {}), [k]: v } }, note: '' });
-  }, [onChange, value]);
-  
-  // Lấy các nhãn trường cần thiết theo JSON mới
-  const labelMap = {
-      MAIN_RANGE: 'Đợt này: Từ tháng...năm...đến tháng...năm...',
-      MAIN_CO_DIEU_TRI: 'Đợt bệnh này bạn đã điều trị hay chưa? (1 đợt bệnh liên tục có nghĩa là bị ít nhất 2 ngày/tuần)',
-      MAIN_DA_BI_DOT_TUONG_TU: 'Trước đây bạn đã từng bị đợt nào tương tự như vậy chưa?',
-      MAIN_SO_DOT: 'Số đợt bị tương tự như đợt này',
-      TEN_THUOC: 'Tên thuốc',
-      LIEU_THUOC: 'Liều thuốc (ghi thời gian nếu nhớ)',
-      TINH_TRANG: 'Tình trạng tổn thương khi đang uống thuốc',
-      TRIEU_CHUNG: 'Triệu chứng Giảm xuống/ Nặng lên là gì?'
+function CustomTableRenderer({ indicator, value, onChange }) {
+  const groups = indicator.valueOptions?.group || [];
+  const currentValues = value?.value || {};
+
+  const handleChange = (groupName, fieldLabel, newVal) => {
+    const groupData = currentValues[groupName] || {};
+    onChange({
+      value: {
+        ...currentValues,
+        [groupName]: { ...groupData, [fieldLabel]: newVal }
+      },
+      note: ''
+    });
   };
 
-  const fieldsMain = groups[0].field || groups[0].fields || [];
-  const opt = (label) => fieldsMain.find((f) => f.label === label)?.option || [];
-  const coDieuTri = mainGroup[labelMap.MAIN_CO_DIEU_TRI];
-  const tinhTrang = mainGroup[labelMap.TINH_TRANG];
-  const daBiDotTuongTu = mainGroup[labelMap.MAIN_DA_BI_DOT_TUONG_TU];
-  
-  // Chuyển đổi "1 đợt" -> 1 để tính số lần lặp
-  const soDotBiStr = mainGroup[labelMap.MAIN_SO_DOT] || '0 đợt';
-  const soDotBi = parseInt(soDotBiStr.split(' ')[0], 10) || 0;
+  return (
+    <Stack spacing={2}>
+      {/* Tiêu đề chính */}
+      <Typography variant="subtitle1" fontWeight="bold" dangerouslySetInnerHTML={{ __html: indicator.name }} />
 
-  const renderEpisodeGroup = (group, index) => {
-    const gKey = group.label; // Thông tin đợt 1, Thông tin đợt 2, ...
-    const groupNum = index; // 1, 2, 3...
-    const gVal = valObj[gKey] || {};
-    const flds = group.field || group.fields || [];
-    const optEp = (label) => flds.find((f) => f.label === label)?.option || [];
-    const epCoDieuTri = gVal['Có điều trị hay không?'];
-    const epTinhTrang = gVal[labelMap.TINH_TRANG];
-    
-    // Tìm nhãn range cho đợt con
-    const rangeField = flds.find(f => f.type === 'range');
-    const rangeLabel = rangeField?.label || `Đợt ${groupNum}: Từ tháng...năm... đến tháng...năm...`;
-    const rangeKeyPrefix = `Đợt ${groupNum}`;
-    
-    return (
-      <Box key={gKey} sx={{ mt: 2, borderLeft: 3, borderColor: 'divider', pl: 2 }}>
-        {gKey && <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>}
-        
-        {/* 1. Range Picker & Calculator */}
-        <MonthRangeAndWeekCalculator
-            label={rangeLabel}
-            keyPrefix={rangeKeyPrefix}
-            valueObj={gVal}
-            setKV={setKV}
-            groupKey={gKey}
-        />
+      {/* Render từng nhóm con thành các bảng */}
+      {groups.map((group, idx) => (
+        <Paper key={idx} variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, color: 'primary.main' }}>
+            {group.name}
+          </Typography>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
+                <th style={{ padding: 8, textAlign: 'left' }}>Chỉ số</th>
+                <th style={{ padding: 8, textAlign: 'left', width: '120px' }}>Kết quả</th>
+                <th style={{ padding: 8, textAlign: 'left' }}>Đơn vị</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(group.field || []).map((field, fIdx) => {
+                const val = currentValues[group.name]?.[field.label] ?? "";
+                return (
+                  <tr key={fIdx} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: 8 }}>{field.label}</td>
+                    <td style={{ padding: 8 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        type="number"
+                        placeholder={field.placeholder}
+                        value={val}
+                        onChange={(e) => handleChange(group.name, field.label, e.target.value)}
+                      />
+                    </td>
+                    <td style={{ padding: 8 }}>{field.unit || ""}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Paper>
+      ))}
+    </Stack>
+  );
+}
 
-        {/* 2. Có điều trị hay không? */}
-        <ClearableSelect
-          label="Có điều trị hay không?"
-          value={epCoDieuTri ?? ''}
-          options={optEp('Có điều trị hay không?')}
-          onChange={(v) => setKV(gKey, 'Có điều trị hay không?', v)}
-        />
-        
-        {epCoDieuTri === 'Có' && (
-          <Stack spacing={1} sx={{ mt: 1, ml: 1 }}>
-            <TextField size="small" label={labelMap.TEN_THUOC} value={gVal[labelMap.TEN_THUOC] ?? ''} onChange={(e) => setKV(gKey, labelMap.TEN_THUOC, e.target.value)} />
-            <TextField size="small" label={labelMap.LIEU_THUOC} value={gVal[labelMap.LIEU_THUOC] ?? ''} onChange={(e) => setKV(gKey, labelMap.LIEU_THUOC, e.target.value)} />
-            
-            <ClearableSelect
-              label={labelMap.TINH_TRANG}
-              value={epTinhTrang ?? ''}
-              options={optEp(labelMap.TINH_TRANG)}
-              onChange={(v) => setKV(gKey, labelMap.TINH_TRANG, v)}
-            />
-            
-            {(epTinhTrang === 'Giảm xuống' || epTinhTrang === 'Nặng lên') && (
-              <ClearableSelect
-                label={labelMap.TRIEU_CHUNG}
-                value={gVal[labelMap.TRIEU_CHUNG] ?? ''}
-                options={optEp(labelMap.TRIEU_CHUNG)}
-                onChange={(v) => setKV(gKey, labelMap.TRIEU_CHUNG, v)}
-              />
-            )}
-          </Stack>
-        )}
-      </Box>
-    );
-  };
+function EpisodeInfoRenderer({ indicator, value, onChange }) {
+  // Lấy toàn bộ data dạng phẳng { key: value }
+  const currentData = value?.value || {};
 
-  return (
-    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
-      <Typography
-        variant="subtitle1"
-        gutterBottom
-        fontWeight="bold"
-        component="div"
-        dangerouslySetInnerHTML={{ __html: indicator.name }}
-      />
-      {/* KHỐI CÂU HỎI CHÍNH (MAIN GROUP) */}
-      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 2 }}>
-        <Box>
-          {(MAIN_LABEL || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{MAIN_LABEL}</Typography>}
-          <Stack spacing={2}>
-            
-            {/* 1. Range Picker & Calculator (MAIN) */}
-            <MonthRangeAndWeekCalculator
-                label={labelMap.MAIN_RANGE}
-                keyPrefix="Đợt này"
-                valueObj={mainGroup}
-                setKV={setKV}
-                groupKey={MAIN_LABEL}
+  // Hàm update data chung
+  const handleUpdate = (key, val) => {
+    onChange({
+        value: { ...currentData, [key]: val },
+        note: ''
+    });
+  };
+
+  // --- Logic Group 0 (Đợt này) ---
+  const historyKey = "Đợt này_Trước đây bạn đã từng bị đợt nào tương tự như vậy chưa?";
+  const historyVal = currentData[historyKey];
+  const showHistoryCount = historyVal === 'Có';
+
+  const countKey = "Đợt này_Số đợt bị tương tự như đợt này";
+  const countVal = currentData[countKey]; // "1 đợt", "2 đợt"...
+  
+  // Tính số đợt cần render thêm
+  let subCount = 0;
+  if (showHistoryCount) {
+      if (countVal === '1 đợt') subCount = 1;
+      if (countVal === '2 đợt') subCount = 2;
+      if (countVal === '3 đợt') subCount = 3;
+  }
+
+  return (
+    <Box sx={{ mt: 1 }}>
+      <Typography variant="subtitle1" fontWeight="bold" gutterBottom dangerouslySetInnerHTML={{ __html: indicator.name }} />
+      
+      {/* 1. Form Đợt chính (Luôn hiển thị) */}
+      <EpisodeSingleForm 
+        title="Đợt này" 
+        prefixKey="Đợt này"
+        data={currentData}
+        onChange={handleUpdate}
+        isMainEpisode={true}
+      />
+
+      {/* 2. Trigger Lịch sử (Luôn render trong DOM) */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderColor: 'primary.light', bgcolor: '#f0f7ff' }}>
+        <Stack spacing={2}>
+            <ClearableSelect
+                name="main_history_trigger"
+                label="Trước đây bạn đã từng bị đợt nào tương tự như vậy chưa?"
+                value={historyVal}
+                options={['Có', 'Không']}
+                onChange={(v) => handleUpdate(historyKey, v)}
             />
 
-            {/* 2. Đợt bệnh này bạn đã điều trị hay chưa? */}
-            <ClearableSelect
-              label={labelMap.MAIN_CO_DIEU_TRI}
-              value={coDieuTri ?? ''}
-              options={opt(labelMap.MAIN_CO_DIEU_TRI)}
-              onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_CO_DIEU_TRI, v)}
-            />
-            
-            {coDieuTri === 'Có' && (
-              <Stack spacing={1} sx={{ ml: 1 }}>
-                <TextField size="small" label={labelMap.TEN_THUOC} value={mainGroup[labelMap.TEN_THUOC] ?? ''} onChange={(e) => setKV(MAIN_LABEL, labelMap.TEN_THUOC, e.target.value)} />
-                <TextField size="small" label={labelMap.LIEU_THUOC} value={mainGroup[labelMap.LIEU_THUOC] ?? ''} onChange={(e) => setKV(MAIN_LABEL, labelMap.LIEU_THUOC, e.target.value)} />
-                <ClearableSelect
-                  label={labelMap.TINH_TRANG}
-                  value={tinhTrang ?? ''}
-                  options={opt(labelMap.TINH_TRANG)}
-                  onChange={(v) => setKV(MAIN_LABEL, labelMap.TINH_TRANG, v)}
-                />
-                {(tinhTrang === 'Giảm xuống' || tinhTrang === 'Nặng lên') && (
-                  <ClearableSelect
-                    label={labelMap.TRIEU_CHUNG}
-                    value={mainGroup[labelMap.TRIEU_CHUNG] ?? ''}
-                    options={opt(labelMap.TRIEU_CHUNG)}
-                    onChange={(v) => setKV(MAIN_LABEL, labelMap.TRIEU_CHUNG, v)}
-                  />
-                )}
-              </Stack>
-            )}
-            
-            {/* 3. Lịch sử đợt bệnh (Câu hỏi điều kiện) */}
-            <Box sx={{ mt: 2 }}>
-              <ClearableSelect
-                label={labelMap.MAIN_DA_BI_DOT_TUONG_TU}
-                value={daBiDotTuongTu ?? ''}
-                options={opt(labelMap.MAIN_DA_BI_DOT_TUONG_TU)}
-                onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_DA_BI_DOT_TUONG_TU, v)}
-              />
-              {daBiDotTuongTu === 'Có' && (
-                <Box sx={{ mt: 1 }}>
-                  <ClearableSelect
-                    label={labelMap.MAIN_SO_DOT}
-                    value={soDotBiStr}
-                    options={['1 đợt', '2 đợt', '3 đợt']}
-                    onChange={(v) => setKV(MAIN_LABEL, labelMap.MAIN_SO_DOT, v)}
-                  />
-                </Box>
-              )}
-            </Box>
-          </Stack>
-        </Box>
-      </Box>
-      {/* KHỐI CÂU HỎI ĐỢT CON */}
-      {daBiDotTuongTu === 'Có' && Array.isArray(groups) && groups.slice(1, 1 + soDotBi).map((g, i) => renderEpisodeGroup(g, i + 1))}
-    </Paper>
-  );
+            {/* Render nhưng ẩn nếu chưa chọn Có */}
+            <ClearableSelect
+                hidden={!showHistoryCount}
+                name="main_count_trigger"
+                label="Số đợt bị tương tự như đợt này"
+                value={countVal}
+                options={['1 đợt', '2 đợt', '3 đợt']}
+                onChange={(v) => handleUpdate(countKey, v)}
+            />
+        </Stack>
+      </Paper>
+
+      {/* 3. Render các đợt phụ */}
+      {/* Lưu ý: Với các đợt phụ này, ta có thể dùng điều kiện render mảng 
+          vì việc thêm bớt số đợt là hành động lớn, render lại không sao. 
+          Vấn đề chính nằm ở các radio button bên trong form. */}
+      {Array.from({ length: subCount }).map((_, i) => (
+        <EpisodeSingleForm
+            key={i}
+            title={`Thông tin đợt ${i + 1}`}
+            prefixKey={`Đợt ${i + 1}`} 
+            data={currentData}
+            onChange={handleUpdate}
+        />
+      ))}
+    </Box>
+  );
 }
+
 function Q4MultiSelect({ indicator, value, onChange }) {
   const arr = Array.isArray(value?.value) ? value.value : [];
   const baseTwo = ['Một cách ngẫu nhiên', 'Khi có các yếu tố kích thích'];
@@ -1729,14 +1779,36 @@ export function RecordDetailView() {
         );
       }
       return (
-        <Stack spacing={2}>
-          <QuestionRendererMUI key={q192.id} indicator={q192} value={formData.vitalValues[q192.id]} onChange={handleQ192Change} onOpenPreview={(src) => setPreviewSrc(src)} groupLabelMap={groupLabelMap} />
-          {others.map((i) => (
-            <QuestionRendererMUI key={i.id} indicator={i} value={formData.vitalValues[i.id]} onChange={(val) => handleVitalValueChange(i.id, val)} onOpenPreview={(src) => setPreviewSrc(src)} groupLabelMap={groupLabelMap} />
-          ))}
-        </Stack>
-      );
-    }
+    <Stack spacing={2}>
+      {group.indicators.map((indicator) => {
+        
+        // --- THÊM ĐOẠN CHECK NÀY ---
+        if (indicator.id === 97) {
+          return (
+            <CustomTableRenderer
+              key={indicator.id}
+              indicator={indicator}
+              value={formData.vitalValues[indicator.id]}
+              onChange={(val) => handleVitalValueChange(indicator.id, val)}
+            />
+          );
+        }
+        // -----------------------------
+
+        return (
+          <QuestionRendererMUI 
+            key={indicator.id} 
+            indicator={indicator} 
+            value={formData.vitalValues[indicator.id]} 
+            onChange={(val) => handleVitalValueChange(indicator.id, val)} 
+            onOpenPreview={(src) => setPreviewSrc(src)} 
+            groupLabelMap={groupLabelMap} 
+          />
+        );
+      })}
+    </Stack>
+  );
+};
 
     if (isChronic1Template && group.id === 27) {
       const q62 = group.indicators.find((i) => i.id === 62);
