@@ -702,8 +702,8 @@ function ClearableSelect({ label, value, options = [], onChange, name, hidden = 
       <Box sx={{ flexGrow: 1 }}>
         {label && <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>}
         <RadioGroup
-          name={name} // Name duy nhất để browser quản lý radio
-          value={value ?? ''} // Luôn đảm bảo không undefined
+          name={name}
+          value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         >
           {options.map((opt, i) => (
@@ -773,9 +773,9 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
 }) {
   
   const groups = (() => {
-    const raw = indicator.valueOptions?.group;
+    const raw = indicator.valueOptions?.group || indicator.valueOptions?.groups;
     if (Array.isArray(raw)) return raw;
-    if (raw && Array.isArray(raw.fields)) return [raw];
+    if (raw && Array.isArray(raw.fields) || Array.isArray(raw.field)) return [raw];
     return [];
   })();
 
@@ -799,7 +799,10 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
         {groups.map((group, gi) => {
           const gKeyFromApi = groupLabelMap?.[indicator.groupId] || '';
           const gKey = gKeyFromApi;
-          const fields = group.field || group.fields || [];
+          let fields = group.field || group.fields || [];
+          if (fields.length === 0 && (group.label || group.type)) {
+              fields = [group];
+          }
           const gVal = value?.value?.[gKey] || {};
           const renderedFieldLabels = new Set();
 
@@ -808,10 +811,13 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
               {(gKey || '').trim() !== '' && <Typography variant="subtitle2" gutterBottom>{gKey}</Typography>}
               <Stack spacing={2}>
                 {fields.map((field, fi) => {
+                  const isConditionalQuestion = indicator.id === 204 || indicator.id === 209;
                   const fKeyRaw = field.label || ``;
-                  const fKey = fKeyRaw === '' ? '__select__' : fKeyRaw;
+                  const fKey = fKeyRaw === '' ? 'chọn 1 đáp án' : fKeyRaw;
                   if (renderedFieldLabels.has(fKey)) return null;
-                  
+                  if (isConditionalQuestion && field.label === 'Số lần bị khó thở') {
+                    return null;
+                  }
                   const fVal = gVal[fKey];
                   const options = field.option || field.options || [];
                   const fieldId = field.id ?? fi;
@@ -822,8 +828,54 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                   const handleText = (e) => setKV(gKey, fKey, e.target.value);
                   const handleNumber = (e) => setKV(gKey, fKey, e.target.value === '' ? '' : Number(e.target.value));
                   const handleSelect = (v) => setKV(gKey, fKey, v);
+                  if (isConditionalQuestion && field.type === 'selection') {
+                    const selectKey = fKey;
+                    const textKey = 'Số lần bị khó thở'; 
+                    
+                    const currentSelectValue = gVal[selectKey];
 
-                  // --- LOGIC BỎ QUA CÁC TRƯỜNG ĐẶC BIỆT ---
+                    const handleSelectChange = (val) => {
+                      const currentAllData = value?.value || {};
+                      const currentGroupData = currentAllData[gKey] || {};
+                      const nextGroupData = {
+                          ...currentGroupData,
+                          [selectKey]: val
+                      };
+                      if (val !== 'Có') {
+                          nextGroupData[textKey] = '';
+                      }
+                      onChange({
+                          value: {
+                              ...currentAllData,
+                              [gKey]: nextGroupData
+                          },
+                          note: ''
+                      });
+                  };
+
+                return (
+                    <Box key={keyId} sx={{ mt: 1 }}>
+                          <ClearableSelect 
+                              label={indicator.name || "Bạn đã bao giờ bị khó thở trong đợt bệnh mày đay hay chưa?"} 
+                              value={currentSelectValue ?? ''} 
+                              options={options} 
+                              onChange={handleSelectChange}
+                          />
+                          
+                          {/* ...phần render TextField giữ nguyên... */}
+                          {currentSelectValue === 'Có' && (
+                              <TextField
+                                  key={`${keyId}-conditional-text`}
+                                  size="small" fullWidth sx={{ mt: 2 }}
+                                  label="Số lần bị khó thở"
+                                  placeholder="Nhập số lần..."
+                                  value={gVal[textKey] ?? ''}
+                                  onChange={(e) => setKV(gKey, textKey, e.target.value)}
+                              />
+                          )}
+                    </Box>
+                );
+                  }
                   if (isShapeThis && field.label && field.label.toLowerCase().includes('mô tả hình dạng khác')) return null;
                   if (isDurationThis && field.label === 'Nhập khoảng thời gian') return null;
                   if (isConditionalTextThis && field.label === 'Số lần bị khó thở' && field.type === 'text') return null;
@@ -868,7 +920,18 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
 
                   // --- XỬ LÝ SELECTION / SELECT (GỘP CHUNG) ---
                   if (field.type === 'selection' || field.type === 'select') {
-                    // Logic riêng cho câu hỏi thời gian (Duration)
+                    const reqTextField = Array.isArray(field.requiredFields) 
+                        ? field.requiredFields.find(r => r.type === 'text') 
+                        : null;
+                    const reqCondition = reqTextField ? (reqTextField.condition || reqTextField.condiction) : null;
+                    const extraTextLabel = reqTextField ? reqTextField.description : `${fKey} - Chi tiết`;
+
+                    const handleSelect = (v) => {
+                        if (reqTextField && v !== reqCondition) {
+                             setKV(gKey, extraTextLabel, '');
+                        }
+                        setKV(gKey, fKey, v);
+                    };
                     if (isDurationThis && (fKey === '11.1 Khi dùng thuốc' || fKey === '11.2 Khi không dùng thuốc' || fKey.includes('4.1') || fKey.includes('4.2'))) {
                         const otherInputField = fields.find(f => f.label === 'Nhập khoảng thời gian' && f.type === 'text');
                         const otherInputKey = otherInputField ? 'Nhập khoảng thời gian' : `${fKey} - Khác (theo giờ)`;
@@ -876,6 +939,18 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                         return (
                           <Box key={keyId}>
                             <ClearableSelect label={fKey} value={fVal ?? ''} options={options} onChange={handleSelect} />
+                            {reqTextField && fVal === reqCondition && (
+                                  <Box sx={{ mt: 1, ml: 2, p: 1, borderLeft: '2px solid #ccc' }}>
+                                    <TextField
+                                      key={`${keyId}-extra-text`}
+                                      size="small" fullWidth
+                                      label={extraTextLabel}
+                                      placeholder={extraTextLabel}
+                                      value={gVal[extraTextLabel] || ''}
+                                      onChange={(e) => setKV(gKey, extraTextLabel, e.target.value)}
+                                    />
+                                  </Box>
+                            )}
                             {fVal === 'Khác (theo giờ)' && (
                               <Box sx={{ mt: 1 }}>
                                 <TextField
@@ -892,7 +967,7 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                     }
 
                     // Logic riêng cho câu hỏi điều kiện (Conditional Text)
-                    if (isConditionalTextThis && fKey === '__select__') {
+                    if (isConditionalTextThis && fKey === 'chọn 1 đáp án') {
                         const selectedOption = gVal[fKey];
                         const textControl = fields.find((f, index) => index > fi && f.label === 'Số lần bị khó thở' && f.type === 'text');
                         const textKey = textControl?.label;
@@ -938,7 +1013,6 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
                   // --- XỬ LÝ MULTI_SELECTION ---
                   if (field.type === 'multi_selection') {
                     const arr = Array.isArray(fVal) ? fVal : [];
-                    // ... (Logic cũ cho Q5 - Thức ăn/Thuốc)
                     if (isQ5This) {
                       const hasFood = arrIncludes(arr, 'Thức ăn');
                       const hasDrug = arrIncludes(arr, 'Chống viêm, giảm đau');
@@ -1114,70 +1188,114 @@ const GenericCustomRenderer = React.memo(function GenericCustomRenderer({
     </Paper>
   );
 }, (prev, next) => prev.indicator?.id === next.indicator?.id && prev.value === next.value);
-function MonthRangeAndWeekCalculator({ label, keyPrefix, valueObj, setKV, groupKey }) {
-  const [startMonth, endMonth] = useMemo(() => {
-    const startKey = `${keyPrefix}:start`;
-    const endKey = `${keyPrefix}:end`;
-    const startVal = valueObj[startKey] ? dayjs(valueObj[startKey], 'MM/YYYY') : null;
-    const endVal = valueObj[endKey] ? dayjs(valueObj[endKey], 'MM/YYYY') : null;
-    return [startVal, endVal];
-  }, [valueObj, keyPrefix]);
-  
-  const weekCount = useMemo(() => calculateWeeks(startMonth, endMonth), [startMonth, endMonth]);
-  
-  // Tự động cập nhật số tuần vào state mỗi khi range thay đổi
-  useEffect(() => {
-      const weekKey = keyPrefix.includes('Đợt này') ? 'Số tuần bị đợt này' : 'Số tuần bị đợt này'; // Giữ nguyên nhãn cũ trong trường hợp này
-      if (valueObj[weekKey] !== weekCount) {
-          setKV(groupKey, weekKey, weekCount);
-      }
-  }, [weekCount, groupKey, setKV, keyPrefix, valueObj]);
+function ControlLevelRenderer({ indicator, value, onChange }) {
+  // 1. Lấy danh sách fields từ JSON cấu hình
+  const groupConfig = indicator.valueOptions?.group?.[0] || {};
+  const fields = groupConfig.fields || [];
 
-  const handleDateChange = (type, date) => {
-    const key = `${keyPrefix}:${type}`;
-    const formatted = date ? dayjs(date).format('MM/YYYY') : '';
-    setKV(groupKey, key, formatted);
+  // 2. Lấy giá trị hiện tại từ state
+  // Lưu ý: Dữ liệu câu hỏi này thường lưu dưới dạng { "Mức độ kiểm soát bệnh": { "Label câu hỏi": "Giá trị" } }
+  // Hoặc nếu không có group name thì là { "": { ... } }
+  const groupName = groupConfig.name || ""; 
+  const currentValues = value?.value?.[groupName] || {};
+
+  // Helper: Lấy điểm số từ chuỗi đáp án (VD: "3 - Tốt" -> lấy 3)
+  const getScore = (valStr) => {
+    if (!valStr) return 0;
+    const numberPart = valStr.split(' ')[0]; // Lấy phần tử đầu tiên trước dấu cách
+    return parseInt(numberPart, 10) || 0;
   };
 
-  const startLabel = label.split('...đến')[0].replace('Đợt này: ', '').replace('Đợt 1: ', '').replace('Đợt 2: ', '').replace('Đợt 3: ', '') + '...năm...';
-  const endLabel = label.split('...đến')[1] || '';
+  // Helper: Tính tổng điểm cho một nhóm câu hỏi
+  const calculateTotal = (questionLabels, currentData) => {
+    return questionLabels.reduce((sum, label) => {
+      return sum + getScore(currentData[label]);
+    }, 0);
+  };
+
+  // 3. Xử lý khi người dùng thay đổi 1 câu hỏi con
+  const handleChange = (changedLabel, changedValue) => {
+    // Tạo bản sao dữ liệu mới
+    const nextValues = { ...currentValues, [changedLabel]: changedValue };
+
+    // --- LOGIC TÍNH ĐIỂM TỰ ĐỘNG ---
+    
+    // A. Xác định các câu hỏi thuộc UCT (4 câu đầu tiên sau field UCT)
+    // Dựa vào JSON: Index 0 là UCT, Index 1-4 là câu hỏi UCT
+    const uctQuestionLabels = fields.slice(1, 5).map(f => f.label);
+    const uctTotal = calculateTotal(uctQuestionLabels, nextValues);
+    
+    // B. Xác định các câu hỏi thuộc ACT (4 câu cuối sau field ACT)
+    // Dựa vào JSON: Index 5 là ACT, Index 6-9 là câu hỏi ACT
+    const actQuestionLabels = fields.slice(6, 10).map(f => f.label);
+    const actTotal = calculateTotal(actQuestionLabels, nextValues);
+
+    // C. Cập nhật giá trị tổng vào field UCT và ACT
+    // (Chỉ cập nhật nếu field UCT/ACT tồn tại trong cấu hình)
+    if (fields[0]?.label === "UCT") {
+        nextValues["UCT"] = uctTotal; 
+    }
+    if (fields[5]?.label === "ACT") {
+        nextValues["ACT"] = actTotal;
+    }
+
+    // 4. Gửi dữ liệu đã tính toán ra ngoài
+    onChange({
+      value: {
+        ...value?.value,
+        [groupName]: nextValues
+      },
+      note: ''
+    });
+  };
 
   return (
-    <Stack spacing={1}>
-        <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'normal' }}>
-            {label.replace(/: Từ.*$/g, ':')}
-        </Typography>
-        <Stack direction="row" spacing={2} alignItems="center">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                {/* From Date Picker */}
-                <DatePicker
-                    label={`Từ ${startLabel}`}
-                    views={['month', 'year']}
-                    format="MM/YYYY"
-                    value={startMonth}
-                    onChange={(date) => handleDateChange('start', date)}
-                    slotProps={{ textField: { size: 'small', sx: { flexGrow: 1 } } }}
-                />
-                {/* To Date Picker */}
-                <DatePicker
-                    label={`Đến ${endLabel}`}
-                    views={['month', 'year']}
-                    format="MM/YYYY"
-                    value={endMonth}
-                    onChange={(date) => handleDateChange('end', date)}
-                    slotProps={{ textField: { size: 'small', sx: { flexGrow: 1 } } }}
-                />
-            </LocalizationProvider>
-        </Stack>
+    <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+        {indicator.name}
+      </Typography>
 
-        {/* Số tuần bị đợt này (Tự động tính) */}
-        <TextField
-            label="Số tuần bị đợt này"
-            type="number"
-            value={currentEpisode.weeks}
-            disabled
-        />
-    </Stack>
+      <Stack spacing={2}>
+        {fields.map((field, index) => {
+          const isScoreField = field.label === "UCT" || field.label === "ACT";
+          const val = currentValues[field.label] ?? "";
+
+          // Render ô Tổng điểm (UCT / ACT) - Read Only
+          if (isScoreField) {
+            return (
+              <TextField
+                key={index}
+                label={field.label}
+                value={val} // Giá trị này được tính tự động
+                variant="filled"
+                size="small"
+                InputProps={{ 
+                    readOnly: true, 
+                    sx: { fontWeight: 'bold', color: 'primary.main' } 
+                }}
+                helperText={field.description}
+              />
+            );
+          }
+
+          // Render các câu hỏi lựa chọn
+          if (field.type === 'selection') {
+            return (
+              <Box key={index} sx={{ pl: 2, borderLeft: '2px solid #eee' }}>
+                <ClearableSelect
+                  label={field.label}
+                  value={val}
+                  options={field.options}
+                  onChange={(newVal) => handleChange(field.label, newVal)}
+                />
+              </Box>
+            );
+          }
+
+          return null;
+        })}
+      </Stack>
+    </Paper>
   );
 }
 
@@ -1766,7 +1884,6 @@ export function RecordDetailView() {
 
     if (isAcuteTemplate && group.id === 12) {
       const q192 = group.indicators.find((i) => i.id === 192);
-      const others = group.indicators.filter((i) => i.id !== 192);
       const handleQ192Change = (val) => {
         setSelectedQ192(val?.value || null);
         handleVitalValueChange(q192.id, val);
@@ -1781,18 +1898,16 @@ export function RecordDetailView() {
       return (
     <Stack spacing={2}>
       {group.indicators.map((indicator) => {
-        
-        // --- THÊM ĐOẠN CHECK NÀY ---
         if (indicator.id === 97) {
           return (
-            <CustomTableRenderer
+            <ControlLevelRenderer
               key={indicator.id}
               indicator={indicator}
               value={formData.vitalValues[indicator.id]}
               onChange={(val) => handleVitalValueChange(indicator.id, val)}
             />
           );
-        }
+      }
         // -----------------------------
 
         return (
@@ -1833,6 +1948,7 @@ export function RecordDetailView() {
         </Stack>
       );
     }
+    
     if (group.id === 23) {
       return (
         <LabResultTable
@@ -1855,12 +1971,26 @@ export function RecordDetailView() {
           onChange={handleVitalValueChange}
         />
       );
+      
     }
+    
     return (
       <Stack spacing={2}>
-        {group.indicators.map((indicator) => (
-          <QuestionRendererMUI key={indicator.id} indicator={indicator} value={formData.vitalValues[indicator.id]} onChange={(val) => handleVitalValueChange(indicator.id, val)} onOpenPreview={(src) => setPreviewSrc(src)} groupLabelMap={groupLabelMap} />
-        ))}
+        {group.indicators.map((indicator) => {
+          if (indicator.id === 97) {
+            return (
+              <ControlLevelRenderer
+                key={indicator.id}
+                indicator={indicator}
+                value={formData.vitalValues[indicator.id]}
+                onChange={(val) => handleVitalValueChange(indicator.id, val)}
+              />
+            );
+          }
+          return (
+            <QuestionRendererMUI key={indicator.id} indicator={indicator} value={formData.vitalValues[indicator.id]} onChange={(val) => handleVitalValueChange(indicator.id, val)} onOpenPreview={(src) => setPreviewSrc(src)} groupLabelMap={groupLabelMap} />
+          );
+        })}
       </Stack>
     );
   };
