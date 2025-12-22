@@ -417,6 +417,82 @@ function LabResultTable({ title, indicators, values, onChange, extraQuestions })
   );
 }
 
+function CustomTableRenderer({ indicator, value, onChange }) {
+  const groups = indicator.valueOptions?.group || [];
+  const fields = groups[0]?.fields || [];
+  const currentValues = value?.value || {};
+
+  // 3. Hàm update dữ liệu
+  const handleChange = (fieldLabel, newVal) => {
+    // Clone data cũ và cập nhật field đang sửa
+    const nextValues = { ...currentValues, [fieldLabel]: newVal };
+    
+    onChange({
+      value: nextValues,
+      note: ''
+    });
+  };
+
+  return (
+    <Stack spacing={2} sx={{ mt: 2 }}>
+      <Typography variant="subtitle1" fontWeight="bold">
+        {indicator.name}
+      </Typography>
+
+      <Paper variant="outlined" sx={{ p: 0, overflow: 'hidden' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableCell sx={{ fontWeight: 'bold' }}>Chỉ số</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '120px' }}>Kết quả</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Đơn vị</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Tiêu chuẩn</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {fields.map((field, index) => {
+              // Lấy giá trị hiện tại
+              const val = currentValues[field.label] ?? "";
+              
+              // Tạo chuỗi hiển thị min-max (Ví dụ: 4 - 10)
+              let standard = "";
+              if (field.minValue !== undefined && field.maxValue !== undefined) {
+                standard = `${field.minValue} - ${field.maxValue}`;
+              } else if (field.maxValue !== undefined) {
+                standard = `< ${field.maxValue}`;
+              } else if (field.minValue !== undefined) {
+                standard = `> ${field.minValue}`;
+              }
+
+              return (
+                <TableRow key={index} hover>
+                  <TableCell>{field.label}</TableCell>
+                  <TableCell>
+                    <TextField
+                      size="small"
+                      variant="outlined"
+                      fullWidth
+                      type="number"
+                      placeholder="..."
+                      value={val}
+                      onChange={(e) => handleChange(field.label, e.target.value)}
+                      sx={{ 
+                        '& .MuiInputBase-input': { py: 0.5, px: 1 } 
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>{field.unit || ""}</TableCell>
+                  <TableCell>{standard}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Stack>
+  );
+}
+
 function ControlLevelRenderer({ indicator, value, onChange }) {
   const groupConfig = indicator.valueOptions?.group?.[0] || {};
   const fields = groupConfig.fields || [];
@@ -1194,20 +1270,35 @@ export function DetailViewMedicalRecord() {
     }
     
     if (group.id === 23) return <LabResultTable indicators={group.indicators} values={formData} onChange={handleVitalValueChange} />;
-    if (group.id === 34) {
-      const numberIndicators = group.indicators.filter(i => i.valueType === "number");
-      const extraIndicators = group.indicators.filter(i => i.valueType !== "number");
-      return <LabResultTable title="Cận lâm sàng mạn tính - Lần 1" indicators={numberIndicators} extraQuestions={extraIndicators} values={formData} onChange={handleVitalValueChange} />;
-    }
-    
     return (
-      <Stack spacing={2}>
-        {group.indicators.map((indicator) => {
-          if (indicator.id === 97) return <ControlLevelRenderer key={indicator.id} indicator={indicator} value={formData[indicator.id]} onChange={(val) => handleVitalValueChange(indicator.id, val)} />;
-          return <QuestionRendererMUI key={indicator.id} indicator={indicator} value={formData[indicator.id]} onChange={(val) => handleVitalValueChange(indicator.id, val)} onOpenPreview={(src) => setPreviewSrc(src)} groupLabelMap={groupLabelMap} />;
-        })}
-      </Stack>
-    );
+          <Stack spacing={2}>
+            {group.indicators.map((indicator) => {
+              if (indicator.id === 97) {
+                return (
+                  <ControlLevelRenderer
+                    key={indicator.id}
+                    indicator={indicator}
+                    value={formData[indicator.id]}
+                    onChange={(val) => handleVitalValueChange(indicator.id, val)}
+                  />
+                );
+              }
+              if (indicator.id === 99){
+                return (
+                  <CustomTableRenderer
+                    key={indicator.id}
+                    indicator={indicator}
+                    value={formData[indicator.id]}
+                    onChange={(val) => handleVitalValueChange(indicator.id, val)}
+                  />
+                );
+              }
+              return (
+                <QuestionRendererMUI key={indicator.id} indicator={indicator} value={formData[indicator.id]} onChange={(val) => handleVitalValueChange(indicator.id, val)} onOpenPreview={(src) => setPreviewSrc(src)} groupLabelMap={groupLabelMap} />
+              );
+            })}
+          </Stack>
+        );
   };
 
   return (

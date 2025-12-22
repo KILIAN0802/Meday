@@ -1300,63 +1300,81 @@ function ControlLevelRenderer({ indicator, value, onChange }) {
 }
 
 function CustomTableRenderer({ indicator, value, onChange }) {
+  // 1. Parse cấu hình từ JSON (Indicator 99)
+  // JSON của bạn: valueOptions -> group (Array) -> phần tử 0 -> fields
   const groups = indicator.valueOptions?.group || [];
+  const fields = groups[0]?.fields || []; // Lấy danh sách field từ group đầu tiên
+
+  // 2. Lấy giá trị hiện tại (Value đang lưu dạng Object: { "Chỉ số WBC": "5", ... })
   const currentValues = value?.value || {};
 
-  const handleChange = (groupName, fieldLabel, newVal) => {
-    const groupData = currentValues[groupName] || {};
+  // 3. Hàm update dữ liệu
+  const handleChange = (fieldLabel, newVal) => {
+    // Clone data cũ và cập nhật field đang sửa
+    const nextValues = { ...currentValues, [fieldLabel]: newVal };
+    
     onChange({
-      value: {
-        ...currentValues,
-        [groupName]: { ...groupData, [fieldLabel]: newVal }
-      },
+      value: nextValues,
       note: ''
     });
   };
 
   return (
-    <Stack spacing={2}>
-      {/* Tiêu đề chính */}
-      <Typography variant="subtitle1" fontWeight="bold" dangerouslySetInnerHTML={{ __html: indicator.name }} />
+    <Stack spacing={2} sx={{ mt: 2 }}>
+      <Typography variant="subtitle1" fontWeight="bold">
+        {indicator.name}
+      </Typography>
 
-      {/* Render từng nhóm con thành các bảng */}
-      {groups.map((group, idx) => (
-        <Paper key={idx} variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, color: 'primary.main' }}>
-            {group.name}
-          </Typography>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
-                <th style={{ padding: 8, textAlign: 'left' }}>Chỉ số</th>
-                <th style={{ padding: 8, textAlign: 'left', width: '120px' }}>Kết quả</th>
-                <th style={{ padding: 8, textAlign: 'left' }}>Đơn vị</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(group.field || []).map((field, fIdx) => {
-                const val = currentValues[group.name]?.[field.label] ?? "";
-                return (
-                  <tr key={fIdx} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: 8 }}>{field.label}</td>
-                    <td style={{ padding: 8 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        type="number"
-                        placeholder={field.placeholder}
-                        value={val}
-                        onChange={(e) => handleChange(group.name, field.label, e.target.value)}
-                      />
-                    </td>
-                    <td style={{ padding: 8 }}>{field.unit || ""}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Paper>
-      ))}
+      <Paper variant="outlined" sx={{ p: 0, overflow: 'hidden' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableCell sx={{ fontWeight: 'bold' }}>Chỉ số</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '120px' }}>Kết quả</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Đơn vị</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Tiêu chuẩn</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {fields.map((field, index) => {
+              // Lấy giá trị hiện tại
+              const val = currentValues[field.label] ?? "";
+              
+              // Tạo chuỗi hiển thị min-max (Ví dụ: 4 - 10)
+              let standard = "";
+              if (field.minValue !== undefined && field.maxValue !== undefined) {
+                standard = `${field.minValue} - ${field.maxValue}`;
+              } else if (field.maxValue !== undefined) {
+                standard = `< ${field.maxValue}`;
+              } else if (field.minValue !== undefined) {
+                standard = `> ${field.minValue}`;
+              }
+
+              return (
+                <TableRow key={index} hover>
+                  <TableCell>{field.label}</TableCell>
+                  <TableCell>
+                    <TextField
+                      size="small"
+                      variant="outlined"
+                      fullWidth
+                      type="number"
+                      placeholder="..."
+                      value={val}
+                      onChange={(e) => handleChange(field.label, e.target.value)}
+                      sx={{ 
+                        '& .MuiInputBase-input': { py: 0.5, px: 1 } 
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>{field.unit || ""}</TableCell>
+                  <TableCell>{standard}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Paper>
     </Stack>
   );
 }
@@ -1896,34 +1914,34 @@ export function RecordDetailView() {
         );
       }
       return (
-    <Stack spacing={2}>
-      {group.indicators.map((indicator) => {
-        if (indicator.id === 97) {
-          return (
-            <ControlLevelRenderer
-              key={indicator.id}
-              indicator={indicator}
-              value={formData.vitalValues[indicator.id]}
-              onChange={(val) => handleVitalValueChange(indicator.id, val)}
-            />
-          );
-      }
-        // -----------------------------
+        <Stack spacing={2}>
+          {group.indicators.map((indicator) => {
+            if (indicator.id === 97) {
+              return (
+                <ControlLevelRenderer
+                  key={indicator.id}
+                  indicator={indicator}
+                  value={formData.vitalValues[indicator.id]}
+                  onChange={(val) => handleVitalValueChange(indicator.id, val)}
+                />
+              );
+          }
+            // -----------------------------
 
-        return (
-          <QuestionRendererMUI 
-            key={indicator.id} 
-            indicator={indicator} 
-            value={formData.vitalValues[indicator.id]} 
-            onChange={(val) => handleVitalValueChange(indicator.id, val)} 
-            onOpenPreview={(src) => setPreviewSrc(src)} 
-            groupLabelMap={groupLabelMap} 
-          />
-        );
-      })}
-    </Stack>
-  );
-};
+            return (
+              <QuestionRendererMUI 
+                key={indicator.id} 
+                indicator={indicator} 
+                value={formData.vitalValues[indicator.id]} 
+                onChange={(val) => handleVitalValueChange(indicator.id, val)} 
+                onOpenPreview={(src) => setPreviewSrc(src)} 
+                groupLabelMap={groupLabelMap} 
+              />
+            );
+          })}
+        </Stack>
+      );
+    };
 
     if (isChronic1Template && group.id === 27) {
       const q62 = group.indicators.find((i) => i.id === 62);
@@ -1958,7 +1976,7 @@ export function RecordDetailView() {
         />
       );
     }
-    if (group.id === 34) {
+    /* if (group.id === 33) {
       const numberIndicators = group.indicators.filter(i => i.valueType === "number");
       const extraIndicators = group.indicators.filter(i => i.valueType !== "number");
 
@@ -1970,10 +1988,8 @@ export function RecordDetailView() {
           values={formData.vitalValues}
           onChange={handleVitalValueChange}
         />
-      );
-      
-    }
-    
+      );  
+    }    */ 
     return (
       <Stack spacing={2}>
         {group.indicators.map((indicator) => {
@@ -1983,6 +1999,16 @@ export function RecordDetailView() {
                 key={indicator.id}
                 indicator={indicator}
                 value={formData.vitalValues[indicator.id]}
+                onChange={(val) => handleVitalValueChange(indicator.id, val)}
+              />
+            );
+          }
+          if (indicator.id === 99){
+            return (
+              <CustomTableRenderer
+                key={indicator.id}
+                indicator={indicator}
+                value={formData[indicator.id]}
                 onChange={(val) => handleVitalValueChange(indicator.id, val)}
               />
             );
