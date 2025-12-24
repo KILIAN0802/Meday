@@ -72,10 +72,10 @@ export function HomeHero({ sx, ...other }) {
           }),
         ]}
       >
-        <Box component="span" sx={{ width: 1, opacity: 0.24 }}>
+        <Box component="span" sx={{ width: 1, opacity: 0.5 }}>
           Làn da khỏe mạnh
         </Box>
-        cùng với
+        với
         <Box
           component={m.span}
           animate={{ backgroundPosition: '200% center' }}
