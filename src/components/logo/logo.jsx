@@ -177,23 +177,23 @@ export function Logo({ sx, disabled, className, href = '/', isSingle = true, ...
 
   return (
     <LogoRoot
-      component={RouterLink}
-      href={href}
-      aria-label="Logo"
-      underline="none"
-      className={mergeClasses([logoClasses.root, className])}
-      sx={[
-        {
-          width: 40,
-          height: 40,
-          ...(!isSingle && { width: 102, height: 36 }),
-          ...(disabled && { pointerEvents: 'none' }),
-        },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
-      {...other}
+    //   component={RouterLink}
+    //   href={href}
+    //   aria-label="Logo"
+    //   underline="none"
+    //   className={mergeClasses([logoClasses.root, className])}
+    //   sx={[
+    //     {
+    //       width: 40,
+    //       height: 40,
+    //       ...(!isSingle && { width: 102, height: 36 }),
+    //       ...(disabled && { pointerEvents: 'none' }),
+    //     },
+    //     ...(Array.isArray(sx) ? sx : [sx]),
+    //   ]}
+    //   {...other}
     >
-      {isSingle ? singleLogo : fullLogo}
+      {/* {isSingle ? singleLogo : fullLogo} */}
     </LogoRoot>
   );
 }

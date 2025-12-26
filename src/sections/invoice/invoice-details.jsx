@@ -115,12 +115,12 @@ export function InvoiceDetails({ invoice }) {
             gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' },
           }}
         >
-          <Box
+          {/* <Box
             component="img"
             alt="Invoice logo"
             src="/logo/logo-single.svg"
             sx={{ width: 48, height: 48 }}
-          />
+          /> */}
 
           <Stack spacing={1} sx={{ alignItems: { xs: 'flex-start', md: 'flex-end' } }}>
             <Label

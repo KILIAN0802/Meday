@@ -121,6 +121,7 @@ export const paths = {
     MedicalRecords:{
       root: `${ROOTS.DASHBOARD}/MedicalRecords`,
       create: `${ROOTS.DASHBOARD}/MedicalRecords/create`,
+      record: `${ROOTS.DASHBOARD}/MedicalRecords/record`,
       pending: `${ROOTS.DASHBOARD}/MedicalRecords/pending`,
       processing: `${ROOTS.DASHBOARD}/MedicalRecords/processing`,
       CreateRecord:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord`,
@@ -128,6 +129,21 @@ export const paths = {
       chronic:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/chronic`,
       rechronic:`${ROOTS.DASHBOARD}/MedicalRecords/CreateRecord/rechronic`,
     },
+    appointment:{
+      root: `${ROOTS.DASHBOARD}/Appointment`,
+     
+    },
+    medicalRecordManager:{
+      root: `${ROOTS.DASHBOARD}/medicalRecordManager/table`,
+      pendingView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/pending-view`,
+      processingView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/processing-view`,
+      doneView:`${ROOTS.DASHBOARD}/medicalRecordManager/table/done-view`,
+    },
+    medicalRecordStaff:{
+      root: `${ROOTS.DASHBOARD}/medicalRecordStaff/manager`,
+      create:`${ROOTS.DASHBOARD}/medicalRecordStaff/create`,
+    },
+    
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
       new: `${ROOTS.DASHBOARD}/product/new`,

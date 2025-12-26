@@ -135,10 +135,10 @@ export function JwtSignInView() {
         title="Đăng nhập tài khoản của bạn"
         description={
           <>
-            Chưa có tài khoản?
+            {/* Chưa có tài khoản?
             <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
               Đăng ký ngay
-            </Link>
+            </Link> */}
           </>
         }
         sx={{ textAlign: { xs: 'center', md: 'left' } }}

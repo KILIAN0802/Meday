@@ -155,7 +155,7 @@ export function HomeHero({ sx, ...other }) {
     >
       <m.div {...motionProps}>
         <Stack spacing={2.5} sx={{ alignItems: 'center' }}>
-          <Button
+          {/* <Button
             component={RouterLink}
             href={paths.dashboard.root}
             color="inherit"
@@ -180,9 +180,9 @@ export function HomeHero({ sx, ...other }) {
                 v{CONFIG.appVersion}
               </Box>
             </span>
-          </Button>
+          </Button> */}
 
-          <Link
+          {/* <Link
             color="inherit"
             variant="body2"
             target="_blank"
@@ -193,12 +193,12 @@ export function HomeHero({ sx, ...other }) {
           >
             <Iconify width={16} icon="eva:external-link-fill" />
             Nhận bản miễn phí
-          </Link>
+          </Link> */}
         </Stack>
       </m.div>
 
       <m.div {...motionProps}>
-        <Button
+        {/* <Button
           color="inherit"
           size="large"
           variant="outlined"
@@ -209,14 +209,14 @@ export function HomeHero({ sx, ...other }) {
           sx={{ borderColor: 'text.primary' }}
         >
           Figma preview
-        </Button>
+        </Button> */}
       </m.div>
     </Box>
   );
 
   const renderIcons = () => (
     <Stack spacing={3} sx={{ textAlign: 'center' }}>
-      <m.div {...motionProps}>
+      {/* <m.div {...motionProps}>
         <Typography variant="overline" sx={{ opacity: 0.4 }}>
           Available For
         </Typography>
@@ -241,7 +241,7 @@ export function HomeHero({ sx, ...other }) {
             />
           </m.div>
         ))}
-      </Box>
+      </Box> */}
     </Stack>
   );
 
