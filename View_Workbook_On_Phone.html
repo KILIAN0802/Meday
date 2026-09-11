@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luyện Chuyên Sâu Từ Vựng - Lớp 9</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 10px 10px 80px 10px;
+            min-height: 100vh;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .header h1 {
+            color: #E8A144;
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+        .header .subtitle {
+            font-size: 13px;
+            color: #666;
+            margin: 5px 0;
+        }
+        .part-selector {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .part-btn {
+            background: white;
+            padding: 20px 15px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+        .part-btn.active {
+            border-color: #E8A144;
+            background: linear-gradient(135deg, #FFF5E6, #FFE0B2);
+            transform: scale(1.05);
+        }
+        .part-btn .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .part-btn .title {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        .part-btn .count {
+            color: #666;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .content {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: none;
+        }
+        .content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .section-title {
+            color: #E8A144;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #E8A144;
+        }
+        .question {
+            background: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #E8A144;
+        }
+        .question-text {
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .option {
+            padding: 10px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .option:active {
+            transform: scale(0.95);
+            background: #E8F5E9;
+        }
+        .show-answers {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 20px 0;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(76,175,80,0.4);
+        }
+        .answers {
+            background: #E8F5E9;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+            border-left: 4px solid #4CAF50;
+        }
+        .answers.visible {
+            display: block;
+        }
+        .answer-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin: 15px 0;
+        }
+        .answer-item {
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            color: #2E7D32;
+            border: 2px solid #C8E6C9;
+        }
+        .nav-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 10px;
+        }
+        .nav-footer button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .download-btn {
+            background: linear-gradient(135deg, #E8A144, #D89030);
+            color: white;
+        }
+        .home-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .info-box {
+            background: #E3F2FD;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #2196F3;
+        }
+        .info-box p {
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .info-box strong {
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 LUYỆN CHUYÊN SÂU TỪ VỰNG</h1>
+        <div class="subtitle"><strong>Ôn Thi Vào 10 - Hà Nội 2025-2026</strong></div>
+        <div class="subtitle">Units 1-2-3 | Global Success Grade 9</div>
+        <div class="subtitle" style="color: #E8A144; font-weight: bold; margin-top: 8px;">
+            250 Câu Hỏi | 45 Trang | English Lab
+        </div>
+    </div>
+
+    <div class="part-selector">
+        <div class="part-btn active" onclick="showPart(1)">
+            <div class="icon">📝</div>
+            <div class="title">PHẦN 1</div>
+            <div class="count">Từ Đơn (50 câu)</div>
+        </div>
+        <div class="part-btn" onclick="showPart(2)">
+            <div class="icon">🔄</div>
+            <div class="title">PHẦN 2</div>
+            <div class="count">Phrasal Verbs (50 câu)</div>
+        </div>
+        <div class="part-btn" onclick="showPart(3)">
+            <div class="icon">↔️</div>
+            <div class="title">PHẦN 3</div>
+            <div class="count">Đồng Nghĩa/Trái Nghĩa (50 câu)</div>
+        </div>
+        <div class="part-btn" onclick="showPart(4)">
+            <div class="icon">🔗</div>
+            <div class="title">PHẦN 4</div>
+            <div class="count">Collocation (50 câu)</div>
+        </div>
+        <div class="part-btn" onclick="showPart(5)">
+            <div class="icon">📖</div>
+            <div class="title">PHẦN 5</div>
+            <div class="count">Bài Đọc (5 bài)</div>
+        </div>
+        <div class="part-btn" onclick="showPart(6)">
+            <div class="icon">📥</div>
+            <div class="title">TẢI VỀ</div>
+            <div class="count">File PDF Đầy Đủ</div>
+        </div>
+    </div>
+
+    <!-- PART 1 -->
+    <div class="content active" id="part-1">
+        <div class="section-title">📝 PHẦN 1: TỪ ĐƠN (50 CÂU)</div>
+        
+        <div class="info-box">
+            <p><strong>🎯 Nội dung:</strong> Luyện tập từ vựng đơn lẻ từ Units 1, 2, 3</p>
+            <p><strong>📌 Bao gồm:</strong> Danh từ, động từ, tính từ, trạng từ và dạng từ</p>
+            <p><strong>⏱️ Thời gian:</strong> Khoảng 25-30 phút</p>
+            <p><strong>💡 Mẹo:</strong> Xác định loại từ cần điền trước khi chọn đáp án!</p>
+        </div>
+
+        <div class="question">
+            <div class="question-text">1. The local _______ makes beautiful pottery for tourists.</div>
+            <div class="options">
+                <div class="option">A. artisan</div>
+                <div class="option">B. artist</div>
+                <div class="option">C. architect</div>
+                <div class="option">D. actor</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">2. Public _______ in the city includes buses, trains, and taxis.</div>
+            <div class="options">
+                <div class="option">A. transport</div>
+                <div class="option">B. transportation</div>
+                <div class="option">C. transporting</div>
+                <div class="option">D. transported</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">3. The city suffers from serious air _______.</div>
+            <div class="options">
+                <div class="option">A. pollute</div>
+                <div class="option">B. pollution</div>
+                <div class="option">C. polluted</div>
+                <div class="option">D. polluting</div>
+            </div>
+        </div>
+
+        <p style="text-align: center; padding: 20px; color: #666;">
+            <strong>📄 Xem file PDF để làm đầy đủ 50 câu!</strong>
+        </p>
+
+        <button class="show-answers" onclick="toggleAnswers(1)">
+            Xem Đáp Án Mẫu (10 câu đầu)
+        </button>
+
+        <div class="answers" id="answers-1">
+            <strong style="color: #2E7D32; font-size: 16px;">✅ ĐÁP ÁN:</strong>
+            <div class="answer-grid">
+                <div class="answer-item">1. A</div>
+                <div class="answer-item">2. B</div>
+                <div class="answer-item">3. B</div>
+                <div class="answer-item">4. B</div>
+                <div class="answer-item">5. A</div>
+                <div class="answer-item">6. C</div>
+                <div class="answer-item">7. A</div>
+                <div class="answer-item">8. B</div>
+                <div class="answer-item">9. D</div>
+                <div class="answer-item">10. A</div>
+            </div>
+            <p style="margin-top: 15px; font-size: 13px; color: #555;">
+                <strong>💡 Giải thích:</strong><br>
+                1. A - artisan (thợ thủ công)<br>
+                2. B - transportation (hệ thống giao thông)<br>
+                3. B - pollution (ô nhiễm - danh từ)<br>
+                <em>...Xem file PDF để có đáp án và giải thích đầy đủ!</em>
+            </p>
+        </div>
+    </div>
+
+    <!-- Download Instructions -->
+    <div class="content" id="part-6">
+        <div class="section-title">📥 TẢI FILE PDF ĐẦY ĐỦ</div>
+        
+        <div class="info-box">
+            <p><strong>📦 Bộ tài liệu gồm:</strong></p>
+            <p>✅ 250 câu hỏi trắc nghiệm (200 + 50 reading)</p>
+            <p>✅ 45 trang bài tập đầy đủ</p>
+            <p>✅ Logo English Lab trên mỗi trang</p>
+            <p>✅ Đánh số trang rõ ràng</p>
+            <p>✅ Options xếp hàng ngang dễ đọc</p>
+        </div>
+
+        <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #E8A144; margin-bottom: 15px;">🔗 Link tải file PDF:</h3>
+            
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <p style="font-size: 12px; color: #666; margin-bottom: 8px;">Bài tập chính:</p>
+                <a href="https://github.com/KILIAN0802/Meday/raw/cursor/grade9-vocabulary-workbook-cc97/LUYEN_CHUYEN_SAU_TU_VUNG_Grade9.pdf" 
+                   style="color: #2196F3; word-break: break-all; font-size: 13px;">
+                    📄 LUYEN_CHUYEN_SAU_TU_VUNG_Grade9.pdf
+                </a>
+            </div>
+
+            <p style="margin: 15px 0; font-size: 14px;">
+                <strong>📱 Cách tải trên điện thoại:</strong>
+            </p>
+            <ol style="font-size: 14px; line-height: 1.8; padding-left: 20px;">
+                <li>Nhấn vào link ở trên</li>
+                <li>Chờ trang GitHub mở</li>
+                <li>Nhấn nút "Download" hoặc 3 chấm (⋮)</li>
+                <li>Chọn "Download" để lưu về máy</li>
+            </ol>
+
+            <div style="background: #FFF3E0; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #FF9800;">
+                <p style="font-size: 13px; color: #E65100;">
+                    <strong>⚠️ Lưu ý:</strong> Nếu link không hoạt động, vào GitHub repo: 
+                    <strong>KILIAN0802/Meday</strong> → branch 
+                    <strong>cursor/grade9-vocabulary-workbook-cc97</strong>
+                </p>
+            </div>
+        </div>
+
+        <div style="background: #E8F5E9; padding: 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
+            <h3 style="color: #2E7D32; margin-bottom: 10px;">📊 Cấu trúc file PDF:</h3>
+            <p style="font-size: 14px; line-height: 1.8;">
+                <strong>Phần 1:</strong> Từ đơn (50 câu) - 10 trang<br>
+                <strong>Phần 2:</strong> Phrasal Verbs (50 câu) - 10 trang<br>
+                <strong>Phần 3:</strong> Đồng nghĩa/Trái nghĩa (50 câu) - 10 trang<br>
+                <strong>Phần 4:</strong> Collocation (50 câu) - 10 trang<br>
+                <strong>Phần 5:</strong> Bài đọc điền từ (5 bài) - 5 trang
+            </p>
+        </div>
+    </div>
+
+    <div class="nav-footer">
+        <button class="home-btn" onclick="showPart(1)">🏠 Về Đầu</button>
+        <button class="download-btn" onclick="showPart(6)">📥 Tải PDF</button>
+    </div>
+
+    <script>
+        function showPart(partNum) {
+            // Hide all parts
+            document.querySelectorAll('.content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Show selected part
+            document.getElementById('part-' + partNum).classList.add('active');
+            
+            // Update button styles
+            document.querySelectorAll('.part-btn').forEach((btn, index) => {
+                btn.classList.toggle('active', index + 1 === partNum);
+            });
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function toggleAnswers(partNum) {
+            const answers = document.getElementById('answers-' + partNum);
+            const button = event.target;
+            
+            if (answers.classList.contains('visible')) {
+                answers.classList.remove('visible');
+                button.textContent = button.textContent.replace('Ẩn', 'Xem');
+            } else {
+                answers.classList.add('visible');
+                button.textContent = button.textContent.replace('Xem', 'Ẩn');
+            }
+        }
+    </script>
+</body>
+</html>

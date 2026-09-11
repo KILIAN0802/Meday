@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Practice Workbook - Grade 9</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 10px;
+        }
+        
+        .logo {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .logo h1 {
+            color: #E8A144;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .logo p {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .page {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .page-header {
+            border-bottom: 3px solid #E8A144;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .page-number {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .page-title {
+            color: #E8A144;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .page-subtitle {
+            color: #666;
+            font-size: 14px;
+            font-style: italic;
+        }
+        
+        .question {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #E8A144;
+        }
+        
+        .question-text {
+            font-weight: 500;
+            margin-bottom: 10px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        
+        .options {
+            margin-left: 10px;
+        }
+        
+        .option {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .answer-section {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .answer-title {
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .answer-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .answer-item {
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .explanation {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #555;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #c8e6c9;
+        }
+        
+        .nav-buttons {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .nav-button {
+            flex: 1;
+            padding: 15px;
+            background: #E8A144;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        
+        .nav-button:active {
+            transform: scale(0.95);
+        }
+        
+        .toggle-answers {
+            width: 100%;
+            padding: 12px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+                padding-bottom: 80px;
+            }
+            
+            .page {
+                padding: 15px;
+            }
+            
+            .question-text {
+                font-size: 14px;
+            }
+            
+            .option {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <h1>📚 ENGLISH LAB</h1>
+        <p>VOCABULARY PRACTICE WORKBOOK</p>
+        <p>Grade 9 - Hanoi High School Entrance Exam 2025-2026</p>
+        <p><strong>Units 1-2-3 - Global Success</strong></p>
+    </div>
+
+    <!-- PAGE 1 -->
+    <div class="page" id="page-1">
+        <div class="page-header">
+            <div class="page-title">PART 1: MULTIPLE CHOICE - VOCABULARY</div>
+            <div class="page-subtitle">Unit 1: Local Community</div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">1. The artisan is very skilled at making _______ products like pottery and baskets.</div>
+            <div class="options">
+                <div class="option">A. handicraft</div>
+                <div class="option">B. handicrafts</div>
+                <div class="option">C. handcraft</div>
+                <div class="option">D. handcrafts</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">2. The local market is a popular _______ for tourists who want to buy souvenirs.</div>
+            <div class="options">
+                <div class="option">A. destination</div>
+                <div class="option">B. destine</div>
+                <div class="option">C. destiny</div>
+                <div class="option">D. destined</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">3. My grandparents live in a small village with a _______ atmosphere.</div>
+            <div class="options">
+                <div class="option">A. peace</div>
+                <div class="option">B. peaceful</div>
+                <div class="option">C. peacefully</div>
+                <div class="option">D. peacefulness</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">4. The _______ in this area is very convenient with many shops and services.</div>
+            <div class="options">
+                <div class="option">A. facility</div>
+                <div class="option">B. facilities</div>
+                <div class="option">C. facilitate</div>
+                <div class="option">D. facilitation</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">5. We need to _______ the old traditions and pass them to the next generation.</div>
+            <div class="options">
+                <div class="option">A. preserve</div>
+                <div class="option">B. preservation</div>
+                <div class="option">C. preservative</div>
+                <div class="option">D. preserving</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">6. The city has good public _______ including buses and trains.</div>
+            <div class="options">
+                <div class="option">A. transport</div>
+                <div class="option">B. transportation</div>
+                <div class="option">C. transporting</div>
+                <div class="option">D. transported</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">7. Many young people are moving to _______ areas to find better jobs.</div>
+            <div class="options">
+                <div class="option">A. urban</div>
+                <div class="option">B. rural</div>
+                <div class="option">C. suburb</div>
+                <div class="option">D. countryside</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">8. The _______ centre offers various activities for teenagers.</div>
+            <div class="options">
+                <div class="option">A. community</div>
+                <div class="option">B. commune</div>
+                <div class="option">C. communicate</div>
+                <div class="option">D. communication</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">9. Street vendors sell fresh _______ every morning in the market.</div>
+            <div class="options">
+                <div class="option">A. produce</div>
+                <div class="option">B. product</div>
+                <div class="option">C. production</div>
+                <div class="option">D. productive</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">10. The narrow _______ in the old quarter are full of charm and history.</div>
+            <div class="options">
+                <div class="option">A. street</div>
+                <div class="option">B. streets</div>
+                <div class="option">C. road</div>
+                <div class="option">D. lane</div>
+            </div>
+        </div>
+
+        <button class="toggle-answers" onclick="toggleAnswers(1)">Hiện Đáp Án ✓</button>
+        
+        <div class="answer-section hidden" id="answers-1">
+            <div class="answer-title">✓ ĐÁP ÁN:</div>
+            <div class="answer-list">
+                <div class="answer-item">1. B</div>
+                <div class="answer-item">2. A</div>
+                <div class="answer-item">3. B</div>
+                <div class="answer-item">4. B</div>
+                <div class="answer-item">5. A</div>
+                <div class="answer-item">6. B</div>
+                <div class="answer-item">7. A</div>
+                <div class="answer-item">8. A</div>
+                <div class="answer-item">9. A</div>
+                <div class="answer-item">10. B</div>
+            </div>
+            <div class="explanation">
+                <strong>Giải thích:</strong><br>
+                1. B - handicrafts (danh từ số nhiều cho các sản phẩm thủ công)<br>
+                2. A - destination (địa điểm đến)<br>
+                3. B - peaceful (tính từ mô tả atmosphere)<br>
+                4. B - facilities (danh từ số nhiều)<br>
+                5. A - preserve (động từ nghĩa là bảo tồn)<br>
+                6. B - transportation (danh từ chỉ hệ thống giao thông)<br>
+                7. A - urban (tính từ nghĩa là thành thị)<br>
+                8. A - community (tính từ mô tả centre)<br>
+                9. A - produce (danh từ chỉ nông sản tươi)<br>
+                10. B - streets (danh từ số nhiều)
+            </div>
+        </div>
+
+        <div class="page-number">Page 1 of 10</div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div class="page" id="page-2">
+        <div class="page-header">
+            <div class="page-title">PART 2: PHRASAL VERBS</div>
+            <div class="page-subtitle">Unit 1: Local Community</div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">1. Can you _______ this word in the dictionary? I don't know what it means.</div>
+            <div class="options">
+                <div class="option">A. look up</div>
+                <div class="option">B. look after</div>
+                <div class="option">C. look for</div>
+                <div class="option">D. look at</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">2. The city council decided to _______ the old buildings in the historic district.</div>
+            <div class="options">
+                <div class="option">A. pull down</div>
+                <div class="option">B. set up</div>
+                <div class="option">C. carry out</div>
+                <div class="option">D. get on</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">3. My grandmother often _______ the stories about her childhood in the village.</div>
+            <div class="options">
+                <div class="option">A. brings up</div>
+                <div class="option">B. passes down</div>
+                <div class="option">C. hands in</div>
+                <div class="option">D. takes after</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">4. They decided to _______ a new community centre in our neighbourhood.</div>
+            <div class="options">
+                <div class="option">A. set up</div>
+                <div class="option">B. turn down</div>
+                <div class="option">C. carry on</div>
+                <div class="option">D. go on</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">5. We should _______ the traditional craft villages in our area.</div>
+            <div class="options">
+                <div class="option">A. look after</div>
+                <div class="option">B. run out of</div>
+                <div class="option">C. deal with</div>
+                <div class="option">D. come back</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">6. The tourism industry has _______ rapidly in this region.</div>
+            <div class="options">
+                <div class="option">A. grown up</div>
+                <div class="option">B. come up</div>
+                <div class="option">C. turned up</div>
+                <div class="option">D. gone up</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">7. Please _______ your shoes before entering the temple.</div>
+            <div class="options">
+                <div class="option">A. take off</div>
+                <div class="option">B. put on</div>
+                <div class="option">C. turn on</div>
+                <div class="option">D. get off</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">8. The local authorities want to _______ with the problem of traffic congestion.</div>
+            <div class="options">
+                <div class="option">A. deal with</div>
+                <div class="option">B. look forward to</div>
+                <div class="option">C. get on with</div>
+                <div class="option">D. put up with</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">9. The workshop will _______ next Saturday at the community hall.</div>
+            <div class="options">
+                <div class="option">A. take place</div>
+                <div class="option">B. take part</div>
+                <div class="option">C. take care</div>
+                <div class="option">D. take off</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <div class="question-text">10. Many young artisans want to _______ their family traditions.</div>
+            <div class="options">
+                <div class="option">A. carry on</div>
+                <div class="option">B. go on</div>
+                <div class="option">C. keep on</div>
+                <div class="option">D. hold on</div>
+            </div>
+        </div>
+
+        <button class="toggle-answers" onclick="toggleAnswers(2)">Hiện Đáp Án ✓</button>
+        
+        <div class="answer-section hidden" id="answers-2">
+            <div class="answer-title">✓ ĐÁP ÁN:</div>
+            <div class="answer-list">
+                <div class="answer-item">1. A</div>
+                <div class="answer-item">2. A</div>
+                <div class="answer-item">3. B</div>
+                <div class="answer-item">4. A</div>
+                <div class="answer-item">5. A</div>
+                <div class="answer-item">6. A</div>
+                <div class="answer-item">7. A</div>
+                <div class="answer-item">8. A</div>
+                <div class="answer-item">9. A</div>
+                <div class="answer-item">10. A</div>
+            </div>
+            <div class="explanation">
+                <strong>Giải thích:</strong><br>
+                1. A - look up (tra cứu thông tin)<br>
+                2. A - pull down (phá dỡ/đập bỏ tòa nhà)<br>
+                3. B - passes down (truyền lại truyền thống)<br>
+                4. A - set up (thành lập/tạo ra)<br>
+                5. A - look after (chăm sóc)<br>
+                6. A - grown up (phát triển/trưởng thành)<br>
+                7. A - take off (cởi giày/quần áo)<br>
+                8. A - deal with (giải quyết vấn đề)<br>
+                9. A - take place (diễn ra/xảy ra)<br>
+                10. A - carry on (tiếp tục)
+            </div>
+        </div>
+
+        <div class="page-number">Page 2 of 10</div>
+    </div>
+
+    <!-- Navigation buttons -->
+    <div class="nav-buttons">
+        <button class="nav-button" onclick="scrollToPage('prev')">◄ Trang Trước</button>
+        <button class="nav-button" onclick="scrollToPage('next')">Trang Sau ►</button>
+    </div>
+
+    <div style="height: 80px;"></div>
+
+    <script>
+        let currentPage = 1;
+        const totalPages = 2; // Chỉ tạo 2 trang đầu cho demo
+
+        function toggleAnswers(pageNum) {
+            const answersDiv = document.getElementById('answers-' + pageNum);
+            const button = event.target;
+            
+            if (answersDiv.classList.contains('hidden')) {
+                answersDiv.classList.remove('hidden');
+                button.textContent = 'Ẩn Đáp Án ✗';
+                button.style.background = '#f44336';
+            } else {
+                answersDiv.classList.add('hidden');
+                button.textContent = 'Hiện Đáp Án ✓';
+                button.style.background = '#4caf50';
+            }
+        }
+
+        function scrollToPage(direction) {
+            if (direction === 'next' && currentPage < totalPages) {
+                currentPage++;
+            } else if (direction === 'prev' && currentPage > 1) {
+                currentPage--;
+            }
+            
+            const page = document.getElementById('page-' + currentPage);
+            if (page) {
+                page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Auto detect current page when scrolling
+        window.addEventListener('scroll', function() {
+            const pages = document.querySelectorAll('.page');
+            pages.forEach((page, index) => {
+                const rect = page.getBoundingClientRect();
+                if (rect.top >= 0 && rect.top < window.innerHeight / 2) {
+                    currentPage = index + 1;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
